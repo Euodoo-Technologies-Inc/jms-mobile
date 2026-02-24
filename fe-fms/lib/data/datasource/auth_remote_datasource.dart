@@ -165,6 +165,70 @@ Future<AuthResponseModel> login({
     }
   }
 
+  /// Changes the user's password.
+  ///
+  /// Returns a success message string on success, throws Exception on failure.
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString(Variables.prefApiKey);
+
+    if (apiKey == null) {
+      throw Exception('API Key not found. Please log in again.');
+    }
+
+    final uri = Uri.parse(Variables.changePasswordEndpoint);
+    final response = await http.post(
+      uri,
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(<String, dynamic>{
+        'current_password': currentPassword,
+        'new_password': newPassword,
+        'new_password_confirmation': confirmPassword,
+      }),
+    );
+
+    log(
+      response.statusCode.toString(),
+      name: 'AuthRemoteDataSource.changePassword',
+      level: 800,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      try {
+        final decoded = json.decode(response.body) as Map<String, dynamic>;
+        final message = decoded['message'] ?? decoded['Message'];
+        if (message != null && message.toString().isNotEmpty) {
+          return message.toString();
+        }
+      } catch (_) {}
+      return 'Password changed successfully';
+    } else {
+      log(
+        response.body,
+        name: 'AuthRemoteDataSource.changePassword',
+        level: 1200,
+      );
+      String message = 'Failed to change password';
+      try {
+        final decoded = json.decode(response.body) as Map<String, dynamic>;
+        if (decoded['message'] != null) {
+          message = decoded['message'].toString();
+        } else if (decoded['Message'] != null) {
+          message = decoded['Message'].toString();
+        }
+      } catch (_) {}
+      throw Exception(message);
+    }
+  }
+
   /// Logs out the user and clears local data.
   Future<String> logout() async {
     final prefs = await SharedPreferences.getInstance();

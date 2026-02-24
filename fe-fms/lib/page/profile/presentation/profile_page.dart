@@ -4,6 +4,7 @@ import 'package:fms/core/services/subscription.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/constants/variables.dart';
 import '../controller/profile_controller.dart';
+import '../widget/change_password_dialog.dart';
 import '../../../nav_bar.dart';
 
 /// A page displaying the user's profile, subscription status, and logout option.
@@ -140,6 +141,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     title: const Text('Support'),
                     subtitle: const Text('help@efms.app'),
                     onTap: () {},
+                  ),
+                ),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.lock_outline),
+                    title: const Text('Change Password'),
+                    onTap: () => showChangePasswordDialog(context),
                   ),
                 ),
                 Card(

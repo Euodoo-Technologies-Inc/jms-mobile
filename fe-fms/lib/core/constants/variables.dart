@@ -28,6 +28,7 @@ class Variables {
   static const String loginEndpoint = '$baseUrl/login';
   static const String logoutEndpoint = '$baseUrl/logout';
   static const String forgotPasswordEndpoint = '$baseUrl/forgot-password';
+  static const String changePasswordEndpoint = '$baseUrl/change-password';
   static const String getJobEndpoint = '$baseUrl/get-job';
 
   static const String driverGetJobEndpoint = '$baseUrl/driver-get-job';

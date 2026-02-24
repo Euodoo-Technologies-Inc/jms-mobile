@@ -14,8 +14,11 @@ import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 class ProfileController extends GetxController {
   final ProfileRemoteDataSource _profileDs = ProfileRemoteDataSource();
 
+  final AuthRemoteDataSource _authDs = AuthRemoteDataSource();
+
   final Rx<ProfileResponseModel?> profile = Rx<ProfileResponseModel?>(null);
   final RxBool isLoading = true.obs;
+  final RxBool isChangingPassword = false.obs;
 
   @override
   void onInit() {
@@ -35,6 +38,27 @@ class ProfileController extends GetxController {
     }
   }
 
+  /// Changes the user's password via the API.
+  ///
+  /// Returns success message on success, throws on failure.
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    isChangingPassword.value = true;
+    try {
+      final message = await _authDs.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      return message;
+    } finally {
+      isChangingPassword.value = false;
+    }
+  }
+
   /// Logs out the user, clearing all local data and navigating to login.
   Future<void> logout({
     required BuildContext context,
@@ -42,7 +66,7 @@ class ProfileController extends GetxController {
   }) async {
     try {
       // Clear all auth data
-      await AuthRemoteDataSource().logout();
+      await _authDs.logout();
 
       // Clear Traxroot token cache
       await TraxrootAuthDatasource().clearCachedToken();
