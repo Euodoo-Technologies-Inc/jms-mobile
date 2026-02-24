@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/page/home/presentation/home_page.dart';
 import 'package:fms/page/vehicles/presentation/vehicles_page.dart';
 import 'package:fms/page/jobs/presentation/jobs_gate_tab.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:fms/core/navigation/navigation_controller.dart';
 import 'core/widgets/app_bar_widget.dart';
 import 'package:fms/core/services/subscription.dart';
-import 'package:fms/core/constants/variables.dart';
 
 class NavBar extends StatefulWidget {
   const NavBar({super.key});
@@ -26,10 +25,10 @@ class _NavBarState extends State<NavBar> {
     _configureTabs();
   }
 
-  Future<void> _configureTabs() async {
+  void _configureTabs() {
     final isPro = subscriptionService.currentPlan == Plan.pro;
-    final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString(Variables.prefUserRole);
+    final authController = Get.find<AuthController>();
+    final role = authController.userRole.value;
     navController.configureTabs(isPro: isPro, role: role);
   }
 

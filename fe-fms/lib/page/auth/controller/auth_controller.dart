@@ -32,6 +32,7 @@ class AuthController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isAuthenticated = false.obs;
   final RxString apiKey = ''.obs;
+  final RxnString userRole = RxnString();
   final _storage = SecureStorage();
 
   @override
@@ -60,6 +61,9 @@ class AuthController extends GetxController {
               ? Plan.pro
               : Plan.basic;
         }
+
+        final role = prefs.getString(Variables.prefUserRole);
+        userRole.value = role;
 
         // Trigger pending sync if any queued items exist
         Future.microtask(() {
@@ -161,6 +165,9 @@ class AuthController extends GetxController {
 
       await prefs.setBool(Variables.prefHasTraxroot, hasTraxroot);
 
+      final savedRole = prefs.getString(Variables.prefUserRole);
+      userRole.value = savedRole;
+
       ApiClient.resetLogoutFlag();
 
       if (!context.mounted) return;
@@ -199,6 +206,7 @@ class AuthController extends GetxController {
     await _storage.deleteAll();
     apiKey.value = '';
     isAuthenticated.value = false;
+    userRole.value = null;
 
     // Clear Traxroot token cache
     await TraxrootAuthDatasource().clearCachedToken();
