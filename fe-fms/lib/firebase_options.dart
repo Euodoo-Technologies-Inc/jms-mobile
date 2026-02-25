@@ -50,19 +50,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCh17SzaWpJB3I5sJDKBQtIWMnsMjxnj-Y',
-    appId: '1:716521928282:android:58505cab4cb5f971a20a63',
-    messagingSenderId: '716521928282',
-    projectId: 'fms-fcm',
-    storageBucket: 'fms-fcm.firebasestorage.app',
+    apiKey: 'AIzaSyC_kQ0OR7MXdAneQyj_hHahVlqnvBEaWJY',
+    appId: '1:193935247820:android:ff31aa84ae4e0331437569',
+    messagingSenderId: '193935247820',
+    projectId: 'jms-app-80f22',
+    storageBucket: 'jms-app-80f22.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBnTNgqqCNNeOFfCK3vAb1y1nT29va_YhA',
-    appId: '1:716521928282:ios:4715b53b3478495da20a63',
-    messagingSenderId: '716521928282',
-    projectId: 'fms-fcm',
-    storageBucket: 'fms-fcm.firebasestorage.app',
+    apiKey: 'AIzaSyAzSi9r5FeKXvhKwGYbi5EJ_W1_nuKheFQ',
+    appId: '1:193935247820:ios:dceafac148e95b1e437569',
+    messagingSenderId: '193935247820',
+    projectId: 'jms-app-80f22',
+    storageBucket: 'jms-app-80f22.firebasestorage.app',
     iosBundleId: 'com.querta.fms',
   );
+
 }
