@@ -83,7 +83,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
 
   Widget _defaultLogo() {
     return Image.asset(
-      'assets/images/logo.jpg',
+      'assets/images/logo.png',
       width: 25,
       height: 25,
       fit: BoxFit.cover,

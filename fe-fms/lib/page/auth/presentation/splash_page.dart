@@ -66,7 +66,7 @@ class _SplashPageState extends State<SplashPage>
                   children: [
                     // Icon(Icons.mosque, size: 100, color: Colors.white),
                     Image.asset(
-                      'assets/logo.png',
+                      'assets/images/logo.png',
                       width: 150,
                       height: 150,
                       color: Colors.white,

@@ -131,7 +131,6 @@ class AuthController extends GetxController {
       await prefs.setString(Variables.prefApiKey, apiKeyResult);
       await _storage.write(Variables.prefApiKey, apiKeyResult);
       apiKey.value = apiKeyResult;
-      isAuthenticated.value = true;
 
       log(userID.toString(), name: 'Login', level: 800);
 
@@ -167,6 +166,10 @@ class AuthController extends GetxController {
 
       final savedRole = prefs.getString(Variables.prefUserRole);
       userRole.value = savedRole;
+
+      // Set isAuthenticated AFTER all state (role, subscription, hasTraxroot)
+      // is ready, so RootGate renders NavBar with the correct role.
+      isAuthenticated.value = true;
 
       ApiClient.resetLogoutFlag();
 

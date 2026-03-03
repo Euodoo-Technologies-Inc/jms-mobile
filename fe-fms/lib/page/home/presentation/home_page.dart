@@ -313,7 +313,7 @@ class _HomeTabState extends State<HomeTab> {
                                       children: [
                                         Expanded(
                                           child: _StatCard(
-                                            title: 'Open Jobs',
+                                            title: 'Open',
                                             value: controller.openJobsCount.toString(),
                                           ),
                                         ),
