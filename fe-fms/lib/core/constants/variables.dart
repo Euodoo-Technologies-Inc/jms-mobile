@@ -74,4 +74,5 @@ class Variables {
 
 
   static const String companyLogo = 'CompanyLogo';
+  static const String prefFcmToken = 'FcmToken';
 }

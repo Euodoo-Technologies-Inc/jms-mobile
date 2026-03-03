@@ -9,12 +9,15 @@ import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:fms/data/datasource/firebase_messanging_remote_datasource.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // Initialize SQLite database
   await OfflineDatabase.instance.database;

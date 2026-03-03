@@ -8,7 +8,9 @@ import 'package:fms/core/services/subscription.dart';
 import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/storage/secure_storage.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
+import 'package:fms/data/datasource/firebase_messanging_remote_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/repository/job_cache_repository.dart';
 import 'package:fms/data/repository/offline_queue_repository.dart';
@@ -64,6 +66,8 @@ class AuthController extends GetxController {
 
         final role = prefs.getString(Variables.prefUserRole);
         userRole.value = role;
+
+        _initializeFcm();
 
         // Trigger pending sync if any queued items exist
         Future.microtask(() {
@@ -171,6 +175,8 @@ class AuthController extends GetxController {
       // is ready, so RootGate renders NavBar with the correct role.
       isAuthenticated.value = true;
 
+      _initializeFcm();
+
       ApiClient.resetLogoutFlag();
 
       if (!context.mounted) return;
@@ -205,6 +211,12 @@ class AuthController extends GetxController {
   /// Removes stored credentials, clears cached data in controllers, and
   /// redirects the user to the login page.
   Future<void> logout() async {
+    // Clear FCM token so device stops receiving notifications
+    try {
+      await FirebaseMessaging.instance.deleteToken();
+      FirebaseMessangingRemoteDatasource().reset();
+    } catch (_) {}
+
     // Call server-side logout + clear SharedPreferences
     try {
       await AuthRemoteDataSource().logout();
@@ -246,6 +258,16 @@ class AuthController extends GetxController {
 
     // Redirect to login page
     Get.offAll(() => const LoginPage());
+  }
+
+  void _initializeFcm() {
+    Future.microtask(() async {
+      try {
+        await FirebaseMessangingRemoteDatasource().initialize();
+      } catch (e) {
+        log('FCM initialization failed: $e', name: 'AuthController', level: 900);
+      }
+    });
   }
 
   void _preloadTraxrootData() {
