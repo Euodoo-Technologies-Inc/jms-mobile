@@ -197,8 +197,24 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                       _jobsCtrl.error.value ?? 'Showing cached jobs.',
                   onRetry: _jobsCtrl.refreshToday,
                 ),
-              Expanded(child: _buildMapArea()),
-              _buildBottomArea(),
+              // Map fills the remaining space; the bottom panel floats over
+              // it via a Stack so panel resizes (Accept → Finish, etc.) never
+              // change the map's parent size. GoogleMap's native view goes
+              // blank-until-interaction when its size changes; this avoids
+              // the issue entirely.
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _buildMapArea()),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _buildBottomArea(),
+                    ),
+                  ],
+                ),
+              ),
             ],
           );
         }),

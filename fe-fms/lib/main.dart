@@ -5,7 +5,7 @@ import 'package:fms/core/database/offline_database.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/theme/app_theme.dart';
-import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/page/auth/presentation/login_chooser_page.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:fms/page/dispatch/controller/dispatch_auth_controller.dart';
@@ -99,7 +99,7 @@ class RootGate extends StatelessWidget {
       }
       return authController.isAuthenticated.value
           ? const NavBar()
-          : const LoginPage();
+          : const LoginChooserPage();
     });
   }
 }

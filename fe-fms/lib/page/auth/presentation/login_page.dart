@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
-import 'package:fms/page/dispatch/presentation/dispatch_login_page.dart';
 import '../widget/auth_button.dart';
 import '../widget/auth_text_field.dart';
 import 'forgot_password_page.dart';
@@ -57,6 +56,11 @@ class _LoginPageState extends State<LoginPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: theme.colorScheme.onSurface,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -200,22 +204,6 @@ class _LoginPageState extends State<LoginPage> {
                     isOutlined: true,
                   ),
 
-                  const SizedBox(height: 16),
-
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DispatchLoginPage(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.two_wheeler),
-                      label: const Text('Rider sign-in (dispatch)'),
-                    ),
-                  ),
                 ],
               ),
             ),
