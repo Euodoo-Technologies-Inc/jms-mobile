@@ -4,6 +4,7 @@ import 'package:fms/page/auth/controller/auth_controller.dart';
 import '../widget/auth_button.dart';
 import '../widget/auth_text_field.dart';
 import 'forgot_password_page.dart';
+import 'login_chooser_page.dart';
 
 /// Page for user login.
 ///
@@ -60,6 +61,16 @@ class _LoginPageState extends State<LoginPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
+        // Always show a back-to-chooser arrow regardless of nav stack state.
+        // On a logout-triggered `Get.offAll(LoginPage)` this page is the root,
+        // so the default automatically-implied back button is hidden — that's
+        // why we route explicitly via Get.offAll rather than Navigator.pop.
+        leading: IconButton(
+          tooltip: 'Back to sign-in chooser',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              Get.offAll(() => const LoginChooserPage()),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

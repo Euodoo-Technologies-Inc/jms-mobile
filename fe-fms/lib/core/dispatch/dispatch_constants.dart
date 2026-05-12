@@ -24,6 +24,9 @@ class DispatchConstants {
   // Position (optional GPS reporting)
   static const String positionEndpoint = '$baseUrl/position';
 
+  // Routing proxy → OSRM (server-side cached, see OsrmController)
+  static const String osrmRouteEndpoint = '$baseUrl/osrm/route';
+
   // Jobs
   static const String jobsTodayEndpoint = '$baseUrl/jobs/today';
   static const String jobsHistoryEndpoint = '$baseUrl/jobs/history';

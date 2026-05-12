@@ -1,14 +1,22 @@
 /// A single proof-of-work photo attached to a finished job.
+///
+/// `url` is the renderable signed image URL (null on older backends).
 class DispatchJobPhoto {
-  DispatchJobPhoto({required this.id, required this.filename});
+  DispatchJobPhoto({
+    required this.id,
+    required this.filename,
+    this.url,
+  });
 
   final int id;
   final String filename;
+  final String? url;
 
   factory DispatchJobPhoto.fromJson(Map<String, dynamic> json) {
     return DispatchJobPhoto(
       id: (json['id'] as num).toInt(),
       filename: json['photo']?.toString() ?? '',
+      url: json['url']?.toString(),
     );
   }
 }
@@ -34,6 +42,9 @@ class DispatchJob {
     this.scheduledArrival,
     this.actualArrival,
     this.finishWhen,
+    this.createdAt,
+    this.customer,
+    this.serviceType,
     this.notes,
     this.photos,
   });
@@ -50,6 +61,9 @@ class DispatchJob {
   final String? scheduledArrival;
   final String? actualArrival;
   final String? finishWhen;
+  final String? createdAt;
+  final String? customer;
+  final String? serviceType;
   final String? notes;
 
   /// `null` on the today list, possibly-empty list on the detail/finish view.
@@ -82,6 +96,9 @@ class DispatchJob {
       scheduledArrival: json['scheduled_arrival']?.toString(),
       actualArrival: json['actual_arrival']?.toString(),
       finishWhen: json['finish_when']?.toString(),
+      createdAt: json['created_at']?.toString(),
+      customer: json['customer']?.toString() ?? json['customer_name']?.toString(),
+      serviceType: json['service_type']?.toString() ?? json['service']?.toString(),
       notes: json['notes']?.toString(),
       photos: photos,
     );

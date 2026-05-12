@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:fms/core/models/geo.dart';
 
 /// A map widget implementation using `flutter_map` (OpenStreetMap).
-class FlutterMapWidget extends StatelessWidget {
+class FlutterMapWidget extends StatefulWidget {
   final GeoPoint center;
   final double zoom;
   final List<MapMarkerModel> markers;
@@ -20,17 +20,80 @@ class FlutterMapWidget extends StatelessWidget {
   });
 
   @override
+  State<FlutterMapWidget> createState() => _FlutterMapWidgetState();
+}
+
+class _FlutterMapWidgetState extends State<FlutterMapWidget>
+    with TickerProviderStateMixin {
+  final MapController _mapController = MapController();
+  AnimationController? _camAnim;
+
+  @override
+  void didUpdateWidget(FlutterMapWidget old) {
+    super.didUpdateWidget(old);
+    final centerChanged = old.center.lat != widget.center.lat ||
+        old.center.lng != widget.center.lng;
+    final zoomChanged = old.zoom != widget.zoom;
+    if (centerChanged || zoomChanged) {
+      _animateTo(widget.center.lat, widget.center.lng, widget.zoom);
+    }
+  }
+
+  /// flutter_map's MapController.move() is instant. Tween it ourselves so the
+  /// camera glides between overview/focused selections instead of teleporting.
+  void _animateTo(double lat, double lng, double zoom) {
+    _camAnim?.dispose();
+    final cam = _mapController.camera;
+    final startLat = cam.center.latitude;
+    final startLng = cam.center.longitude;
+    final startZoom = cam.zoom;
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    final curve = CurvedAnimation(parent: ctrl, curve: Curves.easeInOutCubic);
+    void tick() {
+      final t = curve.value;
+      _mapController.move(
+        ll.LatLng(
+          startLat + (lat - startLat) * t,
+          startLng + (lng - startLng) * t,
+        ),
+        startZoom + (zoom - startZoom) * t,
+      );
+    }
+    curve.addListener(tick);
+    ctrl.addStatusListener((s) {
+      if (s == AnimationStatus.completed || s == AnimationStatus.dismissed) {
+        ctrl.dispose();
+        if (identical(_camAnim, ctrl)) _camAnim = null;
+      }
+    });
+    _camAnim = ctrl;
+    ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _camAnim?.dispose();
+    _camAnim = null;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final worldBounds = LatLngBounds(
       ll.LatLng(-85.0511, -180.0),
       ll.LatLng(85.0511, 180.0),
     );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: FlutterMap(
+    final markers = widget.markers;
+    final zones = widget.zones;
+    final onMarkerTap = widget.onMarkerTap;
+    return FlutterMap(
+      mapController: _mapController,
         options: MapOptions(
-          initialCenter: ll.LatLng(center.lat, center.lng),
-          initialZoom: zoom,
+          initialCenter: ll.LatLng(widget.center.lat, widget.center.lng),
+          initialZoom: widget.zoom,
           cameraConstraint: CameraConstraint.contain(bounds: worldBounds),
           maxZoom: 15,
         ),
@@ -97,7 +160,7 @@ class FlutterMapWidget extends StatelessWidget {
                     rotate: true, // Enable rotation for the marker
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
-                      onTap: onMarkerTap != null ? () => onMarkerTap!(m) : null,
+                      onTap: onMarkerTap != null ? () => onMarkerTap(m) : null,
                       child: Transform.rotate(
                         angle:
                             (m.rotation ?? 0.0) *
@@ -111,7 +174,6 @@ class FlutterMapWidget extends StatelessWidget {
                 .toList(),
           ),
         ],
-      ),
     );
   }
 
@@ -138,6 +200,27 @@ class FlutterMapWidget extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
               const Icon(Icons.location_pin, color: Colors.red, size: 24),
+        ),
+      );
+    }
+    if (marker.kind == MapMarkerKind.rider) {
+      // Blue "you are here" puck — visually distinct from the red job pin.
+      return Center(
+        child: Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1976D2),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
         ),
       );
     }

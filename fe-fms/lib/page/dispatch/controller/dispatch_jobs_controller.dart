@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
@@ -40,24 +41,53 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   static const String _startAction = 'start';
   static const String _finishAction = 'finish';
 
+  /// Foreground polling cadence — picks up new admin assignments without
+  /// relying on FCM push delivery. Short enough to feel "live", long
+  /// enough that 24h of idle polling costs ~2.8k requests/device.
+  static const Duration _pollInterval = Duration(seconds: 30);
+  Timer? _pollTimer;
+  bool _isForeground = true;
+
   @override
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
     _loadCache().then((_) => refreshToday());
+    _startPolling();
   }
 
   @override
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopPolling();
     super.onClose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      refreshToday();
+    final wasForeground = _isForeground;
+    _isForeground = state == AppLifecycleState.resumed;
+    if (_isForeground) {
+      // Fire immediately on resume + restart the cadence so the next tick
+      // is a full interval away rather than a stale "midway" deadline.
+      if (!wasForeground) refreshToday();
+      _startPolling();
+    } else {
+      _stopPolling();
     }
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) {
+      if (!_isForeground) return;
+      refreshToday();
+    });
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
   }
 
   /// Hydrate from SharedPreferences so the user sees something on the first

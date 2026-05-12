@@ -5,6 +5,10 @@ class GeoPoint {
   const GeoPoint(this.lat, this.lng);
 }
 
+/// Visual variant for a marker. Job stops get the default pin; the rider's
+/// own position gets a distinct dot so the two are never confused on map.
+enum MapMarkerKind { job, rider }
+
 /// Model representing a marker on the map.
 class MapMarkerModel {
   final String id;
@@ -15,6 +19,7 @@ class MapMarkerModel {
   final Object? data;
   final double?
   rotation; // Rotation angle in degrees (0-360), based on compass direction
+  final MapMarkerKind kind;
   const MapMarkerModel({
     required this.id,
     required this.position,
@@ -23,6 +28,7 @@ class MapMarkerModel {
     this.subtitle,
     this.data,
     this.rotation,
+    this.kind = MapMarkerKind.job,
   });
 }
 
