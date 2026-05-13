@@ -166,6 +166,19 @@ class _HistoryCard extends StatelessWidget {
                 ],
               ),
             ],
+            if (job.meterNumber != null && job.meterNumber!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.speed, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Meter: ${job.meterNumber}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
             if (job.notes != null && job.notes!.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
@@ -329,6 +342,8 @@ class _HeaderCard extends StatelessWidget {
               value:
                   formatDispatchTimestamp(job.finishWhen, fallback: ''),
             ),
+            if (job.meterNumber != null && job.meterNumber!.isNotEmpty)
+              _KvRow(label: 'Meter no.', value: job.meterNumber),
             if (job.notes != null && job.notes!.isNotEmpty)
               _KvRow(label: 'Notes', value: job.notes),
           ],

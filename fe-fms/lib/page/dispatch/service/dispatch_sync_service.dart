@@ -62,9 +62,15 @@ class DispatchSyncService extends GetxService {
   Future<bool> enqueueFinish(
     int jobId, {
     String? notes,
+    String? meterNumber,
     List<File> photos = const [],
   }) async {
-    await _queue.enqueueFinish(jobId, notes: notes, photos: photos);
+    await _queue.enqueueFinish(
+      jobId,
+      notes: notes,
+      meterNumber: meterNumber,
+      photos: photos,
+    );
     await _refreshCount();
     return true;
   }
@@ -145,6 +151,7 @@ class DispatchSyncService extends GetxService {
             jobId,
             idempotencyKey: key,
             notes: entry.notes,
+            meterNumber: entry.meterNumber,
             photos: files,
           );
           await DispatchIdempotencyStore.clear(action: 'finish', jobId: jobId);

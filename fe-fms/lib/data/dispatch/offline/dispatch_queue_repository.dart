@@ -19,6 +19,7 @@ class DispatchQueueEntry {
     required this.enqueuedAt,
     this.jobId,
     this.notes,
+    this.meterNumber,
     this.photoPaths = const [],
     this.fcmToken,
   });
@@ -28,6 +29,7 @@ class DispatchQueueEntry {
   final DateTime enqueuedAt;
   final int? jobId;
   final String? notes;
+  final String? meterNumber;
   final List<String> photoPaths;
   final String? fcmToken;
 
@@ -37,6 +39,7 @@ class DispatchQueueEntry {
         'enqueuedAt': enqueuedAt.toIso8601String(),
         if (jobId != null) 'jobId': jobId,
         if (notes != null) 'notes': notes,
+        if (meterNumber != null) 'meterNumber': meterNumber,
         if (photoPaths.isNotEmpty) 'photoPaths': photoPaths,
         if (fcmToken != null) 'fcmToken': fcmToken,
       };
@@ -53,6 +56,7 @@ class DispatchQueueEntry {
               DateTime.now(),
       jobId: (json['jobId'] as num?)?.toInt(),
       notes: json['notes']?.toString(),
+      meterNumber: json['meterNumber']?.toString(),
       photoPaths: ((json['photoPaths'] as List?) ?? const [])
           .map((e) => e.toString())
           .toList(growable: false),
@@ -127,6 +131,7 @@ class DispatchQueueRepository {
   Future<DispatchQueueEntry> enqueueFinish(
     int jobId, {
     String? notes,
+    String? meterNumber,
     List<File> photos = const [],
   }) async {
     final dir = await _photoDir();
@@ -151,6 +156,7 @@ class DispatchQueueRepository {
       enqueuedAt: DateTime.now(),
       jobId: jobId,
       notes: notes,
+      meterNumber: meterNumber,
       photoPaths: copies,
     );
     final all = await readAll();

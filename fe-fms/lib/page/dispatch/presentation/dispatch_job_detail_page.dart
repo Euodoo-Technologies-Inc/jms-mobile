@@ -155,6 +155,12 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
                     label: 'Finished',
                     value: job.finishWhen!,
                   ),
+                if (job.meterNumber != null && job.meterNumber!.isNotEmpty)
+                  _InfoRow(
+                    icon: Icons.speed,
+                    label: 'Meter no.',
+                    value: job.meterNumber!,
+                  ),
                 if (job.notes != null && job.notes!.isNotEmpty)
                   _InfoRow(
                     icon: Icons.notes,

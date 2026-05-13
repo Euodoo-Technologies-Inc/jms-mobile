@@ -134,6 +134,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
             'actual_arrival': j.actualArrival,
             'finish_when': j.finishWhen,
             'notes': j.notes,
+            'meter_number': j.meterNumber,
             'photos': j.photos
                 ?.map((p) => {'id': p.id, 'photo': p.filename})
                 .toList(),
@@ -233,6 +234,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   Future<DispatchJob> finishJob(
     int jobId, {
     String? notes,
+    String? meterNumber,
     List<File> photos = const [],
   }) async {
     final key = await DispatchIdempotencyStore.getOrCreate(
@@ -244,6 +246,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
         jobId,
         idempotencyKey: key,
         notes: notes,
+        meterNumber: meterNumber,
         photos: photos,
       );
       _patch(updated);
@@ -260,6 +263,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
         await Get.find<DispatchSyncService>().enqueueFinish(
           jobId,
           notes: notes,
+          meterNumber: meterNumber,
           photos: photos,
         );
         throw DispatchQueuedException(_finishAction, jobId);

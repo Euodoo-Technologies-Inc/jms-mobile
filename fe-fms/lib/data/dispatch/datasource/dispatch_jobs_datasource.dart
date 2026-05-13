@@ -55,6 +55,7 @@ class DispatchJobsDatasource {
     int id, {
     required String idempotencyKey,
     String? notes,
+    String? meterNumber,
     List<File> photos = const [],
   }) async {
     final body = await _client.postMultipart(
@@ -62,6 +63,8 @@ class DispatchJobsDatasource {
       idempotencyKey: idempotencyKey,
       fields: {
         if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (meterNumber != null && meterNumber.isNotEmpty)
+          'meter_number': meterNumber,
       },
       fileFields:
           photos.map((f) => MapEntry('photos[]', f)).toList(growable: false),

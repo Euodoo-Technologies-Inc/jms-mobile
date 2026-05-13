@@ -22,12 +22,14 @@ class DispatchFinishJobPage extends StatefulWidget {
 class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
   final _picker = ImagePicker();
   final _notesCtrl = TextEditingController();
+  final _meterCtrl = TextEditingController();
   final List<File> _photos = [];
   bool _submitting = false;
 
   @override
   void dispose() {
     _notesCtrl.dispose();
+    _meterCtrl.dispose();
     super.dispose();
   }
 
@@ -75,9 +77,11 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
   Future<void> _submit() async {
     setState(() => _submitting = true);
     try {
+      final meter = _meterCtrl.text.trim();
       await Get.find<DispatchJobsController>().finishJob(
         widget.jobId,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        meterNumber: meter.isEmpty ? null : meter,
         photos: _photos,
       );
       if (!mounted) return;
@@ -162,6 +166,21 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
               const SizedBox(height: 20),
+              const Text('Meter number'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _meterCtrl,
+                maxLength: 64,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(64),
+                ],
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('Notes (optional)'),
+              const SizedBox(height: 8),
               TextField(
                 controller: _notesCtrl,
                 maxLines: 4,
@@ -172,7 +191,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
                   ),
                 ],
                 decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
+                  alignLabelWithHint: true,
                   border: OutlineInputBorder(),
                 ),
               ),

@@ -46,6 +46,7 @@ class DispatchJob {
     this.customer,
     this.serviceType,
     this.notes,
+    this.meterNumber,
     this.photos,
   });
 
@@ -65,6 +66,7 @@ class DispatchJob {
   final String? customer;
   final String? serviceType;
   final String? notes;
+  final String? meterNumber;
 
   /// `null` on the today list, possibly-empty list on the detail/finish view.
   final List<DispatchJobPhoto>? photos;
@@ -100,6 +102,7 @@ class DispatchJob {
       customer: json['customer']?.toString() ?? json['customer_name']?.toString(),
       serviceType: json['service_type']?.toString() ?? json['service']?.toString(),
       notes: json['notes']?.toString(),
+      meterNumber: json['meter_number']?.toString(),
       photos: photos,
     );
   }

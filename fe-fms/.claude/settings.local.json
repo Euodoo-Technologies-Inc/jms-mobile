@@ -5,5 +5,18 @@
       "Bash(flutter pub:*)",
       "Bash(cd:*)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"d:\\work\\jms-mobile\\fe-fms\\.claude\\hooks\\history-stop.ps1\""
+          }
+        ]
+      }
+    ]
   }
 }
