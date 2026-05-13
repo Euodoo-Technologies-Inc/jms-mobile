@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -9,7 +7,7 @@ import '../../../core/dispatch/dispatch_format.dart';
 import '../../../core/dispatch/dispatch_navigation.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/widgets/adaptive_map.dart';
-import '../../../data/dispatch/datasource/dispatch_osrm_datasource.dart';
+import '../../../core/widgets/snackbar_utils.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
 import '../service/dispatch_sync_service.dart';
@@ -19,9 +17,10 @@ import 'dispatch_profile_page.dart';
 const GeoPoint _kFallbackCenter = GeoPoint(14.5995, 120.9842); // Manila
 const Duration _kPanelAnim = Duration(milliseconds: 320);
 
-/// Map of today's jobs with a horizontal carousel at the bottom. Tapping a
-/// card promotes that job into a focused detail panel covering the bottom
-/// half, while the map switches to "rider position → job" with a route line.
+/// Map of today's jobs with a horizontal carousel at the bottom. All the
+/// live state (rider position, selected job, OSRM polyline, ETA) lives in
+/// [DispatchJobsController] so the route survives page rebuilds — opening
+/// and closing the focused panel never blanks the polyline.
 class DispatchJobsPage extends StatefulWidget {
   const DispatchJobsPage({super.key});
 
@@ -29,383 +28,59 @@ class DispatchJobsPage extends StatefulWidget {
   State<DispatchJobsPage> createState() => _DispatchJobsPageState();
 }
 
-class _DispatchJobsPageState extends State<DispatchJobsPage>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  /// Cadence for the silent foreground GPS poll that keeps the rider pin
-  /// and route source point in sync as the driver moves. The OSRM + ETA
-  /// fetches are memoised at 4-dp (~11m) so this rate doesn't translate
-  /// into network traffic 1:1.
-  static const Duration _riderTrackInterval = Duration(seconds: 10);
-  Timer? _riderTrackTimer;
-  bool _isForeground = true;
-  final RxnInt _selectedId = RxnInt();
-  final Rxn<GeoPoint> _riderPos = Rxn<GeoPoint>();
-  final RxBool _locating = false.obs;
+class _DispatchJobsPageState extends State<DispatchJobsPage> {
   final RxBool _starting = false.obs;
-
-  /// When true, the map center continuously tracks the live `_riderPos`
-  /// instead of using the focus/overview natural framing. Toggled on by the
-  /// "center on me" FAB so the camera follows the rider as they move,
-  /// rather than freezing at a snapshot. Cleared on selection changes so
-  /// natural framing returns.
-  final RxBool _followRider = false.obs;
-
-  /// Road-following polyline from rider → focused job, fetched via the
-  /// backend OSRM proxy. `null` means "no route yet / fetch failed" — the
-  /// polyline is then hidden entirely (we don't draw a misleading straight
-  /// line).
-  final Rxn<List<GeoPoint>> _routePoints = Rxn<List<GeoPoint>>();
-
-  /// Drive-time (seconds) from the rider to whichever job the carousel marks
-  /// as the next/active stop. Drives the "12 min away" label on that card.
-  final RxnDouble _etaMeters = RxnDouble();
-  int _etaRequestSeq = 0;
-  String? _lastEtaKey;
-  Worker? _jobsListenWorker;
-
-  /// Number of polyline points currently revealed, used to animate the line
-  /// "drawing" from rider towards the job once OSRM data arrives.
-  final RxInt _routeRevealCount = 0.obs;
-  late final AnimationController _routeAnim;
-
-  final DispatchOsrmDatasource _osrm = DispatchOsrmDatasource();
-  int _routeRequestSeq = 0;
-  String? _lastRouteKey;
-
   late final DispatchJobsController _jobsCtrl;
 
   @override
   void initState() {
     super.initState();
-    _jobsCtrl = Get.put(DispatchJobsController());
-
-    _routeAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..addListener(_onRouteTick);
-
-    WidgetsBinding.instance.addObserver(this);
-    _startRiderTracking();
-
-    // Recompute the carousel ETA and the active-job route whenever the
-    // jobs list changes (refresh, accept, finish, etc). Both are cheap if
-    // memoised by (rider, target).
-    _jobsListenWorker = ever<List<DispatchJob>>(
-      _jobsCtrl.jobs,
-      (jobs) {
-        // Drop selection if the previously-selected job has been finished
-        // (status=2). Without this, _maybeFetchRoute would keep using the
-        // finished job as a target and the polyline would linger on the
-        // map even though there's no active work.
-        final sid = _selectedId.value;
-        if (sid != null &&
-            !jobs.any((j) => j.id == sid && !j.isFinished)) {
-          _selectedId.value = null;
-        }
-        _maybeFetchEta();
-        _maybeFetchRoute();
-      },
-    );
-
-    // Kick off a one-shot rider fix so the initial overview centers on the
-    // user instead of the first job / Manila fallback.
-    _refreshRiderPosition();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _stopRiderTracking();
-    _jobsListenWorker?.dispose();
-    _routeAnim
-      ..removeListener(_onRouteTick)
-      ..dispose();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final wasForeground = _isForeground;
-    _isForeground = state == AppLifecycleState.resumed;
-    if (_isForeground && !wasForeground) {
-      _startRiderTracking();
-    } else if (!_isForeground && wasForeground) {
-      _stopRiderTracking();
-    }
-  }
-
-  /// Begins a low-frequency, silent GPS poll so the rider marker + route
-  /// origin track real movement. Each tick passes `force: true, silent: true`
-  /// — `force` defeats the "already have a fix" short-circuit, `silent`
-  /// keeps the recenter FAB from flashing its spinner every interval.
-  void _startRiderTracking() {
-    _riderTrackTimer?.cancel();
-    _riderTrackTimer = Timer.periodic(_riderTrackInterval, (_) {
-      if (!_isForeground || !mounted) return;
-      _refreshRiderPosition(force: true, silent: true);
-    });
-  }
-
-  void _stopRiderTracking() {
-    _riderTrackTimer?.cancel();
-    _riderTrackTimer = null;
-  }
-
-  /// Drives the "draw-the-line" reveal — maps the animation's 0..1 value to a
-  /// growing prefix of the OSRM polyline and pushes that count into the Rx so
-  /// the map's Obx rebuilds with one more segment at a time.
-  void _onRouteTick() {
-    final pts = _routePoints.value;
-    if (pts == null || pts.length < 2) return;
-    final target =
-        (pts.length * _routeAnim.value).round().clamp(2, pts.length);
-    if (target != _routeRevealCount.value) {
-      _routeRevealCount.value = target;
-    }
-  }
-
-  /// One-shot rider fix. We deliberately do NOT subscribe to the position
-  /// stream here — every emission would invalidate the map's ValueKey and
-  /// tear down the native GoogleMap view, which crashes on lower-end devices.
-  /// The user can hit the recenter FAB to refresh.
-  Future<void> _refreshRiderPosition({
-    bool force = false,
-    bool silent = false,
-  }) async {
-    if (_locating.value && !silent) return;
-    if (!force && _riderPos.value != null) return;
-    if (!silent) _locating.value = true;
-    try {
-      if (_riderPos.value == null) {
-        final last = await Geolocator.getLastKnownPosition();
-        if (last != null) {
-          _riderPos.value = GeoPoint(last.latitude, last.longitude);
-        }
-      }
-      final fresh = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 6),
-        ),
-      );
-      _riderPos.value = GeoPoint(fresh.latitude, fresh.longitude);
-    } catch (_) {
-      // Permission / timeout — leave whatever we already had. Panel will just
-      // skip the route line.
-    } finally {
-      if (!silent) _locating.value = false;
-    }
-    // Route + ETA both depend on rider position. Always try both — the
-    // route fetch is a no-op when there is no target.
-    unawaited(_maybeFetchRoute());
-    if (_selectedId.value == null) {
-      unawaited(_maybeFetchEta());
-    }
+    // Reuse the existing instance if the dispatch session already
+    // initialised it — preserves rider/route/ETA state across page rebuilds.
+    _jobsCtrl = Get.isRegistered<DispatchJobsController>()
+        ? Get.find<DispatchJobsController>()
+        : Get.put(DispatchJobsController());
   }
 
   void _select(DispatchJob job) {
-    if (job.lat == null || job.lng == null) {
-      Get.snackbar(
-        'No location',
-        'This job has no coordinates yet.',
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
-      return;
+    final ok = _jobsCtrl.selectJob(job);
+    if (!ok) {
+      SnackbarUtils(
+        text: 'This job has no coordinates yet.',
+        backgroundColor: Colors.grey.shade700,
+        icon: Icons.location_off,
+      ).showErrorSnackBar(context);
     }
-    _selectedId.value = job.id;
-    _routePoints.value = null;
-    _routeRevealCount.value = 0;
-    _routeAnim.stop();
-    _lastRouteKey = null;
-    _lastEtaKey = null;
-    _etaMeters.value = null;
-    _followRider.value = false;
-    _refreshRiderPosition().then((_) => _maybeFetchRoute());
-    _jobsCtrl.fetchDetail(job.id);
-  }
-
-  void _clearSelection() {
-    _selectedId.value = null;
-    _lastRouteKey = null;
-    _lastEtaKey = null;
-    _etaMeters.value = null;
-    _followRider.value = false;
-    // Returning to overview — recompute the carousel ETA, and re-fetch the
-    // route in case the previously-focused job wasn't the active one (so
-    // the polyline can switch to the on-the-way target). The existing
-    // polyline stays visible until the new one lands.
-    unawaited(_maybeFetchEta());
-    unawaited(_maybeFetchRoute());
-  }
-
-  /// Pins the camera onto the rider and *keeps* it there as the silent GPS
-  /// poller updates `_riderPos`. The previous implementation stashed a
-  /// one-shot snapshot, so the camera stopped following after the first
-  /// tap — switching to a follow-mode flag means subsequent ticks pan the
-  /// camera with the rider until the rider picks a job again.
-  Future<void> _recenterOnRider() async {
-    _followRider.value = true;
-    await _refreshRiderPosition(force: true);
-  }
-
-  /// Fetches a road-following polyline from rider → the navigation target
-  /// (selected job, or the active on-the-way job when no card is focused)
-  /// via the backend OSRM proxy. Memoised per (rider 4-dp, job id) so
-  /// position pings don't refetch on every meter of drift. Silently leaves
-  /// the existing polyline in place on any error.
-  Future<void> _maybeFetchRoute() async {
-    final rider = _riderPos.value;
-    if (rider == null) return;
-    // Target = focused job → otherwise the active job so the route stays
-    // drawn whenever the rider has work in progress, even if the detail
-    // panel is closed. Finished jobs (status=2) are never valid targets —
-    // their polyline must clear the moment the job completes.
-    final selectedId = _selectedId.value;
-    DispatchJob? job;
-    if (selectedId != null) {
-      job = _jobsCtrl.jobs.firstWhereOrNull(
-        (j) => j.id == selectedId && !j.isFinished,
-      );
-    }
-    job ??= _jobsCtrl.jobs.firstWhereOrNull((j) => j.isOnTheWay);
-    if (job == null || job.lat == null || job.lng == null) {
-      // No target — make sure stale polylines don't linger after the rider
-      // finishes the active job.
-      if (_selectedId.value == null) {
-        _routePoints.value = null;
-        _routeRevealCount.value = 0;
-        _routeAnim.stop();
-        _lastRouteKey = null;
-      }
-      return;
-    }
-    final targetId = job.id;
-    final key = '${rider.lat.toStringAsFixed(4)},'
-        '${rider.lng.toStringAsFixed(4)}->$targetId';
-    if (key == _lastRouteKey) return;
-    _lastRouteKey = key;
-
-    final seq = ++_routeRequestSeq;
-    try {
-      final result =
-          await _osrm.route([rider, GeoPoint(job.lat!, job.lng!)]);
-      // Discard if a newer fetch raced ahead or the user switched target.
-      if (!mounted) return;
-      if (seq != _routeRequestSeq) return;
-      // Validate the target is still current (still selected, or still the
-      // active job in overview).
-      final stillCurrent = _selectedId.value != null
-          ? _selectedId.value == targetId
-          : (_jobsCtrl.jobs.firstWhereOrNull((j) => j.isOnTheWay)?.id ==
-              targetId);
-      if (!stillCurrent) return;
-      final pts = result?.points;
-      // Only animate the "drawing out" effect on the *initial* appearance
-      // of a route. While the rider is moving the polyline gets refetched
-      // every ~11m crossing — replaying the reveal animation each time
-      // makes the line look like it keeps redrawing itself, which a real
-      // navigation app never does. Subsequent refreshes snap the reveal
-      // count to full so the polyline just updates in place.
-      final hadRoute = _routePoints.value != null;
-      _routePoints.value = pts;
-      // The OSRM round-trip also gives us the road distance — reuse it for
-      // the carousel "850 m / 1.5 km away" label.
-      if (result != null) _etaMeters.value = result.distanceMeters;
-      if (pts != null && pts.length >= 2) {
-        if (hadRoute) {
-          _routeAnim.stop();
-          _routeRevealCount.value = pts.length;
-        } else {
-          _routeRevealCount.value = 2;
-          _routeAnim
-            ..stop()
-            ..forward(from: 0);
-        }
-      }
-    } catch (_) {
-      if (!mounted) return;
-      if (seq != _routeRequestSeq) return;
-      // Leave _routePoints null → polyline hidden.
-    }
-  }
-
-  /// Computes the ETA from the rider to whichever stop is currently the
-  /// "next/active" one. Runs in overview mode only (in focused mode the
-  /// route fetch already supplies the same duration). Memoised by
-  /// (rider 4-dp, target id) so position pings don't refetch.
-  Future<void> _maybeFetchEta() async {
-    if (!mounted) return;
-    if (_selectedId.value != null) return; // covered by _maybeFetchRoute
-    final rider = _riderPos.value;
-    if (rider == null) return;
-    final target = _etaTarget();
-    if (target == null || target.lat == null || target.lng == null) {
-      _etaMeters.value = null;
-      _lastEtaKey = null;
-      return;
-    }
-    final key = '${rider.lat.toStringAsFixed(4)},'
-        '${rider.lng.toStringAsFixed(4)}->${target.id}';
-    if (key == _lastEtaKey && _etaMeters.value != null) return;
-    _lastEtaKey = key;
-
-    final seq = ++_etaRequestSeq;
-    try {
-      final result = await _osrm.route(
-        [rider, GeoPoint(target.lat!, target.lng!)],
-      );
-      if (!mounted) return;
-      if (seq != _etaRequestSeq) return;
-      if (_selectedId.value != null) return;
-      if (_etaTarget()?.id != target.id) return;
-      _etaMeters.value = result?.distanceMeters;
-    } catch (_) {
-      if (!mounted) return;
-      if (seq != _etaRequestSeq) return;
-      // Leave previous value in place.
-    }
-  }
-
-  /// The stop the rider is currently heading to: an on-the-way job if there
-  /// is one (since accepts are sequential, at most one), else the first
-  /// assigned non-reschedule job.
-  DispatchJob? _etaTarget() {
-    final list = _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
-    return list.firstWhereOrNull((j) => j.isOnTheWay) ??
-        list.firstWhereOrNull((j) => !j.isReschedulePending);
   }
 
   Future<void> _startJob(int jobId) async {
     _starting.value = true;
-    final ctrl = _jobsCtrl;
     try {
-      await ctrl.startJob(jobId);
+      await _jobsCtrl.startJob(jobId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Job accepted.')),
-      );
+      SnackbarUtils(
+        text: 'Job accepted.',
+        backgroundColor: Colors.green,
+      ).showSuccessSnackBar(context);
     } on DispatchQueuedException {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Saved offline. Will sync when online.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      SnackbarUtils(
+        text: 'Saved offline. Will sync when online.',
+        backgroundColor: Colors.orange,
+        icon: Icons.cloud_off,
+      ).showErrorSnackBar(context);
     } on DispatchApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: e.isConflict ? Colors.orange : Colors.red,
-        ),
-      );
+      SnackbarUtils(
+        text: e.message,
+        backgroundColor: e.isConflict ? Colors.orange : Colors.red,
+      ).showErrorSnackBar(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+      SnackbarUtils(
+        text: e.toString(),
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
     } finally {
       _starting.value = false;
     }
@@ -458,10 +133,6 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
               onRetry: _jobsCtrl.refreshToday,
             );
           }
-          // Note: we deliberately don't bail to an _EmptyState when there
-          // are no active jobs — the rider still wants to see the map with
-          // their own location. The carousel itself renders a single
-          // "No jobs available" placeholder card instead.
 
           return Column(
             children: [
@@ -473,9 +144,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
                 ),
               // Map fills the remaining space; the bottom panel floats over
               // it via a Stack so panel resizes (Accept → Finish, etc.) never
-              // change the map's parent size. GoogleMap's native view goes
-              // blank-until-interaction when its size changes; this avoids
-              // the issue entirely.
+              // change the map's parent size.
               Expanded(
                 child: Stack(
                   children: [
@@ -496,38 +165,29 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
     );
   }
 
-
-  /// Scoped Obx around the map. Rebuilds only when selection, jobs list, or
-  /// rider position changes — and even then GoogleMap survives because the
-  /// ValueKey is stable per "selection mode" (all-jobs vs focused-job-id).
+  /// Scoped Obx around the map.
   Widget _buildMapArea() {
     return Stack(
       children: [
         Positioned.fill(
           child: Obx(() {
-            // Hide finished jobs from the home view — they live in History.
-            // Backend already excludes Status=2, but filtering client-side
-            // too prevents a flicker between "user finishes" and "next
-            // refresh lands".
-            final jobs = _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
-            final selectedId = _selectedId.value;
+            final jobs =
+                _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
+            final selectedId = _jobsCtrl.selectedJobId.value;
             final selected = selectedId == null
                 ? null
                 : jobs.firstWhereOrNull((j) => j.id == selectedId);
-            final isFocused =
-                selected != null && selected.lat != null && selected.lng != null;
-            final rider = _riderPos.value;
-            final route = _routePoints.value;
-            final reveal = _routeRevealCount.value;
-            final followRider = _followRider.value;
+            final isFocused = selected != null &&
+                selected.lat != null &&
+                selected.lng != null;
+            final rider = _jobsCtrl.riderPos.value;
+            final route = _jobsCtrl.routePoints.value;
+            final reveal = _jobsCtrl.routeRevealCount.value;
+            final followRider = _jobsCtrl.followRider.value;
 
             var mapData = isFocused
                 ? _focusedMapData(selected, rider, route, reveal)
                 : _overviewMapData(jobs, rider, route, reveal);
-            // Follow mode forces the camera onto the live rider position
-            // every rebuild — so the silent GPS poll's Rxn updates pan the
-            // map automatically instead of being shadowed by a static
-            // override snapshot.
             if (followRider && rider != null) {
               mapData = _MapData(
                 center: rider,
@@ -538,9 +198,6 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
             }
 
             return AdaptiveMap(
-              // Stable key across selection changes: the underlying map
-              // instance survives, and animates the camera via didUpdateWidget
-              // instead of teleporting.
               key: const ValueKey('dispatchmap'),
               center: mapData.center,
               zoom: mapData.zoom,
@@ -562,8 +219,8 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
           child: FloatingActionButton.small(
             heroTag: 'recenter',
             tooltip: 'Center on my location',
-            onPressed: _recenterOnRider,
-            child: Obx(() => _locating.value
+            onPressed: _jobsCtrl.recenterOnRider,
+            child: Obx(() => _jobsCtrl.locating.value
                 ? const SizedBox(
                     width: 16,
                     height: 16,
@@ -579,16 +236,14 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
   /// Scoped Obx around the bottom area only.
   Widget _buildBottomArea() {
     return Obx(() {
-      final jobs = _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
-      final selectedId = _selectedId.value;
+      final jobs =
+          _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
+      final selectedId = _jobsCtrl.selectedJobId.value;
       final selected = selectedId == null
           ? null
           : jobs.firstWhereOrNull((j) => j.id == selectedId);
       final isFocused = selected != null;
 
-      // No AnimatedSize wrapper: the focused panel manages its own height for
-      // drag-to-resize, and an animating parent would lag every drag frame.
-      // The AnimatedSwitcher fade+slide still covers the carousel↔panel swap.
       return AnimatedSwitcher(
         duration: _kPanelAnim,
         switchInCurve: Curves.easeOutCubic,
@@ -605,10 +260,6 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
         },
         child: isFocused
             ? () {
-                // Strict route order: the only acceptable next job is the
-                // first non-on-the-way, non-reschedule entry in the (already
-                // RouteOrder-sorted) active queue. Same rule the carousel
-                // uses for the "Next stop" highlight.
                 final nextInQueueId = jobs
                     .firstWhereOrNull(
                         (j) => !j.isOnTheWay && !j.isReschedulePending)
@@ -616,19 +267,14 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
                 return _FocusedJobPanel(
                   key: ValueKey('panel_${selected.id}'),
                   job: selected,
-                  // Same numbering rule as the carousel cards — route order if
-                  // the server set it, otherwise the queue position. Keeps the
-                  // panel header consistent with the card the user just tapped.
                   stopNumber: selected.routeOrder ??
                       (jobs.indexWhere((j) => j.id == selected.id) + 1),
-                  // OSRM road distance — same value the card pill on this
-                  // job shows, so the overview and the panel never disagree.
-                  etaMeters: _etaMeters.value,
+                  etaMeters: _jobsCtrl.etaMeters.value,
                   starting: _starting,
                   hasOtherActive: jobs.any(
                       (j) => j.isOnTheWay && j.id != selected.id),
                   isNextInQueue: selected.id == nextInQueueId,
-                  onClose: _clearSelection,
+                  onClose: _jobsCtrl.clearSelection,
                   onStart: () => _startJob(selected.id),
                   onFinish: () => Get.to(
                       () => DispatchFinishJobPage(jobId: selected.id)),
@@ -639,7 +285,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
                 height: 132,
                 child: _JobCarousel(
                   jobs: jobs,
-                  etaMeters: _etaMeters.value,
+                  etaMeters: _jobsCtrl.etaMeters.value,
                   onSelect: _select,
                 ),
               ),
@@ -663,20 +309,15 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
       ),
       if (rider != null)
         MapMarkerModel(
-        id: 'rider',
-        position: rider,
-        title: 'You',
-        kind: MapMarkerKind.rider,
-      ),
+          id: 'rider',
+          position: rider,
+          title: 'You',
+          kind: MapMarkerKind.rider,
+        ),
     ];
     if (rider == null) {
       return _MapData(center: job, zoom: 16, markers: markers);
     }
-    // Focused view always frames rider + job around their midpoint with a
-    // distance-aware zoom, so the full route is visible regardless of
-    // on-the-way state. The "follow the rider" behaviour for active jobs
-    // lives in the overview map (panel closed), which keeps the polyline
-    // drawn while centring on the rider.
     final center = GeoPoint(
       (job.lat + rider.lat) / 2,
       (job.lng + rider.lng) / 2,
@@ -684,11 +325,6 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
     final meters = Geolocator.distanceBetween(
         rider.lat, rider.lng, job.lat, job.lng);
     final zoom = _zoomForMeters(meters);
-    // Draw only the revealed prefix of the OSRM polyline. revealCount grows
-    // from 2 → route.length while the route-draw AnimationController runs,
-    // so the line appears to extend from rider towards the job rather than
-    // popping in fully formed. Nothing is drawn until OSRM returns (no
-    // misleading crow-flies fallback).
     final hasRoute = route != null && route.length >= 2 && revealCount >= 2;
     final revealed = hasRoute
         ? route.sublist(0, revealCount.clamp(2, route.length))
@@ -738,15 +374,10 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
           kind: MapMarkerKind.rider,
         ),
     ];
-    // Prefer rider position; otherwise fall back to first job, then Manila.
     final center = rider ??
         (geoJobs.isNotEmpty
             ? GeoPoint(geoJobs.first.lat!, geoJobs.first.lng!)
             : _kFallbackCenter);
-    // While there's an active (on-the-way) job, _maybeFetchRoute keeps
-    // _routePoints populated from rider → that job. Render the same
-    // animated polyline in overview so the driver still sees their path
-    // even with the detail panel closed.
     final hasRoute = route != null && route.length >= 2 && revealCount >= 2;
     final revealed = hasRoute
         ? route.sublist(0, revealCount.clamp(2, route.length))
@@ -816,25 +447,15 @@ class _JobCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Empty queue → render a single placeholder card. We deliberately keep
-    // the map underneath visible so the rider still sees their location;
-    // the carousel area just communicates "nothing assigned right now".
     if (jobs.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: SizedBox(width: 280, child: const _EmptyJobCard()),
       );
     }
-    // Jobs come back from /jobs/today already sorted by RouteOrder. The
-    // "next stop" is the first assigned (not-yet-accepted) job in that
-    // sequence. If a job is already on-the-way it stays the active one and
-    // the *following* assigned job is the next stop.
     final nextId = jobs
         .firstWhereOrNull((j) => !j.isOnTheWay && !j.isReschedulePending)
         ?.id;
-    // The ETA target is whichever stop the rider is *currently* heading
-    // toward (on-the-way job if any, else the next assigned). Same logic
-    // as `_etaTarget()` on the page state.
     final etaTargetId = jobs.firstWhereOrNull((j) => j.isOnTheWay)?.id ??
         nextId;
     return ListView.separated(
@@ -844,9 +465,6 @@ class _JobCarousel extends StatelessWidget {
       separatorBuilder: (_, _) => const _CarouselConnector(),
       itemBuilder: (context, i) {
         final job = jobs[i];
-        // Use the route order from the server when present so completed
-        // stops keep their numbering (jobs 1+2 done → remaining cards
-        // start at 3). Fall back to the carousel position otherwise.
         final stopNumber = job.routeOrder ?? (i + 1);
         return SizedBox(
           width: 280,
@@ -878,8 +496,6 @@ class _DispatchJobCard extends StatelessWidget {
   final int stopNumber;
   final bool selected;
   final bool isNext;
-  /// Road distance from the rider to this stop, in meters. Non-null only on
-  /// the card the rider is currently heading toward.
   final double? etaMeters;
   final VoidCallback onTap;
 
@@ -971,7 +587,7 @@ class _DispatchJobCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _statusPill(job),
+                        _JobStatusPill(job: job),
                         if (etaMeters != null)
                           Padding(
                             padding: const EdgeInsets.only(left: 6),
@@ -999,13 +615,8 @@ class _DispatchJobCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _statusPill(DispatchJob job) => _JobStatusPill(job: job);
 }
 
-/// Web-palette status pill shared by the carousel cards and the focused-job
-/// panel so both surfaces stay visually consistent. Colors match
-/// `.dispatch-queue-status-*` from `assets/dispatch/dispatch.css`.
 class _JobStatusPill extends StatelessWidget {
   const _JobStatusPill({required this.job});
   final DispatchJob job;
@@ -1051,10 +662,6 @@ class _JobStatusPill extends StatelessWidget {
   }
 }
 
-/// Placeholder card rendered in the carousel slot when the rider has no
-/// jobs in their queue. Same visual chrome as a real `_DispatchJobCard`
-/// (web palette border + radius) so the empty state feels like part of
-/// the same list rather than a separate empty screen.
 class _EmptyJobCard extends StatelessWidget {
   const _EmptyJobCard();
 
@@ -1106,9 +713,6 @@ class _EmptyJobCard extends StatelessWidget {
   }
 }
 
-/// Solid grey line between adjacent carousel cards — expresses the
-/// "stop N → stop N+1" sequence assigned by the admin. Sits horizontally
-/// between two card slots, vertically centred in the carousel.
 class _CarouselConnector extends StatelessWidget {
   const _CarouselConnector();
 
@@ -1121,8 +725,6 @@ class _CarouselConnector extends StatelessWidget {
           width: 20,
           height: 3,
           child: DecoratedBox(
-            // Darker than the previous #9ca3af so the "stop N → stop N+1"
-            // bridge reads clearly even on light card backgrounds.
             decoration: BoxDecoration(
               color: Color(0xFF374151),
               borderRadius: BorderRadius.all(Radius.circular(1.5)),
@@ -1134,8 +736,6 @@ class _CarouselConnector extends StatelessWidget {
   }
 }
 
-/// Numbered circle that mirrors `.dispatch-queue-number` from the web
-/// dispatch dashboard (dark gray bg, white tabular figure).
 class _StopNumber extends StatelessWidget {
   const _StopNumber({required this.number});
   final int number;
@@ -1164,10 +764,6 @@ class _StopNumber extends StatelessWidget {
   }
 }
 
-/// Detail panel promoted when a job is selected. The grab handle at the top
-/// can be dragged vertically to switch between three snap heights — collapsed
-/// (handle + title only), half-screen (default), and near-fullscreen — or
-/// tapped to cycle. The rest of the page rebuilds around it.
 class _FocusedJobPanel extends StatefulWidget {
   const _FocusedJobPanel({
     super.key,
@@ -1184,18 +780,9 @@ class _FocusedJobPanel extends StatefulWidget {
 
   final DispatchJob job;
   final int stopNumber;
-
-  /// Road distance from rider to this job in meters (OSRM). Shared with the
-  /// carousel card so the two surfaces never disagree on the same number.
   final double? etaMeters;
   final RxBool starting;
-
-  /// True if a *different* job is already on-the-way. The rider can only run
-  /// one job at a time, so Accept on this panel is disabled in that case.
   final bool hasOtherActive;
-
-  /// True when this job is the next-in-queue per route order. Accept is
-  /// disabled on any other assigned job to enforce sequential acceptance.
   final bool isNextInQueue;
   final VoidCallback onClose;
   final VoidCallback onStart;
@@ -1229,7 +816,6 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     final v = d.velocity.pixelsPerSecond.dy;
     double target;
     if (v.abs() > 700) {
-      // Fling — bias to the next anchor in the fling direction.
       if (v > 0) {
         target = _anchors.lastWhere(
           (a) => a < _frac - 0.01,
@@ -1320,8 +906,6 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Customer first (or job name fallback) — same
-                          // information hierarchy as the carousel card.
                           Text(
                             job.customer ?? job.jobName,
                             maxLines: 2,
@@ -1432,7 +1016,6 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       ),
     );
   }
-
 }
 
 class _PanelActions extends StatelessWidget {
@@ -1448,14 +1031,7 @@ class _PanelActions extends StatelessWidget {
 
   final DispatchJob job;
   final RxBool starting;
-
-  /// True if another job is already on-the-way. Disables Accept on this
-  /// panel so the rider can't run two jobs in parallel.
   final bool hasOtherActive;
-
-  /// True when this job is the next-up entry per route order. Riders may
-  /// only accept stops in sequence — Accept is disabled on out-of-order
-  /// cards with an explanatory notice.
   final bool isNextInQueue;
   final VoidCallback onStart;
   final VoidCallback onFinish;
@@ -1631,5 +1207,3 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
-
-
