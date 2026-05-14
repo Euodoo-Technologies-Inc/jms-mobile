@@ -6,12 +6,14 @@ class Variables {
   // static const String baseUrl = 'http://quetraverse.pro/efms/api/myapi';
 
 
-  // Use --dart-define=BASE_URL=<url> to override at build/run time (default: production)
+  // Use --dart-define=BASE_URL=<url> to override at build/run time
+  // Default points to local Laravel backend (laravel-fms, DB: efms) on the
+  // dev machine's LAN IP, reachable from a physical Android device on the
+  // same Wi-Fi. For the Android emulator, override with 10.0.2.2.
+  // Production: https://jms.euodoo.com.ph/api/myapi
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'https://jms.euodoo.com.ph/api/myapi',
-    // defaultValue: 'http://10.0.2.2:8000/myapi',
-    // defaultValue: 'http://192.168.254.110:8000/myapi',
+    defaultValue: 'http://10.109.233.206:8000/myapi',
   );
   // API endpoints helper methods
   static String getProfileEndpoint(String userId) =>

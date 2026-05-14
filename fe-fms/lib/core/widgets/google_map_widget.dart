@@ -9,6 +9,7 @@ class GoogleMapWidget extends StatefulWidget {
   final List<MapMarkerModel> markers;
   final List<MapZoneModel> zones;
   final void Function(MapMarkerModel marker)? onMarkerTap;
+  final int recenterTick;
   const GoogleMapWidget({
     super.key,
     required this.center,
@@ -16,6 +17,7 @@ class GoogleMapWidget extends StatefulWidget {
     this.markers = const [],
     this.zones = const [],
     this.onMarkerTap,
+    this.recenterTick = 0,
   });
 
   @override
@@ -23,8 +25,26 @@ class GoogleMapWidget extends StatefulWidget {
 }
 
 class _GoogleMapWidgetState extends State<GoogleMapWidget> {
-  // ignore: unused_field
   GoogleMapController? _controller;
+
+  @override
+  void didUpdateWidget(GoogleMapWidget old) {
+    super.didUpdateWidget(old);
+    final c = _controller;
+    if (c == null) return;
+    final centerChanged = old.center.lat != widget.center.lat ||
+        old.center.lng != widget.center.lng;
+    final zoomChanged = old.zoom != widget.zoom;
+    final recenterRequested = old.recenterTick != widget.recenterTick;
+    if (centerChanged || zoomChanged || recenterRequested) {
+      c.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(widget.center.lat, widget.center.lng),
+          widget.zoom,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +54,13 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
             markerId: MarkerId(m.id),
             position: LatLng(m.position.lat, m.position.lng),
             rotation: m.rotation ?? 0.0, // Apply rotation from ang field
+            // Rider markers get a distinct azure hue so they don't blend in
+            // with the red job pins.
+            icon: m.kind == MapMarkerKind.rider
+                ? BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueAzure,
+                  )
+                : BitmapDescriptor.defaultMarker,
             infoWindow: InfoWindow(
               title: m.title,
               snippet: m.subtitle,
@@ -88,20 +115,17 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
         )
         .toSet();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: LatLng(widget.center.lat, widget.center.lng),
-          zoom: widget.zoom,
-        ),
-        markers: markers,
-        polygons: polygons,
-        polylines: polylines,
-        onMapCreated: (c) => _controller = c,
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(
+        target: LatLng(widget.center.lat, widget.center.lng),
+        zoom: widget.zoom,
       ),
+      markers: markers,
+      polygons: polygons,
+      polylines: polylines,
+      onMapCreated: (c) => _controller = c,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
     );
   }
 
