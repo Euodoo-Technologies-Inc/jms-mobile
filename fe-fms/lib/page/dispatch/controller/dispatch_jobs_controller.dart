@@ -59,6 +59,13 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// "center on me" follow mode). Cleared on selection changes.
   final RxBool followRider = false.obs;
 
+  /// Bumped every time the user taps "center on me". The map widget treats a
+  /// change in this value as an explicit re-snap request — needed because
+  /// neither [followRider] nor [riderPos] necessarily change between taps
+  /// (e.g. the user pinched to zoom out without us knowing), so the widget's
+  /// center/zoom props would otherwise look identical and skip the animation.
+  final RxInt recenterTick = 0.obs;
+
   /// Road-following polyline from rider → navigation target. `null` means no
   /// route yet / fetch failed — the polyline is hidden entirely.
   final Rxn<List<GeoPoint>> routePoints = Rxn<List<GeoPoint>>();
@@ -177,6 +184,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// updates [riderPos]. Cleared next time the user picks a job.
   Future<void> recenterOnRider() async {
     followRider.value = true;
+    recenterTick.value++;
     await refreshRiderPosition(force: true);
   }
 
@@ -198,6 +206,12 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// One-shot rider fix. Deliberately *not* a position-stream subscription —
   /// every emission would invalidate the map widget's ValueKey and tear down
   /// the native view, which crashes on lower-end devices.
+  ///
+  /// Fires the OSRM + ETA fetches as soon as a *last-known* position is
+  /// available, without waiting for the (up to 6s) fresh-fix call. Last-known
+  /// is the rider's real coordinates from the most recent GPS sample the OS
+  /// recorded — not stale in the misleading sense, just slightly older. The
+  /// 4-dp memo key (~11m grid) means the fresh-fix refetch is usually a no-op.
   Future<void> refreshRiderPosition({
     bool force = false,
     bool silent = false,
@@ -210,6 +224,13 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
         final last = await Geolocator.getLastKnownPosition();
         if (last != null) {
           riderPos.value = GeoPoint(last.latitude, last.longitude);
+          // Don't wait for the fresh-fix — kick OSRM + ETA off the last-known
+          // position so the polyline can render in ~one network round trip
+          // instead of (GPS_timeout + network).
+          unawaited(_maybeFetchRoute());
+          if (selectedJobId.value == null) {
+            unawaited(_maybeFetchEta());
+          }
         }
       }
       final fresh = await Geolocator.getCurrentPosition(
@@ -224,6 +245,9 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     } finally {
       if (!silent) locating.value = false;
     }
+    // Second pass with the fresh fix. If the rider hasn't moved more than
+    // ~11m the memo key matches and these are cheap no-ops; otherwise the
+    // polyline updates in place (no reveal-animation replay).
     unawaited(_maybeFetchRoute());
     if (selectedJobId.value == null) {
       unawaited(_maybeFetchEta());

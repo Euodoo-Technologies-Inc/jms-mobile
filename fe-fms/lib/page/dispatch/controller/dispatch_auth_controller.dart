@@ -60,6 +60,7 @@ class DispatchAuthController extends GetxController {
         } catch (_) {}
       }
       isAuthenticated.value = true;
+      _ensureJobsController();
 
       // Validate against /me in the background.
       try {
@@ -194,6 +195,17 @@ class DispatchAuthController extends GetxController {
     rider.value = riderValue;
     company.value = companyValue;
     isAuthenticated.value = true;
+    _ensureJobsController();
+  }
+
+  /// Eagerly instantiates [DispatchJobsController] the moment the session
+  /// becomes authenticated, so by the time the user navigates to the map page
+  /// the controller has already loaded cached jobs, kicked off the GPS fix,
+  /// and fetched the OSRM polyline for the on-the-way job. The page mount
+  /// becomes a pure Obx binding — no awaits, no spinners, no blank polyline.
+  void _ensureJobsController() {
+    if (Get.isRegistered<DispatchJobsController>()) return;
+    Get.put(DispatchJobsController());
   }
 
   Future<void> _wipe() async {

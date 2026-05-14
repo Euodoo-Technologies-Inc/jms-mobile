@@ -12,6 +12,10 @@ class AdaptiveMap extends StatelessWidget {
   final List<MapMarkerModel> markers;
   final List<MapZoneModel> zones;
   final void Function(MapMarkerModel marker)? onMarkerTap;
+  /// Monotonic counter that forces the camera to re-snap to [center]/[zoom]
+  /// even when those values are unchanged from the previous build (e.g. the
+  /// user pinched to zoom out, then tapped "center on me" again).
+  final int recenterTick;
   const AdaptiveMap({
     super.key,
     required this.center,
@@ -19,6 +23,7 @@ class AdaptiveMap extends StatelessWidget {
     this.markers = const [],
     this.zones = const [],
     this.onMarkerTap,
+    this.recenterTick = 0,
   });
 
   @override
@@ -31,6 +36,7 @@ class AdaptiveMap extends StatelessWidget {
         markers: markers,
         zones: zones,
         onMarkerTap: onMarkerTap,
+        recenterTick: recenterTick,
       );
     } else {
       return FlutterMapWidget(
@@ -39,6 +45,7 @@ class AdaptiveMap extends StatelessWidget {
         markers: markers,
         zones: zones,
         onMarkerTap: onMarkerTap,
+        recenterTick: recenterTick,
       );
     }
   }

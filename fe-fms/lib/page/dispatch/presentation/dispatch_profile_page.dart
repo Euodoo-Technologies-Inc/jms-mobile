@@ -102,6 +102,15 @@ class DispatchProfilePage extends StatelessWidget {
                     onTap: () => _confirmLogout(context, auth),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    'JMS v2.0',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey,
+                        ),
+                  ),
+                ),
               ],
             );
           }),

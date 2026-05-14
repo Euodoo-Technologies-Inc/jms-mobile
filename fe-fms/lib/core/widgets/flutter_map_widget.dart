@@ -10,6 +10,7 @@ class FlutterMapWidget extends StatefulWidget {
   final List<MapMarkerModel> markers;
   final List<MapZoneModel> zones;
   final void Function(MapMarkerModel marker)? onMarkerTap;
+  final int recenterTick;
   const FlutterMapWidget({
     super.key,
     required this.center,
@@ -17,6 +18,7 @@ class FlutterMapWidget extends StatefulWidget {
     this.markers = const [],
     this.zones = const [],
     this.onMarkerTap,
+    this.recenterTick = 0,
   });
 
   @override
@@ -34,7 +36,8 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     final centerChanged = old.center.lat != widget.center.lat ||
         old.center.lng != widget.center.lng;
     final zoomChanged = old.zoom != widget.zoom;
-    if (centerChanged || zoomChanged) {
+    final recenterRequested = old.recenterTick != widget.recenterTick;
+    if (centerChanged || zoomChanged || recenterRequested) {
       _animateTo(widget.center.lat, widget.center.lng, widget.zoom);
     }
   }

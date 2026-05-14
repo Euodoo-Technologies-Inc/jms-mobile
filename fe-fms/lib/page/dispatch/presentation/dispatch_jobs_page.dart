@@ -184,6 +184,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             final route = _jobsCtrl.routePoints.value;
             final reveal = _jobsCtrl.routeRevealCount.value;
             final followRider = _jobsCtrl.followRider.value;
+            final recenterTick = _jobsCtrl.recenterTick.value;
 
             var mapData = isFocused
                 ? _focusedMapData(selected, rider, route, reveal)
@@ -203,6 +204,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
               zoom: mapData.zoom,
               markers: mapData.markers,
               zones: mapData.zones,
+              recenterTick: recenterTick,
               onMarkerTap: (m) {
                 final id = m.data;
                 if (id is int) {
@@ -220,13 +222,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             heroTag: 'recenter',
             tooltip: 'Center on my location',
             onPressed: _jobsCtrl.recenterOnRider,
-            child: Obx(() => _jobsCtrl.locating.value
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location)),
+            child: const Icon(Icons.my_location),
           ),
         ),
       ],

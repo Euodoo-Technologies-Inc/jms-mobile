@@ -9,6 +9,7 @@ class GoogleMapWidget extends StatefulWidget {
   final List<MapMarkerModel> markers;
   final List<MapZoneModel> zones;
   final void Function(MapMarkerModel marker)? onMarkerTap;
+  final int recenterTick;
   const GoogleMapWidget({
     super.key,
     required this.center,
@@ -16,6 +17,7 @@ class GoogleMapWidget extends StatefulWidget {
     this.markers = const [],
     this.zones = const [],
     this.onMarkerTap,
+    this.recenterTick = 0,
   });
 
   @override
@@ -33,7 +35,8 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
     final centerChanged = old.center.lat != widget.center.lat ||
         old.center.lng != widget.center.lng;
     final zoomChanged = old.zoom != widget.zoom;
-    if (centerChanged || zoomChanged) {
+    final recenterRequested = old.recenterTick != widget.recenterTick;
+    if (centerChanged || zoomChanged || recenterRequested) {
       c.animateCamera(
         CameraUpdate.newLatLngZoom(
           LatLng(widget.center.lat, widget.center.lng),

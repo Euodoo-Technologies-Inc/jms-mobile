@@ -78,7 +78,7 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'Enter the 6-digit code your dispatcher provided, '
+                  'Enter the 8-character code your dispatcher provided, '
                   'along with your phone number, to set a password '
                   'and finish activation.',
                 ),
@@ -97,17 +97,25 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _codeCtrl,
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.visiblePassword,
+                  textCapitalization: TextCapitalization.characters,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
+                    // Backend alphabet excludes 0/1/I/O to avoid lookalikes.
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[A-HJ-NP-Za-hj-np-z2-9]'),
+                    ),
+                    _UpperCaseTextFormatter(),
+                    LengthLimitingTextInputFormatter(8),
                   ],
                   decoration: const InputDecoration(
-                    labelText: '6-digit code',
+                    labelText: '8-character code',
+                    hintText: 'e.g. K7M2QXR4',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.trim().length != 6)
-                      ? 'Enter the 6-digit code'
+                  validator: (v) => (v == null || v.trim().length != 8)
+                      ? 'Enter the 8-character code'
                       : null,
                 ),
                 const SizedBox(height: 16),
@@ -170,5 +178,15 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
         ),
       ),
     );
+  }
+}
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(text: newValue.text.toUpperCase());
   }
 }
