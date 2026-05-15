@@ -5,6 +5,10 @@ import '../../auth/presentation/login_chooser_page.dart';
 import '../controller/dispatch_auth_controller.dart';
 import 'dispatch_job_history_page.dart';
 
+const String _kAppName = 'JMS';
+const String _kAppVersion = '2.0';
+const String _kAppBuild = '36';
+
 /// Rider-side profile. Mirrors the legacy ProfilePage layout (Card-stacked
 /// list, top avatar header, red logout at the bottom) so the two surfaces
 /// feel like one app. Hosts the entry points the dispatch jobs screen used
@@ -102,15 +106,8 @@ class DispatchProfilePage extends StatelessWidget {
                     onTap: () => _confirmLogout(context, auth),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    'JMS v2.0',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                  ),
-                ),
+                const SizedBox(height: 12),
+                const _AboutCard(),
               ],
             );
           }),
@@ -147,5 +144,39 @@ class DispatchProfilePage extends StatelessWidget {
     // so the chooser is hidden beneath it. Replace the whole stack with the
     // chooser explicitly so the user lands there.
     Get.offAll(() => const LoginChooserPage());
+  }
+}
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'About',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _kAppName,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Version $_kAppVersion (build $_kAppBuild)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
