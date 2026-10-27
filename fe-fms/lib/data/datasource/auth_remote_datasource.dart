@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/storage/secure_storage.dart';
 
 /// Remote datasource for authentication-related operations.
 ///
@@ -274,10 +275,10 @@ Future<AuthResponseModel> login({
       }
     }
 
-    // Always clear local data
-    await prefs.clear();
+    // Always clear local data (two-wheels only; the dispatch session stays)
+    await SecureStorage.clearTwoWheelsPrefs(prefs);
     log(
-      'All shared preferences cleared',
+      'Two-wheels shared preferences cleared',
       name: 'AuthRemoteDataSource',
       level: 800,
     );

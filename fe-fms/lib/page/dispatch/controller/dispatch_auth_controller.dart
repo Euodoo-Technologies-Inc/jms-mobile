@@ -59,8 +59,7 @@ class DispatchAuthController extends GetxController {
               jsonDecode(companyRaw) as Map<String, dynamic>);
         } catch (_) {}
       }
-      isAuthenticated.value = true;
-      _ensureJobsController();
+      _startSession();
 
       // Validate against /me in the background.
       try {
@@ -194,8 +193,24 @@ class DispatchAuthController extends GetxController {
     }
     rider.value = riderValue;
     company.value = companyValue;
-    isAuthenticated.value = true;
+    _startSession();
+  }
+
+  /// The jobs controller is put BEFORE the flag flips, so services reacting
+  /// to `isAuthenticated` (GPS, sync) find this session's controller.
+  void _startSession() {
     _ensureJobsController();
+    isAuthenticated.value = true;
+    _requestNotificationPermission();
+  }
+
+  /// A dispatch-only rider never goes through the two-wheels FCM init, which
+  /// is the only other place that asks. Without it Android 13+ shows no
+  /// board pushes. No prompt once the user has decided.
+  void _requestNotificationPermission() {
+    FirebaseMessaging.instance
+        .requestPermission(alert: true, badge: true, sound: true)
+        .then((_) {}, onError: (_) {});
   }
 
   /// Eagerly instantiates [DispatchJobsController] the moment the session

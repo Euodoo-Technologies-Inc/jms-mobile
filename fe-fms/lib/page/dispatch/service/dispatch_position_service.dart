@@ -30,6 +30,7 @@ class DispatchPositionService extends GetxService with WidgetsBindingObserver {
   bool _vehicleMissing = false;
   Worker? _authWorker;
   Worker? _jobsWorker;
+  DispatchJobsController? _watchedJobs;
 
   Future<DispatchPositionService> init() async {
     WidgetsBinding.instance.addObserver(this);
@@ -37,7 +38,11 @@ class DispatchPositionService extends GetxService with WidgetsBindingObserver {
     // React to auth changes — start/stop as the dispatch session toggles.
     if (Get.isRegistered<DispatchAuthController>()) {
       final auth = Get.find<DispatchAuthController>();
-      _authWorker = ever<bool>(auth.isAuthenticated, (_) => _reevaluate());
+      _authWorker = ever<bool>(auth.isAuthenticated, (authed) {
+        // "No vehicle" was for that session; the next rider may have one.
+        if (!authed) _vehicleMissing = false;
+        _reevaluate();
+      });
     }
     _reevaluate();
     return this;
@@ -51,20 +56,29 @@ class DispatchPositionService extends GetxService with WidgetsBindingObserver {
 
   /// Recomputes whether the timer should be running.
   void _reevaluate() {
+    // Watch first: the watcher is what notices a job going on-the-way, so it
+    // must be bound before any job is active, not only once one is.
+    _ensureJobsWatcher();
     final shouldRun = _foreground && _vehicleMissing == false && _hasActiveJob();
     if (shouldRun) {
       _ensureRunning();
-      _ensureJobsWatcher();
     } else {
       _stop();
     }
   }
 
+  /// Binds to the CURRENT jobs controller. One is put at sign-in and deleted
+  /// at sign-out, so a worker bound once would watch a dead list from the
+  /// second session on.
   void _ensureJobsWatcher() {
-    if (_jobsWorker != null) return;
-    if (!Get.isRegistered<DispatchJobsController>()) return;
-    final jobs = Get.find<DispatchJobsController>();
-    _jobsWorker = ever(jobs.jobs, (_) => _reevaluate());
+    final jobs = Get.isRegistered<DispatchJobsController>()
+        ? Get.find<DispatchJobsController>()
+        : null;
+    if (identical(jobs, _watchedJobs)) return;
+    _jobsWorker?.dispose();
+    _jobsWorker = null;
+    _watchedJobs = jobs;
+    if (jobs != null) _jobsWorker = ever(jobs.jobs, (_) => _reevaluate());
   }
 
   bool _hasActiveJob() {
