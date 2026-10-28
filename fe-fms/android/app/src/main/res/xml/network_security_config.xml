@@ -10,7 +10,5 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
-        <!-- Dev machine LAN IP for physical-device testing over Wi-Fi (DHCP lease; update when it drifts) -->
-        <domain includeSubdomains="true">10.123.143.206</domain>
     </domain-config>
 </network-security-config>

@@ -5,12 +5,12 @@
 class DispatchConstants {
   /// Base URL for the dispatch API. Override with
   /// `--dart-define=DISPATCH_BASE_URL=…`. Default points to the local Laravel
-  /// backend running in Docker on the dev machine's LAN IP — the app container
-  /// maps host :8080 -> :80 (see docker-compose.yml), same host as the legacy
-  /// `/myapi/*` routes. For the Android emulator, override host with 10.0.2.2.
+  /// server on the dev machine's LAN IP (port 8000) — reachable from a
+  /// physical Android device on the same Wi-Fi, same host as the legacy
+  /// `/myapi/*` routes. For the Android emulator, override with 10.0.2.2.
   static const String baseUrl = String.fromEnvironment(
     'DISPATCH_BASE_URL',
-    defaultValue: 'http://10.123.143.206:8080/api/dispatch',
+    defaultValue: 'http://172.31.55.206:8000/api/dispatch',
   );
 
   // Auth

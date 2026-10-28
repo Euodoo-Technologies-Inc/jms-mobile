@@ -7,14 +7,13 @@ class Variables {
 
 
   // Use --dart-define=BASE_URL=<url> to override at build/run time
-  // Default points to local Laravel backend (laravel-jms, DB: Efms) running in
-  // Docker on the dev machine's LAN IP, reachable from a physical Android
-  // device on the same Wi-Fi. The Docker app container maps host :8080 -> :80
-  // (see docker-compose.yml). For the Android emulator, override host with
-  // 10.0.2.2. Production: https://jms.euodoo.com.ph/api/myapi
+  // Default points to local Laravel backend (laravel-fms, DB: efms) on the
+  // dev machine's LAN IP, reachable from a physical Android device on the
+  // same Wi-Fi. For the Android emulator, override with 10.0.2.2.
+  // Production: https://jms.euodoo.com.ph/api/myapi
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://10.123.143.206:8080/myapi',
+    defaultValue: 'http://172.31.55.206:8000/myapi',
   );
   // API endpoints helper methods
   static String getProfileEndpoint(String userId) =>
