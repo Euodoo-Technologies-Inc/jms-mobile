@@ -485,120 +485,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
           top: statusBar + _kTopBarTop,
           left: 12,
           right: 12,
-          child: Material(
-            color: palette.control,
-            elevation: 4,
-            borderRadius: BorderRadius.circular(20),
-            child: SizedBox(
-              height: _kTopBarHeight,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Centre: today's date over the job-progress count. Truly
-                    // centred over the whole bar (a Stack, so the uneven edge
-                    // controls don't shift it) and display-only.
-                    IgnorePointer(
-                      child: Obx(() {
-                        // Jobs still to do. Finished jobs leave the list, so
-                        // a "done / total" count would only ever shrink —
-                        // a plain remaining-count is the honest signal.
-                        final remaining = _jobsCtrl.jobs
-                            .where((j) => !j.isFinished)
-                            .length;
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              DateFormat('EEE, MMM d')
-                                  .format(DateTime.now()),
-                              style: TextStyle(
-                                color: palette.subtle,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              remaining == 0
-                                  ? 'No pending jobs'
-                                  : remaining == 1
-                                      ? '1 job remaining'
-                                      : '$remaining jobs remaining',
-                              style: TextStyle(
-                                color: palette.ink,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        );
-                      }),
-                    ),
-                    // Edge controls overlaid on top.
-                    Row(
-                      children: [
-                        IconButton(
-                          tooltip: 'Job list',
-                          icon: Icon(Icons.list_alt_outlined,
-                              color: palette.ink),
-                          onPressed: () => Get.to(
-                              () => const DispatchJobsOverviewPage()),
-                        ),
-                        Obx(() {
-                          final on = _jobsCtrl.routePreview.value;
-                          // Nothing to route with no jobs — grey it out.
-                          final hasJobs =
-                              _jobsCtrl.jobs.any((j) => !j.isFinished);
-                          return IconButton(
-                            tooltip: !hasJobs
-                                ? 'No jobs to route'
-                                : on
-                                    ? 'Hide job route'
-                                    : 'Show job route',
-                            icon: Icon(
-                              Icons.route_outlined,
-                              color: !hasJobs
-                                  ? palette.subtle.withValues(alpha: 0.4)
-                                  : on
-                                      ? DispatchColors.brand
-                                      : palette.ink,
-                            ),
-                            onPressed: hasJobs
-                                ? _jobsCtrl.toggleRoutePreview
-                                : null,
-                          );
-                        }),
-                        const Spacer(),
-                        // Profile — a rounded square to match the bar.
-                        Material(
-                          color: _DispatchJobCard._kCardGreen,
-                          borderRadius: BorderRadius.circular(12),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () => Get.to(
-                              () => const DispatchProfilePage(),
-                              transition: Transition.rightToLeft,
-                              duration: const Duration(milliseconds: 280),
-                              curve: Curves.easeOutCubic,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(9),
-                              child: Icon(Icons.person,
-                                  color: Colors.white, size: 22),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          child: _MapTopBar(jobsCtrl: _jobsCtrl),
         ),
         // Pending-sync indicator — sits just below the floating top island.
         if (Get.isRegistered<DispatchSyncService>())
@@ -1392,9 +1279,9 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
   static const double _maxFrac = 0.88;
   static const Duration _snap = Duration(milliseconds: 260);
 
-  /// Vertical extent of the drag handle (10 + 4 + 10) — added to the measured
+  /// Vertical extent of the drag handle (22 + 4 + 22) — added to the measured
   /// content when sizing the panel.
-  static const double _handleHeight = 24;
+  static const double _handleHeight = 48;
 
   /// Key on the scrollable content column — its laid-out height is what the
   /// panel sizes itself to, so everything is visible without scrolling.
@@ -1560,15 +1447,19 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle.
-              GestureDetector(
+              // Drag handle — a 48dp-tall labelled target (M3 sheet handle)
+              // around the 4px grip; tap toggles the panel height.
+              Semantics(
+                button: true,
+                label: 'Resize job panel',
+                child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _onHandleTap,
                 onVerticalDragStart: _onDragStart,
                 onVerticalDragUpdate: (d) => _onDragUpdate(d, screenH),
                 onVerticalDragEnd: _onDragEnd,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 22),
                   child: Center(
                     child: Container(
                       width: 40,
@@ -1580,6 +1471,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                     ),
                   ),
                 ),
+              ),
               ),
               // Content — header + detail. The panel measures this column
               // (via [_contentKey]) and opens exactly tall enough to show all
@@ -1895,6 +1787,141 @@ class _PanelActions extends StatelessWidget {
 
 /// The bottom carousel at its live height, and the focused job panel, for
 /// widget tests that pump them without the map page around them.
+/// The floating top island on the map: job list + route toggle on the left,
+/// the job-progress summary in the middle, profile on the right.
+class _MapTopBar extends StatelessWidget {
+  const _MapTopBar({required this.jobsCtrl});
+
+  final DispatchJobsController jobsCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.dispatch;
+    return Material(
+      color: palette.control,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(
+        height: _kTopBarHeight,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Centre: today's date over the job-progress count. Truly
+              // centred over the whole bar (a Stack, so the uneven edge
+              // controls don't shift it) and display-only.
+              IgnorePointer(
+                child: Obx(() {
+                  // Jobs still to do. Finished jobs leave the list, so
+                  // a "done / total" count would only ever shrink —
+                  // a plain remaining-count is the honest signal.
+                  final remaining = jobsCtrl.jobs
+                      .where((j) => !j.isFinished)
+                      .length;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        DateFormat('EEE, MMM d')
+                            .format(DateTime.now()),
+                        style: TextStyle(
+                          color: palette.subtle,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        remaining == 0
+                            ? 'No pending jobs'
+                            : remaining == 1
+                                ? '1 job remaining'
+                                : '$remaining jobs remaining',
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+              // Edge controls overlaid on top.
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Job list',
+                    icon: Icon(Icons.list_alt_outlined,
+                        color: palette.ink),
+                    onPressed: () => Get.to(
+                        () => const DispatchJobsOverviewPage()),
+                  ),
+                  Obx(() {
+                    final on = jobsCtrl.routePreview.value;
+                    // Nothing to route with no jobs — grey it out.
+                    final hasJobs =
+                        jobsCtrl.jobs.any((j) => !j.isFinished);
+                    return IconButton(
+                      tooltip: !hasJobs
+                          ? 'No jobs to route'
+                          : on
+                              ? 'Hide job route'
+                              : 'Show job route',
+                      icon: Icon(
+                        Icons.route_outlined,
+                        color: !hasJobs
+                            ? palette.subtle.withValues(alpha: 0.4)
+                            : on
+                                ? DispatchColors.brand
+                                : palette.ink,
+                      ),
+                      onPressed: hasJobs
+                          ? jobsCtrl.toggleRoutePreview
+                          : null,
+                    );
+                  }),
+                  const Spacer(),
+                  // Profile — a rounded square to match the bar.
+                  Material(
+                    color: _DispatchJobCard._kCardGreen,
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
+                    child: Tooltip(
+                      message: 'Profile',
+                      child: InkWell(
+                        onTap: () => Get.to(
+                          () => const DispatchProfilePage(),
+                          transition: Transition.rightToLeft,
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                        ),
+                        // 48dp square (was 40) for the tap-target minimum.
+                        child: const Padding(
+                          padding: EdgeInsets.all(13),
+                          child: Icon(Icons.person,
+                              color: Colors.white, size: 22),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+Widget debugMapTopBar(DispatchJobsController jobsCtrl) =>
+    _MapTopBar(jobsCtrl: jobsCtrl);
+
 @visibleForTesting
 Widget debugJobCarousel(List<DispatchJob> jobs, {double? etaMeters}) =>
     Builder(
