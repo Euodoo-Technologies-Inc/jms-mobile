@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
@@ -704,10 +705,10 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     } on DispatchApiException catch (e) {
       if (await _handleTerminalAuth(e)) return;
       // Keep any cached jobs visible; surface a friendly error.
-      error.value = e.message;
+      error.value = userMessage(e);
       if (jobs.isNotEmpty) isStale.value = true;
     } catch (e) {
-      error.value = e.toString();
+      error.value = userMessage(e);
       if (jobs.isNotEmpty) isStale.value = true;
     } finally {
       isLoading.value = false;
