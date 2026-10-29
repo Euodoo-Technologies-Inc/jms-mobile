@@ -12,6 +12,7 @@ import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/dispatch/dispatch_constants.dart';
 import '../../../core/dispatch/dispatch_idempotency.dart';
 import '../../../core/models/geo.dart';
+import '../../../core/theme/motion.dart';
 import '../../../data/dispatch/datasource/dispatch_jobs_datasource.dart';
 import '../../../data/dispatch/datasource/dispatch_osrm_datasource.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
@@ -37,12 +38,16 @@ class DispatchQueuedException implements Exception {
 /// Also orchestrates start/finish with persistent idempotency. Per docs §6.6:
 /// one logical action = one Idempotency-Key, persisted across retries,
 /// cleared on terminal response.
-class DispatchJobsController extends GetxController with WidgetsBindingObserver {
-  DispatchJobsController({DispatchJobsDatasource? datasource})
-      : _ds = datasource ?? DispatchJobsDatasource();
+class DispatchJobsController extends GetxController
+    with WidgetsBindingObserver, GetTickerProviderStateMixin {
+  DispatchJobsController({
+    DispatchJobsDatasource? datasource,
+    DispatchOsrmDatasource? osrm,
+  })  : _ds = datasource ?? DispatchJobsDatasource(),
+        _osrm = osrm ?? DispatchOsrmDatasource();
 
   final DispatchJobsDatasource _ds;
-  final DispatchOsrmDatasource _osrm = DispatchOsrmDatasource();
+  final DispatchOsrmDatasource _osrm;
 
   // ---- Jobs list state ------------------------------------------------------
 
@@ -113,20 +118,18 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// this rate doesn't translate into network traffic 1:1.
   static const Duration _riderTrackInterval = Duration(seconds: 10);
 
-  /// Total duration of the polyline "draw-on" reveal animation.
-  static const Duration _routeAnimDuration = Duration(milliseconds: 800);
-  static const Duration _routeAnimTick = Duration(milliseconds: 16);
+  /// Polyline "draw-on" reveal: a vsync ticker with eased progress, so it
+  /// runs once per frame and pauses with the app instead of a 16 ms timer.
+  late final AnimationController _routeAnim =
+      _revealAnim(Motion.long, routeRevealCount, routePoints);
 
   /// Longer reveal for the all-jobs preview — it spans the whole day's route,
   /// so it draws stop-by-stop over a more deliberate beat.
-  static const Duration _previewAnimDuration = Duration(milliseconds: 1700);
+  late final AnimationController _previewAnim =
+      _revealAnim(Motion.long * 3, previewRevealCount, previewRoutePoints);
 
   Timer? _pollTimer;
   Timer? _riderTrackTimer;
-  Timer? _routeAnimTimer;
-  Stopwatch? _routeAnimClock;
-  Timer? _previewAnimTimer;
-  Stopwatch? _previewAnimClock;
   bool _isForeground = true;
 
   int _routeRequestSeq = 0;
@@ -168,8 +171,8 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     WidgetsBinding.instance.removeObserver(this);
     _stopPolling();
     _stopRiderTracking();
-    _stopRouteAnim();
-    _stopPreviewAnim();
+    _routeAnim.dispose();
+    _previewAnim.dispose();
     _jobsWorker?.dispose();
     super.onClose();
   }
@@ -311,7 +314,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       if (animate) {
         // Draw the line on — stop by stop, in route order.
         previewRevealCount.value = 2;
-        _startPreviewAnim(pts.length);
+        _startPreviewAnim();
       } else {
         // A silent refetch (jobs changed) — snap to the full line.
         _stopPreviewAnim();
@@ -334,27 +337,9 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
 
   /// Reveals [previewRoutePoints] progressively — the line draws itself from
   /// the first stop through to the last.
-  void _startPreviewAnim(int totalPoints) {
-    _stopPreviewAnim();
-    _previewAnimClock = Stopwatch()..start();
-    _previewAnimTimer = Timer.periodic(_routeAnimTick, (_) {
-      final elapsed = _previewAnimClock?.elapsedMilliseconds ?? 0;
-      final t =
-          (elapsed / _previewAnimDuration.inMilliseconds).clamp(0.0, 1.0);
-      final target = (totalPoints * t).round().clamp(2, totalPoints);
-      if (target != previewRevealCount.value) {
-        previewRevealCount.value = target;
-      }
-      if (t >= 1.0) _stopPreviewAnim();
-    });
-  }
+  void _startPreviewAnim() => _startReveal(_previewAnim);
 
-  void _stopPreviewAnim() {
-    _previewAnimTimer?.cancel();
-    _previewAnimTimer = null;
-    _previewAnimClock?.stop();
-    _previewAnimClock = null;
-  }
+  void _stopPreviewAnim() => _previewAnim.stop();
 
   // ---- Rider tracking -------------------------------------------------------
 
@@ -535,7 +520,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       etaMeters.value = result!.distanceMeters;
       if (targetChanged) {
         routeRevealCount.value = 2;
-        _startRouteAnim(pts.length);
+        _startRouteAnim();
       } else {
         _stopRouteAnim();
         routeRevealCount.value = pts.length;
@@ -593,25 +578,37 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
 
   // ---- Route reveal animation ----------------------------------------------
 
-  void _startRouteAnim(int totalPoints) {
-    _stopRouteAnim();
-    _routeAnimClock = Stopwatch()..start();
-    _routeAnimTimer = Timer.periodic(_routeAnimTick, (_) {
-      final elapsed = _routeAnimClock?.elapsedMilliseconds ?? 0;
-      final t = (elapsed / _routeAnimDuration.inMilliseconds).clamp(0.0, 1.0);
-      final target = (totalPoints * t).round().clamp(2, totalPoints);
-      if (target != routeRevealCount.value) {
-        routeRevealCount.value = target;
-      }
-      if (t >= 1.0) _stopRouteAnim();
+  void _startRouteAnim() => _startReveal(_routeAnim);
+
+  void _stopRouteAnim() => _routeAnim.stop();
+
+  /// A reveal driver: eases [count] from 2 up to all of [points] as [anim]
+  /// runs. Only writes [count] when it changes, so the map rebuilds per new
+  /// point rather than per frame.
+  AnimationController _revealAnim(
+    Duration duration,
+    RxInt count,
+    Rxn<List<GeoPoint>> points,
+  ) {
+    final anim = AnimationController(vsync: this, duration: duration);
+    final eased = CurvedAnimation(parent: anim, curve: Motion.emphasized);
+    anim.addListener(() {
+      final total = points.value?.length ?? 0;
+      if (total < 2) return;
+      final target = (total * eased.value).round().clamp(2, total);
+      if (target != count.value) count.value = target;
     });
+    return anim;
   }
 
-  void _stopRouteAnim() {
-    _routeAnimTimer?.cancel();
-    _routeAnimTimer = null;
-    _routeAnimClock?.stop();
-    _routeAnimClock = null;
+  /// Draws a line on from its first point — or all at once under the OS
+  /// "Remove animations" setting.
+  void _startReveal(AnimationController anim) {
+    if (Motion.reducedNow) {
+      anim.value = 1;
+    } else {
+      anim.forward(from: 0);
+    }
   }
 
   // ---- Polling --------------------------------------------------------------
