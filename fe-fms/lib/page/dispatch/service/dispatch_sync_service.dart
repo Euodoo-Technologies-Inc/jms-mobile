@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:developer';
 
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
@@ -12,18 +13,24 @@ import '../../../data/dispatch/offline/dispatch_queue_repository.dart';
 import '../controller/dispatch_auth_controller.dart';
 import '../controller/dispatch_jobs_controller.dart';
 
-/// Drains [DispatchQueueRepository] when the device reconnects and a
-/// dispatch session is active. Per docs §8.3:
+/// Drains [DispatchQueueRepository] when the device reconnects, the session
+/// starts, or the app comes back to the foreground — the last so an entry
+/// left by a 5xx while online doesn't wait for the next reconnect. Only while
+/// a dispatch session is active. Per docs §8.3:
 ///   - 2xx, 409, 422 → terminal, remove from queue
 ///   - 401 → stop draining, route to login
 ///   - 5xx / network → stop, retry later (no removal)
 class DispatchSyncService extends GetxService {
+  DispatchSyncService({DispatchJobsDatasource? jobs})
+      : _jobs = jobs ?? DispatchJobsDatasource();
+
   final DispatchQueueRepository _queue = DispatchQueueRepository();
-  final DispatchJobsDatasource _jobs = DispatchJobsDatasource();
+  final DispatchJobsDatasource _jobs;
   final DispatchAuthDatasource _auth = DispatchAuthDatasource();
 
   Worker? _connWorker;
   Worker? _authWorker;
+  AppLifecycleListener? _lifecycle;
   bool _draining = false;
 
   /// Observable count of queued operations (for UI badges).
@@ -44,6 +51,7 @@ class DispatchSyncService extends GetxService {
         },
       );
     }
+    _lifecycle = AppLifecycleListener(onResume: _maybeDrain);
     await _refreshCount();
     return this;
   }
@@ -53,8 +61,8 @@ class DispatchSyncService extends GetxService {
   }
 
   /// Returns true if the action was queued; false if it should bubble up.
-  Future<bool> enqueueStart(int jobId) async {
-    await _queue.enqueueStart(jobId);
+  Future<bool> enqueueStart(int jobId, {DateTime? startedAt}) async {
+    await _queue.enqueueStart(jobId, startedAt: startedAt);
     await _refreshCount();
     return true;
   }
@@ -64,12 +72,14 @@ class DispatchSyncService extends GetxService {
     String? notes,
     String? meterNumber,
     List<File> photos = const [],
+    DateTime? finishedAt,
   }) async {
     await _queue.enqueueFinish(
       jobId,
       notes: notes,
       meterNumber: meterNumber,
       photos: photos,
+      finishedAt: finishedAt,
     );
     await _refreshCount();
     return true;
@@ -121,8 +131,11 @@ class DispatchSyncService extends GetxService {
             action: 'start',
             jobId: jobId,
           );
-          final updated =
-              await _jobs.startJob(jobId, idempotencyKey: key);
+          final updated = await _jobs.startJob(
+            jobId,
+            idempotencyKey: key,
+            startedAt: entry.actionAt,
+          );
           await DispatchIdempotencyStore.clear(action: 'start', jobId: jobId);
           _patchJobsController(updated);
           return true;
@@ -153,6 +166,7 @@ class DispatchSyncService extends GetxService {
             notes: entry.notes,
             meterNumber: entry.meterNumber,
             photos: files,
+            finishedAt: entry.actionAt,
           );
           await DispatchIdempotencyStore.clear(action: 'finish', jobId: jobId);
           _patchJobsController(updated);
@@ -218,6 +232,7 @@ class DispatchSyncService extends GetxService {
   void onClose() {
     _connWorker?.dispose();
     _authWorker?.dispose();
+    _lifecycle?.dispose();
     super.onClose();
   }
 }

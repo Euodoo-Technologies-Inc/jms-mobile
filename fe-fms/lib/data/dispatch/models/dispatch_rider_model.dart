@@ -7,6 +7,9 @@ class DispatchRider {
     this.companyId,
     this.category,
     this.license,
+    this.riderId,
+    this.vehicleName,
+    this.externalSource,
   });
 
   final int userId;
@@ -16,6 +19,13 @@ class DispatchRider {
   final String? category;
   final String? license;
 
+  /// From `/me` only (older backends and login omit them).
+  final int? riderId;
+  final String? vehicleName;
+
+  /// `ormeco_mcs` for an ORMECO crew, null for our own riders.
+  final String? externalSource;
+
   factory DispatchRider.fromJson(Map<String, dynamic> json) {
     return DispatchRider(
       userId: (json['user_id'] as num).toInt(),
@@ -24,6 +34,10 @@ class DispatchRider {
       companyId: (json['company_id'] as num?)?.toInt(),
       category: json['category']?.toString(),
       license: json['license']?.toString(),
+      riderId: (json['rider_id'] as num?)?.toInt(),
+      vehicleName: json['vehicle_name']?.toString() ??
+          (json['vehicle'] is Map ? json['vehicle']['vehicle_name']?.toString() : null),
+      externalSource: json['external_source']?.toString(),
     );
   }
 
@@ -34,6 +48,9 @@ class DispatchRider {
         if (companyId != null) 'company_id': companyId,
         if (category != null) 'category': category,
         if (license != null) 'license': license,
+        if (riderId != null) 'rider_id': riderId,
+        if (vehicleName != null) 'vehicle_name': vehicleName,
+        if (externalSource != null) 'external_source': externalSource,
       };
 }
 

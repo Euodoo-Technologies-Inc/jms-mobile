@@ -731,12 +731,17 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
   /// Throws [DispatchQueuedException] if the call failed transiently and was
   /// queued for later sync. On 401/403 wipes auth and rethrows.
   Future<DispatchJob> startJob(int jobId) async {
+    final startedAt = DateTime.now();
     final key = await DispatchIdempotencyStore.getOrCreate(
       action: _startAction,
       jobId: jobId,
     );
     try {
-      final updated = await _ds.startJob(jobId, idempotencyKey: key);
+      final updated = await _ds.startJob(
+        jobId,
+        idempotencyKey: key,
+        startedAt: startedAt,
+      );
       _patch(updated);
       await DispatchIdempotencyStore.clear(action: _startAction, jobId: jobId);
       return updated;
@@ -749,7 +754,8 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       // the sync service replays the same key.
       if ((e.isNetwork || e.statusCode >= 500) &&
           Get.isRegistered<DispatchSyncService>()) {
-        await Get.find<DispatchSyncService>().enqueueStart(jobId);
+        await Get.find<DispatchSyncService>()
+            .enqueueStart(jobId, startedAt: startedAt);
         throw DispatchQueuedException(_startAction, jobId);
       }
       if (e.statusCode >= 400 && e.statusCode < 500 && e.statusCode != 409) {
@@ -773,6 +779,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     String? meterNumber,
     List<File> photos = const [],
   }) async {
+    final finishedAt = DateTime.now();
     final key = await DispatchIdempotencyStore.getOrCreate(
       action: _finishAction,
       jobId: jobId,
@@ -784,6 +791,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
         notes: notes,
         meterNumber: meterNumber,
         photos: photos,
+        finishedAt: finishedAt,
       );
       _patch(updated);
       await DispatchIdempotencyStore.clear(
@@ -801,6 +809,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
           notes: notes,
           meterNumber: meterNumber,
           photos: photos,
+          finishedAt: finishedAt,
         );
         throw DispatchQueuedException(_finishAction, jobId);
       }

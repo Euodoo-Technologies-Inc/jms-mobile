@@ -14,6 +14,7 @@ import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
 import '../service/dispatch_notice_service.dart';
 import '../service/dispatch_sync_service.dart';
+import '../widget/dispatch_external_status_pill.dart';
 import 'dispatch_finish_job_page.dart';
 import 'dispatch_jobs_overview_page.dart';
 import 'dispatch_profile_page.dart';
@@ -986,7 +987,16 @@ class _DispatchJobCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _JobStatusPill(job: job),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _JobStatusPill(job: job),
+                      if (job.externalStatusLabel != null) ...[
+                        const SizedBox(height: 4),
+                        DispatchExternalStatusPill(job: job),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               // Destination address.
@@ -1505,6 +1515,10 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                             Row(
                               children: [
                                 _JobStatusPill(job: job),
+                                if (job.externalStatusLabel != null) ...[
+                                  const SizedBox(width: 6),
+                                  DispatchExternalStatusPill(job: job),
+                                ],
                                 const Spacer(),
                                 if (widget.etaMeters != null) ...[
                                   const Icon(Icons.near_me_outlined,
@@ -1562,6 +1576,8 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 label: 'Notes',
                                 value: job.notes!,
                               ),
+                            for (final section in job.externalDetails)
+                              DispatchJobDetailSectionTile(section: section),
                             const SizedBox(height: 16),
                             _PanelActions(
                               job: job,
@@ -1713,13 +1729,45 @@ class _PanelActions extends StatelessWidget {
   }
 }
 
+/// One ORMECO details section, collapsed so the panel stays map-sized. Public
+/// only so a widget test can pump it without the map page around it.
+@visibleForTesting
+class DispatchJobDetailSectionTile extends StatelessWidget {
+  const DispatchJobDetailSectionTile({super.key, required this.section});
+  final DispatchJobDetailSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      // ExpansionTile draws theme dividers above and below; the panel has none.
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        iconColor: Colors.white,
+        collapsedIconColor: Colors.white,
+        title: Text(
+          section.heading,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        children: [
+          for (final f in section.fields) _InfoRow(label: f.label, value: f.value),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.value,
   });
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final String value;
 
@@ -1731,8 +1779,10 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: muted),
-          const SizedBox(width: 10),
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: muted),
+            const SizedBox(width: 10),
+          ],
           SizedBox(
             width: 86,
             child: Text(label,
