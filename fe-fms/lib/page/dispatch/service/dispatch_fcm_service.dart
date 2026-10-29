@@ -10,6 +10,7 @@ import '../../../core/dispatch/dispatch_constants.dart';
 import '../../../data/dispatch/datasource/dispatch_auth_datasource.dart';
 import '../controller/dispatch_auth_controller.dart';
 import '../controller/dispatch_jobs_controller.dart';
+import 'dispatch_notice_service.dart';
 import 'dispatch_sync_service.dart';
 
 /// Subscribes to FCM token rotations and forwards them to
@@ -28,12 +29,12 @@ class DispatchFcmService extends GetxService {
     // Foreground push (data payload triggers refresh per docs §9).
     _msgSub = FirebaseMessaging.onMessage.listen(_onMessage);
     // Push tapped from background.
-    _openedSub =
-        FirebaseMessaging.onMessageOpenedApp.listen(_onMessage);
+    _openedSub = FirebaseMessaging.onMessageOpenedApp
+        .listen((m) => _onMessage(m, opened: true));
     // Cold start: app launched by tapping a notification.
     try {
       final initial = await FirebaseMessaging.instance.getInitialMessage();
-      if (initial != null) _onMessage(initial);
+      if (initial != null) _onMessage(initial, opened: true);
     } catch (_) {}
     return this;
   }
@@ -41,8 +42,9 @@ class DispatchFcmService extends GetxService {
   /// Refreshes the jobs list whenever an FCM message carries a `job_id` data
   /// field — covers admin-assigns, reassigns, and reschedule notifications.
   /// Legacy pushes that don't carry `job_id` are ignored here (the legacy
-  /// FCM handler still processes them).
-  void _onMessage(RemoteMessage message) {
+  /// FCM handler still processes them). A *tapped* notification ([opened])
+  /// also opens that job on the map once the refresh lands.
+  void _onMessage(RemoteMessage message, {bool opened = false}) {
     final data = message.data;
     if (data.isEmpty) return;
     final jobId = data['job_id']?.toString();
@@ -50,16 +52,41 @@ class DispatchFcmService extends GetxService {
 
     if (!Get.isRegistered<DispatchAuthController>()) return;
     final auth = Get.find<DispatchAuthController>();
-    if (!auth.isAuthenticated.value) return;
+    if (!auth.isAuthenticated.value) {
+      // Cold start: the session is still restoring — retry the tap once it
+      // is up instead of dropping it.
+      if (opened) {
+        once(auth.isAuthenticated, (bool ok) {
+          if (ok) _onMessage(message, opened: true);
+        });
+      }
+      return;
+    }
 
     if (Get.isRegistered<DispatchJobsController>()) {
       final ctrl = Get.find<DispatchJobsController>();
-      ctrl.refreshToday();
+      final refresh = ctrl.refreshToday();
       final parsed = int.tryParse(jobId);
       if (parsed != null) {
         // Best-effort detail refresh; ignore failures.
         ctrl.fetchDetail(parsed).catchError((_) => null);
+        if (opened) refresh.then((_) => _openJob(ctrl, parsed));
       }
+    }
+  }
+
+  /// Brings the map to the front and focuses [jobId], or says why it can't.
+  void _openJob(DispatchJobsController ctrl, int jobId) {
+    final job = ctrl.jobs.firstWhereOrNull((j) => j.id == jobId);
+    final notices = Get.find<DispatchNoticeController>();
+    if (job == null || job.isFinished) {
+      notices.info('That job is no longer on your list for today.');
+      return;
+    }
+    // The map is the dispatch session's root route.
+    Get.until((route) => route.isFirst);
+    if (!ctrl.selectJob(job)) {
+      notices.info('This job has no coordinates yet.');
     }
   }
 

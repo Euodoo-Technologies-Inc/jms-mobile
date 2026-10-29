@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -91,6 +93,13 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
 
   late final DispatchJobsController _jobsCtrl;
 
+  /// Why the rider's position can't be read (GPS off / permission denied),
+  /// or null when location works. Drives the "Enable" banner.
+  final RxnString _locationOff = RxnString();
+
+  /// Re-checks location when the user comes back from system settings.
+  late final AppLifecycleListener _lifecycle;
+
   /// App-wide transient-notice banner.
   DispatchNoticeController get _notices =>
       Get.find<DispatchNoticeController>();
@@ -110,6 +119,55 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
         ? Get.find<DispatchJobsController>()
         : Get.put(DispatchJobsController(), permanent: true);
     _applyNoticeTopOffset();
+    _checkLocation(request: true);
+    // No prompt on resume: the permission dialog itself pauses/resumes the
+    // app, so requesting here would re-prompt in a loop after a denial.
+    _lifecycle = AppLifecycleListener(onResume: _checkLocation);
+  }
+
+  /// Asks for location once when the map opens and keeps [_locationOff] in
+  /// step with the OS, so a missing rider dot / "—" distances are explained.
+  Future<void> _checkLocation({bool request = false}) async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _locationOff.value = 'Location is off — your position and '
+            'distances to jobs can\'t show.';
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (request && permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _locationOff.value = 'Location access is off — your position and '
+            'distances to jobs can\'t show.';
+        return;
+      }
+      if (!mounted) return;
+      final wasOff = _locationOff.value != null;
+      _locationOff.value = null;
+      if (wasOff || request) {
+        unawaited(_jobsCtrl.refreshRiderPosition(force: true));
+      }
+    } catch (_) {
+      // No location plugin (tests / unsupported platform) — nothing to show.
+    }
+  }
+
+  /// Banner "Enable": GPS settings when the service is off, app settings when
+  /// the permission is permanently denied, otherwise the system prompt again.
+  Future<void> _enableLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        await Geolocator.openLocationSettings();
+      } else if (await Geolocator.checkPermission() ==
+          LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+      } else {
+        await _checkLocation(request: true);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -138,6 +196,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     // dispose runs during the unmount phase — also defer the Rx write so it
     // can't mark the host's Obx dirty while the frame is still being built.
     if (Get.isRegistered<DispatchNoticeController>()) {
@@ -188,6 +247,39 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     }
   }
 
+  /// Back peels the map's layers one at a time — the focused panel, then the
+  /// route preview — and only then asks before leaving the app, matching the
+  /// 2W exit confirm in `nav_bar.dart`.
+  Future<void> _onBack(bool didPop, Object? _) async {
+    if (didPop) return;
+    if (_jobsCtrl.selectedJobId.value != null) {
+      _jobsCtrl.clearSelection();
+      return;
+    }
+    if (_jobsCtrl.routePreview.value) {
+      _jobsCtrl.toggleRoutePreview();
+      return;
+    }
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit App'),
+        content: const Text('Do you want to exit the application?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    if (shouldExit == true) SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -198,63 +290,84 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
-      child: Scaffold(
-        // No AppBar — the map runs full-bleed to the top edge of the screen.
-        // The profile entry point is a floating button overlaid on the map.
-        body: Obx(() {
-        // Top-level Obx: only top-of-tree state (loading / error / empty /
-        // stale). Map + panel have their own scoped Obx so they don't
-        // rebuild on unrelated state changes.
-        if (_jobsCtrl.isLoading.value && _jobsCtrl.jobs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (_jobsCtrl.error.value != null && _jobsCtrl.jobs.isEmpty) {
-          return SafeArea(
-            child: _ErrorState(
-              message: _jobsCtrl.error.value ?? 'Failed to load',
-              onRetry: _jobsCtrl.refreshToday,
-            ),
-          );
-        }
-
-        // Map fills the screen; the bottom panel + the offline / stale
-        // banner float over it via a Stack so neither one pushes the map
-        // around when it appears or resizes.
-        return Stack(
-          children: [
-            Positioned.fill(child: _buildMapArea()),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildBottomArea(),
-            ),
-            // Offline / stale-cache banner: bottom-anchored, floating above
-            // the carousel/panel rather than pushing the top bar down.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Obx(() {
-                if (!_jobsCtrl.isStale.value) return const SizedBox.shrink();
-                final panelH = _panelFracLive.value *
-                    MediaQuery.of(context).size.height;
-                final hasFocus = _jobsCtrl.selectedJobId.value != null &&
-                    !_jobsCtrl.routePreview.value;
-                final bottomGap = (hasFocus ? panelH : _kCarouselHeight) + 12;
-                return Padding(
-                  padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
-                  child: _StaleBanner(
-                    message:
-                        _jobsCtrl.error.value ?? 'Showing cached jobs.',
-                    onRetry: _jobsCtrl.refreshToday,
-                  ),
-                );
-              }),
-            ),
-          ],
-        );
-        }),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: _onBack,
+        child: Scaffold(
+          // No AppBar — the map runs full-bleed to the top edge of the
+          // screen. The profile entry point is a floating button overlaid on
+          // the map. Loading and load errors render *over* the map so the
+          // top bar (job list, profile, log out) is always reachable.
+          body: Stack(
+            children: [
+              Positioned.fill(child: _buildMapArea()),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildBottomArea(),
+              ),
+              // First load only — later polls refresh in place, so a day
+              // with zero jobs never blanks the map every 30 s.
+              Obx(() => _jobsCtrl.isLoading.value &&
+                      _jobsCtrl.jobs.isEmpty &&
+                      _jobsCtrl.lastFetchedAt.value == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : const SizedBox.shrink()),
+              // Location-off and offline / load-error banners: bottom-
+              // anchored, floating above the carousel/panel rather than
+              // pushing the top bar down.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Obx(() {
+                  final error = _jobsCtrl.error.value;
+                  final showError = _jobsCtrl.isStale.value ||
+                      (error != null && _jobsCtrl.jobs.isEmpty);
+                  final locationOff = _locationOff.value;
+                  if (!showError && locationOff == null) {
+                    return const SizedBox.shrink();
+                  }
+                  final panelH = _panelFracLive.value *
+                      MediaQuery.of(context).size.height;
+                  final hasFocus = _jobsCtrl.selectedJobId.value != null &&
+                      !_jobsCtrl.routePreview.value;
+                  final hasCarousel =
+                      _jobsCtrl.jobs.any((j) => !j.isFinished);
+                  final bottomGap = (hasFocus
+                          ? panelH
+                          : hasCarousel
+                              ? _kCarouselHeight
+                              : MediaQuery.of(context).padding.bottom) +
+                      12;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (locationOff != null)
+                          _StaleBanner(
+                            icon: Icons.location_off,
+                            message: locationOff,
+                            actionLabel: 'Enable',
+                            onAction: _enableLocation,
+                          ),
+                        if (locationOff != null && showError)
+                          const SizedBox(height: 8),
+                        if (showError)
+                          _StaleBanner(
+                            message: error ?? 'Showing cached jobs.',
+                            onAction: _jobsCtrl.refreshToday,
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -552,7 +665,11 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                       tooltip: focused
                           ? 'Recenter on the route'
                           : 'Center on my location',
-                      onPressed: _jobsCtrl.recenterOnRider,
+                      // Centring on the rider needs a fix — explain and
+                      // offer to turn location on instead of doing nothing.
+                      onPressed: !focused && _locationOff.value != null
+                          ? _enableLocation
+                          : _jobsCtrl.recenterOnRider,
                       child: const Icon(Icons.my_location),
                     ),
                   ),
@@ -1597,7 +1714,6 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 context,
                                 lat: job.lat!,
                                 lng: job.lng!,
-                                label: job.jobName,
                               ),
                             ),
                           ],
@@ -1806,9 +1922,16 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _StaleBanner extends StatelessWidget {
-  const _StaleBanner({required this.message, required this.onRetry});
+  const _StaleBanner({
+    required this.message,
+    required this.onAction,
+    this.icon = Icons.cloud_off,
+    this.actionLabel = 'Retry',
+  });
   final String message;
-  final VoidCallback onRetry;
+  final VoidCallback onAction;
+  final IconData icon;
+  final String actionLabel;
 
   static const Color _amber = Color(0xFFb45309);
 
@@ -1827,7 +1950,7 @@ class _StaleBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.cloud_off, size: 18, color: _amber),
+            Icon(icon, size: 18, color: _amber),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -1842,7 +1965,7 @@ class _StaleBanner extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: onRetry,
+              onPressed: onAction,
               style: TextButton.styleFrom(
                 foregroundColor: DispatchColors.brand,
                 textStyle: const TextStyle(
@@ -1852,7 +1975,7 @@ class _StaleBanner extends StatelessWidget {
                 minimumSize: const Size(56, 36),
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
-              child: const Text('Retry'),
+              child: Text(actionLabel),
             ),
           ],
         ),
@@ -1860,29 +1983,3 @@ class _StaleBanner extends StatelessWidget {
     );
   }
 }
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 80),
-        const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
-        const SizedBox(height: 12),
-        Center(child: Text(message)),
-        const SizedBox(height: 16),
-        Center(
-          child: FilledButton.tonal(
-            onPressed: onRetry,
-            child: const Text('Retry'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-

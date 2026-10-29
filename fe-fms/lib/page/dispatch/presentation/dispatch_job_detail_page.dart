@@ -186,7 +186,6 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
                     context,
                     lat: job.lat!,
                     lng: job.lng!,
-                    label: job.jobName,
                   ),
                 ),
               ],

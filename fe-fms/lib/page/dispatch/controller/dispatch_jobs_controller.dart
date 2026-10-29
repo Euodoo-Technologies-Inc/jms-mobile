@@ -208,7 +208,8 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     // flicker. _maybeFetchRoute overwrites it with the new target's distance.
     _lastEtaKey = null;
     followRider.value = false;
-    fetchDetail(job.id);
+    // Best-effort refresh; the card already shows the cached copy.
+    fetchDetail(job.id).catchError((_) => null);
     refreshRiderPosition().then((_) => _maybeFetchRoute());
     return true;
   }

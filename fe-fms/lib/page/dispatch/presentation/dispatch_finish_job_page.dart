@@ -37,6 +37,38 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
   bool get _hasEnoughPhotos => _photos.length >= DispatchConstants.minPhotos;
   bool get _hasMeter => _meterCtrl.text.trim().isNotEmpty;
   bool get _canSubmit => _hasEnoughPhotos && _hasMeter && !_submitting;
+  bool get _hasInput =>
+      _photos.isNotEmpty || _hasMeter || _notesCtrl.text.trim().isNotEmpty;
+
+  /// Back with a half-filled form asks first instead of silently dropping
+  /// the photos, meter number and notes. Blocked outright mid-submit.
+  Future<void> _onBack(bool didPop, Object? _) async {
+    if (didPop || _submitting) return;
+    if (!_hasInput) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard this finish?'),
+        content: const Text(
+          'Your photos, meter number and notes will be lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.of(context).pop();
+  }
 
   @override
   void initState() {
@@ -144,124 +176,128 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
-    return Scaffold(
-      backgroundColor: palette.pageSurface,
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _onBack,
+      child: Scaffold(
         backgroundColor: palette.pageSurface,
-        surfaceTintColor: palette.pageSurface,
-        foregroundColor: palette.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text(
-          'Finish job',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        appBar: AppBar(
+          backgroundColor: palette.pageSurface,
+          surfaceTintColor: palette.pageSurface,
+          foregroundColor: palette.ink,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          shape: Border(bottom: BorderSide(color: palette.cardBorder)),
+          title: const Text(
+            'Finish job',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _SectionLabel('Proof of work'),
-              _PhotoGrid(
-                photos: _photos,
-                onRemove: (f) => setState(() => _photos.remove(f)),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PhotoPickButton(
-                      icon: Icons.photo_camera_outlined,
-                      label: 'Camera',
-                      onPressed: _submitting
-                          ? null
-                          : () => _pick(ImageSource.camera),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SectionLabel('Proof of work'),
+                _PhotoGrid(
+                  photos: _photos,
+                  onRemove: (f) => setState(() => _photos.remove(f)),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PhotoPickButton(
+                        icon: Icons.photo_camera_outlined,
+                        label: 'Camera',
+                        onPressed: _submitting
+                            ? null
+                            : () => _pick(ImageSource.camera),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _PhotoPickButton(
+                        icon: Icons.photo_library_outlined,
+                        label: 'Gallery',
+                        onPressed: _submitting
+                            ? null
+                            : () => _pick(ImageSource.gallery),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _PhotoCounter(
+                  count: _photos.length,
+                  min: DispatchConstants.minPhotos,
+                  max: DispatchConstants.maxPhotos,
+                ),
+                const SizedBox(height: 22),
+                const _SectionLabel('Meter number'),
+                _PaletteTextField(
+                  controller: _meterCtrl,
+                  hint: 'Enter meter reading',
+                  maxLength: 64,
+                  inputFormatters: [LengthLimitingTextInputFormatter(64)],
+                ),
+                const SizedBox(height: 22),
+                const _SectionLabel('Notes (optional)'),
+                _PaletteTextField(
+                  controller: _notesCtrl,
+                  hint: 'Add a note about this job',
+                  maxLines: 4,
+                  maxLength: DispatchConstants.maxNotesLength,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(
+                      DispatchConstants.maxNotesLength,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 26),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: DispatchColors.brand,
+                      foregroundColor: DispatchColors.onBrand,
+                      disabledBackgroundColor:
+                          DispatchColors.brand.withValues(alpha: 0.4),
+                      disabledForegroundColor:
+                          DispatchColors.onBrand.withValues(alpha: 0.8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: _canSubmit ? _submit : null,
+                    icon: _submitting
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: DispatchColors.onBrand,
+                            ),
+                          )
+                        : const Icon(Icons.check, size: 20),
+                    label: const Text('Submit'),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _PhotoPickButton(
-                      icon: Icons.photo_library_outlined,
-                      label: 'Gallery',
-                      onPressed: _submitting
-                          ? null
-                          : () => _pick(ImageSource.gallery),
-                    ),
+                ),
+                if (!_hasEnoughPhotos || !_hasMeter) ...[
+                  const SizedBox(height: 10),
+                  _MissingRequirementsHint(
+                    needsPhotos: !_hasEnoughPhotos,
+                    needsMeter: !_hasMeter,
+                    minPhotos: DispatchConstants.minPhotos,
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              _PhotoCounter(
-                count: _photos.length,
-                min: DispatchConstants.minPhotos,
-                max: DispatchConstants.maxPhotos,
-              ),
-              const SizedBox(height: 22),
-              const _SectionLabel('Meter number'),
-              _PaletteTextField(
-                controller: _meterCtrl,
-                hint: 'Enter meter reading',
-                maxLength: 64,
-                inputFormatters: [LengthLimitingTextInputFormatter(64)],
-              ),
-              const SizedBox(height: 22),
-              const _SectionLabel('Notes (optional)'),
-              _PaletteTextField(
-                controller: _notesCtrl,
-                hint: 'Add a note about this job',
-                maxLines: 4,
-                maxLength: DispatchConstants.maxNotesLength,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(
-                    DispatchConstants.maxNotesLength,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 26),
-              SizedBox(
-                height: 50,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: DispatchColors.brand,
-                    foregroundColor: DispatchColors.onBrand,
-                    disabledBackgroundColor:
-                        DispatchColors.brand.withValues(alpha: 0.4),
-                    disabledForegroundColor:
-                        DispatchColors.onBrand.withValues(alpha: 0.8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  onPressed: _canSubmit ? _submit : null,
-                  icon: _submitting
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: DispatchColors.onBrand,
-                          ),
-                        )
-                      : const Icon(Icons.check, size: 20),
-                  label: const Text('Submit'),
-                ),
-              ),
-              if (!_hasEnoughPhotos || !_hasMeter) ...[
-                const SizedBox(height: 10),
-                _MissingRequirementsHint(
-                  needsPhotos: !_hasEnoughPhotos,
-                  needsMeter: !_hasMeter,
-                  minPhotos: DispatchConstants.minPhotos,
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
