@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../main.dart' show RootGate;
-import '../../auth/presentation/login_chooser_page.dart';
 import '../controller/dispatch_auth_controller.dart';
 import '../widget/dispatch_auth_widgets.dart';
 import 'dispatch_activate_page.dart';
@@ -75,9 +74,9 @@ class _DispatchLoginPageState extends State<DispatchLoginPage> {
               icon: Icons.directions_car_filled_outlined,
               title: 'Welcome',
               subtitle: 'Sign in as a driver',
-              // On a logout-triggered Get.offAll this page is the navigator
-              // root, so route back to the chooser explicitly.
-              onBack: () => Get.offAll(() => const LoginChooserPage()),
+              // Pop back to the chooser — reverses the slide-in transition
+              // (the chooser always sits beneath this page).
+              onBack: () => Get.back(),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),

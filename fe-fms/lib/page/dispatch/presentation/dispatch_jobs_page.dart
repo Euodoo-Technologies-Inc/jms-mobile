@@ -108,7 +108,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     // initialised it — preserves rider/route/ETA state across page rebuilds.
     _jobsCtrl = Get.isRegistered<DispatchJobsController>()
         ? Get.find<DispatchJobsController>()
-        : Get.put(DispatchJobsController());
+        : Get.put(DispatchJobsController(), permanent: true);
     _applyNoticeTopOffset();
   }
 
@@ -454,8 +454,12 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                           borderRadius: BorderRadius.circular(12),
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
-                            onTap: () =>
-                                Get.to(() => const DispatchProfilePage()),
+                            onTap: () => Get.to(
+                              () => const DispatchProfilePage(),
+                              transition: Transition.rightToLeft,
+                              duration: const Duration(milliseconds: 280),
+                              curve: Curves.easeOutCubic,
+                            ),
                             child: const Padding(
                               padding: EdgeInsets.all(9),
                               child: Icon(Icons.person,
@@ -621,7 +625,10 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                   onClose: _jobsCtrl.clearSelection,
                   onStart: () => _startJob(selected.id),
                   onFinish: () => Get.to(
-                      () => DispatchFinishJobPage(jobId: selected.id)),
+                      () => DispatchFinishJobPage(jobId: selected.id),
+                      transition: Transition.rightToLeft,
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic),
                   onFracChanged: (f) => _panelFrac.value = f,
                   onFracLive: (f) => _panelFracLive.value = f,
                   panelDragging: _panelDragging,

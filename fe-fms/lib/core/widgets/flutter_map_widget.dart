@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:fms/core/models/geo.dart';
 
@@ -185,6 +186,11 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.querta.fms',
             maxZoom: 15,
+            // Cancels in-flight requests for tiles pruned during the
+            // fit-to-bounds camera animation, instead of letting them tie up
+            // OSM's per-IP connection limit and starve the tiles actually in
+            // view. Drop-in for the default NetworkTileProvider.
+            tileProvider: CancellableNetworkTileProvider(),
           ),
           if (zones.isNotEmpty)
             PolygonLayer(

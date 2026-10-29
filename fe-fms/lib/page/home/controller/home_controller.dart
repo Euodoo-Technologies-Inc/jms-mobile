@@ -30,6 +30,9 @@ class HomeController extends GetxController {
   final _internalDatasource = TraxrootInternalDatasource();
 
   final RxBool isLoading = false.obs;
+  /// Job-overview stats load independently of the (slower) Traxroot map
+  /// pipeline, so the dashboard overview no longer waits for vehicle data.
+  final RxBool isOverviewLoading = false.obs;
   final RxString error = ''.obs;
   final RxList<MapMarkerModel> markers = <MapMarkerModel>[].obs;
   final RxList<MapZoneModel> zones = <MapZoneModel>[].obs;
@@ -78,6 +81,7 @@ class HomeController extends GetxController {
   /// Skips job fetching for monitor users (they only see the map).
   Future<void> loadData() async {
     isLoading.value = true;
+    isOverviewLoading.value = true;
     error.value = '';
 
     try {
@@ -99,61 +103,75 @@ class HomeController extends GetxController {
       // Listen for widget clicks while app is running
       HomeWidget.widgetClicked.listen(_handleWidgetNavigation);
 
-      // Load job data only for roles that display the overview stats
+      // Kick off the overview (job) fetches and the Traxroot map fetches
+      // concurrently. The overview is released as soon as the job calls
+      // return — it no longer waits behind the slower Traxroot pipeline.
       Future<GetJobResponseModel?>? allJobsFuture;
       Future<ongoing.GetJobOngoingResponseModel?>? ongoingJobsFuture;
       Future<history.GetJobHistoryResponseModel?>? completedJobsFuture;
-
       if (!isMonitor) {
         allJobsFuture = GetJobDatasource().getJob();
         ongoingJobsFuture = GetJobOngoingDatasource().getOngoingJobs();
         completedJobsFuture = GetJobHistoryDatasource().getJobHistory();
       }
 
-      // Conditionally load Traxroot map/vehicle data — skip for field users
-      List<TraxrootObjectModel> objectsData = <TraxrootObjectModel>[];
-      List<TraxrootIconModel> icons = <TraxrootIconModel>[];
-      List<TraxrootGeozoneModel> geozones = <TraxrootGeozoneModel>[];
-
-      if (isField) {
-        // Field users don't see the map — skip Traxroot entirely, no error
-      } else if (hasTraxroot) {
-        final objectsFuture = _objectsDatasource.getObjects();
-        final iconsFuture = _objectsDatasource.getObjectIcons();
-        final geozonesFuture = _internalDatasource.getGeozones();
-
-        objectsData = await objectsFuture;
-        icons = await iconsFuture;
-        geozones = await geozonesFuture;
-      } else {
+      // Map/vehicle data — skipped for field users; needs Traxroot configured.
+      final bool loadMap = !isField && hasTraxroot;
+      Future<List<TraxrootObjectModel>>? objectsFuture;
+      Future<List<TraxrootIconModel>>? iconsFuture;
+      Future<List<TraxrootGeozoneModel>>? geozonesFuture;
+      Future<List<TraxrootObjectStatusModel>>? statusesFuture;
+      if (loadMap) {
+        objectsFuture = _objectsDatasource.getObjects();
+        iconsFuture = _objectsDatasource.getObjectIcons();
+        geozonesFuture = _internalDatasource.getGeozones();
+        // A single bulk /ObjectsStatus call replaces the previous one-request-
+        // per-vehicle getLatestPoint fan-out.
+        statusesFuture = _objectsDatasource.getAllObjectsStatus();
+      } else if (!isField && !hasTraxroot) {
         error.value =
             'Unable to load map: GPS tracking is not configured for this company. Please contact your administrator.';
       }
 
-      final allJobs = await allJobsFuture;
-      final ongoingJobs = await ongoingJobsFuture;
-      final completedJobs = await completedJobsFuture;
+      // ---- Overview (jobs): resolve and reveal independently of the map ----
+      if (allJobsFuture != null) {
+        try {
+          final allJobs = await allJobsFuture;
+          final ongoingJobs = await ongoingJobsFuture;
+          final completedJobs = await completedJobsFuture;
+          allJobsResponse.value = allJobs;
+          ongoingJobsResponse.value = ongoingJobs;
+          completedJobsResponse.value = completedJobs;
+        } catch (e) {
+          log('Overview job load failed: $e',
+              name: 'HomeController.loadData', level: 1000);
+        }
+      }
+      isOverviewLoading.value = false;
 
-      // Fetch all object IDs to get their status
-      final objectIds = objectsData
-          .where((obj) => obj.id != null)
-          .map((obj) => obj.id!)
-          .toList();
+      // Nothing more to load when there's no map (field, or no Traxroot).
+      if (!loadMap) {
+        markers.clear();
+        zones.clear();
+        objects.clear();
+        isLoading.value = false;
+        _updateWidgets();
+        return;
+      }
 
-      // Fetch all statuses in parallel
-      final statusFutures = objectIds.map(
-        (id) => _objectsDatasource
-            .getLatestPoint(objectId: id)
-            .catchError((_) => null),
-      );
-      final allStatuses = await Future.wait(statusFutures);
+      // ---- Map / Traxroot pipeline (no longer blocks the overview) ----
+      final objectsData = await objectsFuture!;
+      final icons = await iconsFuture!;
+      final geozones = await geozonesFuture!;
+      final bulkStatuses = await statusesFuture!;
 
-      // Build status map by object ID
-      final statusByObjectId = <int, TraxrootObjectStatusModel>{};
-      for (var i = 0; i < objectIds.length; i++) {
-        final status = allStatuses[i];
-        if (status != null) {
-          statusByObjectId[objectIds[i]] = status;
+      // Index the bulk status payload by trackerId — the same key
+      // refreshStatuses() matches on.
+      final statusByTrackerId = <String, TraxrootObjectStatusModel>{};
+      for (final s in bulkStatuses) {
+        final t = s.trackerId?.trim();
+        if (t != null && t.isNotEmpty) {
+          statusByTrackerId[t] = s;
         }
       }
 
@@ -167,45 +185,98 @@ class HomeController extends GetxController {
       final iconUrlByTrackerId = <String, String>{};
       final trackersByObject = <int, Set<String>>{};
 
+      void collectTrackers(int objectId, dynamic node, String? iconUrl) {
+        if (node is Map) {
+          for (final entry in node.entries) {
+            final key = '${entry.key}'.toLowerCase();
+            final value = entry.value;
+            if (key.contains('tracker') || key.contains('imei')) {
+              final text = value?.toString().trim();
+              if (text != null && text.isNotEmpty) {
+                trackersByObject
+                    .putIfAbsent(objectId, () => <String>{})
+                    .add(text);
+                if (iconUrl != null && iconUrl.isNotEmpty) {
+                  iconUrlByTrackerId.putIfAbsent(text, () => iconUrl);
+                }
+              }
+            }
+            collectTrackers(objectId, value, iconUrl);
+          }
+        } else if (node is List) {
+          for (final v in node) {
+            collectTrackers(objectId, v, iconUrl);
+          }
+        }
+      }
+
       for (final object in objectsData) {
         final objectId = object.id;
         if (objectId == null) continue;
 
         final iconId = object.iconId;
-        if (iconId == null) continue;
-
-        final iconUrl = iconsById[iconId]?.url;
+        final iconUrl = iconId != null ? iconsById[iconId]?.url : null;
         if (iconUrl != null && iconUrl.isNotEmpty) {
           iconUrlMap[objectId] = iconUrl;
           final name = object.name;
           if (name != null && name.isNotEmpty) {
             iconUrlByObjectName[name] = iconUrl;
           }
+        }
 
-          void collectTrackers(dynamic node) {
-            if (node is Map) {
-              for (final entry in node.entries) {
-                final key = '${entry.key}'.toLowerCase();
-                final value = entry.value;
-                if (key.contains('tracker') || key.contains('imei')) {
-                  final text = value?.toString().trim();
-                  if (text != null && text.isNotEmpty) {
-                    iconUrlByTrackerId.putIfAbsent(text, () => iconUrl);
-                    trackersByObject
-                        .putIfAbsent(objectId, () => <String>{})
-                        .add(text);
-                  }
-                }
-                collectTrackers(value);
-              }
-            } else if (node is List) {
-              for (final v in node) {
-                collectTrackers(v);
-              }
-            }
+        // Collect trackers for every object (not just icon-bearing ones) so
+        // each can be matched to the bulk status payload.
+        collectTrackers(objectId, object.raw, iconUrl);
+      }
+
+      // Resolve each object's latest status from the bulk payload via its
+      // tracker id (falling back to the object-id string). Any object the bulk
+      // call doesn't cover gets a targeted per-object fetch, so a marker is
+      // never silently dropped.
+      final statusByObjectId = <int, TraxrootObjectStatusModel>{};
+      final unmatched = <int>[];
+      for (final object in objectsData) {
+        final objectId = object.id;
+        if (objectId == null) continue;
+
+        TraxrootObjectStatusModel? statusPoint;
+        final candidates = <String>{
+          ...?trackersByObject[objectId],
+          objectId.toString(),
+        };
+        for (final key in candidates) {
+          final hit = statusByTrackerId[key.trim()];
+          if (hit != null) {
+            statusPoint = hit;
+            break;
           }
+        }
+        if (statusPoint != null) {
+          statusByObjectId[objectId] = statusPoint;
+        } else {
+          unmatched.add(objectId);
+        }
+      }
 
-          collectTrackers(object.raw);
+      if (unmatched.isNotEmpty) {
+        log(
+          'Bulk /ObjectsStatus missed ${unmatched.length}/${objectsData.length} '
+          'objects — falling back to per-object fetch for those',
+          name: 'HomeController.loadData',
+          level: 900,
+        );
+        final fallback = await Future.wait(
+          unmatched.map(
+            (id) => _objectsDatasource
+                .getLatestPoint(objectId: id)
+                .catchError((_) => null),
+          ),
+        );
+        for (var i = 0; i < unmatched.length; i++) {
+          final s = fallback[i];
+          if (s != null) {
+            statusByObjectId[unmatched[i]] = s;
+          }
         }
       }
 
@@ -285,17 +356,12 @@ class HomeController extends GetxController {
       zones.value = zonesList;
       objects.value = statusList;
       iconUrlByObjectId.value = iconUrlMap;
-      if (!isField) {
-        await _detectMovement(statusList);
-      }
-      allJobsResponse.value = allJobs;
-      ongoingJobsResponse.value = ongoingJobs;
-      completedJobsResponse.value = completedJobs;
+      await _detectMovement(statusList);
       isLoading.value = false;
 
       _precacheIcons(usedIconUrls);
       _updateWidgets();
-      if (!isField && error.value.isEmpty) {
+      if (error.value.isEmpty) {
         final authError = TraxrootAuthDatasource.lastErrorMessage;
         if (authError != null &&
             authError.toLowerCase().contains('invalid username or password')) {
@@ -311,6 +377,7 @@ class HomeController extends GetxController {
       iconUrlByObjectId.clear();
 
       isLoading.value = false;
+      isOverviewLoading.value = false;
 
       final msg = e.toString();
       if (msg.toLowerCase().contains('invalid username or password')) {
@@ -329,6 +396,25 @@ class HomeController extends GetxController {
       // No Get.snackbar here to avoid Overlay-related errors; HomeTab already
       // displays error text under the map using controller.error.
     }
+  }
+
+  /// Updates the dashboard overview counts (Open / Ongoing / Complete) from
+  /// job data already fetched elsewhere — currently [JobsController.refresh],
+  /// which runs after a job is accepted, finished, or cancelled. This keeps the
+  /// overview live without a manual refresh and without re-hitting the network
+  /// (the Jobs tab just fetched this data) or touching the slower map pipeline.
+  ///
+  /// Only non-null values are applied, so a failed/offline fetch on the Jobs
+  /// side leaves the last good counts in place instead of zeroing them.
+  void syncOverviewFromJobs({
+    GetJobResponseModel? allJobs,
+    ongoing.GetJobOngoingResponseModel? ongoingJobs,
+    history.GetJobHistoryResponseModel? completedJobs,
+  }) {
+    if (allJobs != null) allJobsResponse.value = allJobs;
+    if (ongoingJobs != null) ongoingJobsResponse.value = ongoingJobs;
+    if (completedJobs != null) completedJobsResponse.value = completedJobs;
+    _updateWidgets();
   }
 
   void _precacheIcons(Set<String> urls) {
@@ -733,6 +819,7 @@ class HomeController extends GetxController {
   /// Resets the controller state.
   void reset() {
     isLoading.value = false;
+    isOverviewLoading.value = false;
     error.value = '';
     markers.clear();
     zones.clear();

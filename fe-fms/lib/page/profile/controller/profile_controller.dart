@@ -23,11 +23,10 @@ class ProfileController extends GetxController {
   final RxBool isChangingPassword = false.obs;
   final RxnString error = RxnString();
 
-  @override
-  void onInit() {
-    super.onInit();
-    fetchProfile();
-  }
+  // Note: the profile page renders from the cached identity on
+  // [AuthController] (persisted at login), so this controller no longer
+  // fetches on init — it exists for change-password and logout. [fetchProfile]
+  // remains available for an explicit refresh if ever needed.
 
   /// Fetches the user's profile information.
   Future<void> fetchProfile() async {
@@ -107,6 +106,12 @@ class ProfileController extends GetxController {
           MaterialPageRoute(builder: (context) => const LoginPage()),
           (route) => false,
         );
+
+        // Drop the cached profile so a re-login (same app session) fetches
+        // fresh data instead of showing the previous user's profile.
+        try {
+          Get.delete<ProfileController>();
+        } catch (_) {}
       } else {
         SnackbarUtils(
           text: 'Logout failed',

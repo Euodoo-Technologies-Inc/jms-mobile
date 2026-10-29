@@ -21,9 +21,10 @@ import 'package:fms/data/models/traxroot_object_group_model.dart';
 import 'package:fms/data/models/traxroot_object_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/nav_bar.dart';
-import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/page/auth/presentation/login_chooser_page.dart';
 import 'package:fms/page/home/controller/home_controller.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
+import 'package:fms/page/profile/controller/profile_controller.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +36,11 @@ class AuthController extends GetxController {
   final RxBool isAuthenticated = false.obs;
   final RxString apiKey = ''.obs;
   final RxnString userRole = RxnString();
+  /// User identity, persisted at login and hydrated on cold start so the
+  /// profile page renders instantly with no network fetch (mirrors how the
+  /// four-wheels surface caches the rider).
+  final RxnString fullName = RxnString();
+  final RxnString userEmail = RxnString();
   final _storage = SecureStorage();
 
   @override
@@ -66,6 +72,10 @@ class AuthController extends GetxController {
 
         final role = prefs.getString(Variables.prefUserRole);
         userRole.value = role;
+
+        // Hydrate cached identity so Profile renders with no fetch.
+        fullName.value = prefs.getString(Variables.prefFullName);
+        userEmail.value = prefs.getString(Variables.prefEmail);
 
         _initializeFcm();
 
@@ -128,6 +138,11 @@ class AuthController extends GetxController {
       final companyType = res.data?.companyType;
       final companyLabel = res.data?.companyLabel;
       final hasTraxroot = res.data?.hasTraxroot ?? false;
+      final fullname = res.data?.fullname;
+      // Fall back to the typed email if the response omits it.
+      final resolvedEmail = (res.data?.email?.isNotEmpty == true)
+          ? res.data!.email!
+          : email.trim();
 
       log(
         'HasTraxroot: $hasTraxroot',
@@ -175,6 +190,16 @@ class AuthController extends GetxController {
 
       await prefs.setBool(Variables.prefHasTraxroot, hasTraxroot);
 
+      // Persist identity so the profile page never needs to fetch it.
+      if (fullname != null && fullname.isNotEmpty) {
+        await prefs.setString(Variables.prefFullName, fullname);
+      }
+      if (resolvedEmail.isNotEmpty) {
+        await prefs.setString(Variables.prefEmail, resolvedEmail);
+      }
+      fullName.value = fullname;
+      userEmail.value = resolvedEmail.isEmpty ? null : resolvedEmail;
+
       final savedRole = prefs.getString(Variables.prefUserRole);
       userRole.value = savedRole;
 
@@ -200,16 +225,16 @@ class AuthController extends GetxController {
         (route) => false,
       );
     } catch (e) {
-      if (!context.mounted) return;
+      // Surface the failure to the caller (the login page) so it can show an
+      // inline error message — mirroring the four-wheels dispatch login —
+      // instead of swallowing it here and rebuilding the page.
       String errorMessage = 'Login Failed';
       final exceptionMessage = e.toString();
       log(exceptionMessage, name: 'Login', level: 900);
       if (exceptionMessage.startsWith('Exception: ')) {
         errorMessage = exceptionMessage.substring('Exception: '.length);
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-      );
+      throw Exception(errorMessage);
     }
   }
 
@@ -257,14 +282,23 @@ class AuthController extends GetxController {
       }
     } catch (_) {}
 
+    // Drop the cached profile so a re-login fetches fresh data.
+    try {
+      if (Get.isRegistered<ProfileController>()) {
+        Get.delete<ProfileController>();
+      }
+    } catch (_) {}
+
     // Clear offline data to prevent data leaking between users
     try {
       await OfflineQueueRepository().deleteAll();
       await JobCacheRepository().clearAll();
     } catch (_) {}
 
-    // Redirect to login page
-    Get.offAll(() => const LoginPage());
+    // Redirect to the welcome chooser (not straight to a login page) so the
+    // chooser always sits beneath the login pages — that lets their back
+    // action simply pop and reverse the slide transition.
+    Get.offAll(() => const LoginChooserPage());
   }
 
   void _initializeFcm() {

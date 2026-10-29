@@ -22,6 +22,11 @@ class DispatchColors {
   /// Highlight accent — the in-progress job, etc.
   static const Color accent = Color(0xFFe8e241);
 
+  /// Destructive red — cancel buttons, log out, and other irreversible
+  /// actions. A strong, consistent red across light and dark (the muted
+  /// [ColorScheme.error] reads as pink on dark surfaces).
+  static const Color danger = Color(0xFFdc2626);
+
   /// Active rider route polyline (hex form — `MapZoneStyle` wants a string).
   static const String routeHex = '#1976D2';
 

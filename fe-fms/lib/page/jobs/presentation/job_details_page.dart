@@ -4,6 +4,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:fms/core/services/connectivity_service.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/widgets/app_dialog.dart';
+import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -17,7 +20,6 @@ import '../controller/jobs_controller.dart';
 
 import '../../../core/permissions/permission_helper.dart';
 import '../../../core/models/geo.dart';
-import '../../profile/presentation/profile_page.dart';
 
 import 'job_navigation_page.dart';
 
@@ -79,9 +81,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final palette = context.dispatch;
     final job = widget.job;
     final isOngoing = widget.isOngoing;
     final int? jobIdValue = job.jobId is int ? job.jobId as int : null;
@@ -113,130 +114,28 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         localRescheduledDate == null &&
         rescheduleStatus != 1; // blocked only when pending
 
-    Widget buildPill(
-      String label, {
-      IconData? icon,
-      Color? background,
-      Color? foreground,
-      Color? borderColor,
-    }) {
-      final pillForeground = foreground ?? colorScheme.primary;
-      final pillBackground =
-          background ??
-          colorScheme.primaryContainer.withValues(
-            alpha: foreground == null ? 0.18 : 0.22,
-          );
+    // A driver may only have one job in progress at a time. When viewing an
+    // open (not-yet-accepted) job while another job is already ongoing, the
+    // Start action is blocked.
+    final bool blockStartForOngoing = !isOngoing &&
+        (_jobsController.ongoingJobsResponse.value?.data?.isNotEmpty ?? false);
 
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          color: pillBackground,
-          border: Border.all(
-            color: (borderColor ?? pillForeground).withValues(alpha: 0.24),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: pillForeground),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: pillForeground,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget buildSectionHeader({required IconData icon, required String title}) {
-      return Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF4C8DFF), Color(0xFF1E58FF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x2200185C),
-                  blurRadius: 12,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
-      );
-    }
-
-    const sectionSpacing = 12.0;
+    const sectionSpacing = 22.0;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: palette.pageSurface,
       appBar: AppBar(
-        title: Text(job.jobName ?? 'Job Details'),
-        actions: [
-          // IconButton(
-          //   tooltip: 'More',
-          //   icon: const Icon(Icons.more_vert),
-          //   onPressed: () {
-          //     // Show more options
-          //     showModalBottomSheet(
-          //       context: context,
-          //       builder: (context) => Column(
-          //         mainAxisSize: MainAxisSize.min,
-          //         children: [
-          //           ListTile(
-          //             leading: const Icon(Icons.share),
-          //             title: const Text('Share'),
-          //             onTap: () {
-          //               Navigator.pop(context);
-          //               _shareJobDetails();
-          //             },
-          //           ),
-          //           // ListTile(
-          //           //   leading: const Icon(Icons.report),
-          //           //   title: const Text('Report'),
-          //           //   onTap: () {
-          //           //     Navigator.pop(context);
-          //           //     // Implement report functionality
-          //           //   },
-          //           // ),
-          //         ],
-          //       ),
-          //     );
-          //   },
-          // ),
-          IconButton(
-            tooltip: 'Profile',
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
-            },
-          ),
-        ],
+        backgroundColor: palette.pageSurface,
+        surfaceTintColor: palette.pageSurface,
+        foregroundColor: palette.ink,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
+        title: Text(
+          job.jobName ?? 'Job Details',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+        // Profile is intentionally not reachable from the job detail page —
+        // drivers shouldn't jump to their profile mid-job.
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -245,448 +144,160 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
+                DetailHeader(
+                  title: job.jobName ?? 'Job',
+                  pill: DetailStatusPill(
+                    label: isOngoing
+                        ? (isRescheduledStatus ? 'Rescheduled' : 'Ongoing')
+                        : 'Open',
+                    color: isOngoing
+                        ? const Color(0xFFB45309)
+                        : DispatchColors.brand,
+                    icon: isOngoing
+                        ? (isRescheduledStatus
+                            ? Icons.event_repeat
+                            : Icons.timelapse)
+                        : Icons.event_available,
                   ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF7BD6FF),
-                          Color(0xFF5AB6FF),
-                          Color(0xFF3E8BFF),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _getJobTypeString(job.typeJob),
+                  style: TextStyle(color: palette.subtle, fontSize: 13.5),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (job.jobDate != null)
+                      DetailStatusPill(
+                        label: _formatDate(job.jobDate),
+                        color: palette.subtle,
+                        icon: Icons.calendar_today_outlined,
                       ),
-                      border: Border.all(
-                        color: const Color(0x59FFFFFF),
-                        width: 1.2,
+                    if (rescheduleStatus == 2)
+                      DetailStatusPill(
+                        label: serverCanFinish == true
+                            ? 'Rescheduled — Ready'
+                            : 'Rescheduled to ${rescheduledDateJob ?? ''}',
+                        color: DispatchColors.brand,
+                        icon: serverCanFinish == true
+                            ? Icons.check_circle_outline
+                            : Icons.event_repeat,
                       ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x332D6BFF),
-                          blurRadius: 32,
-                          offset: Offset(0, 18),
+                  ],
+                ),
+
+                if (blockStartForOngoing) ...[
+                  const SizedBox(height: sectionSpacing),
+                  const DetailNoticeCard(
+                    icon: Icons.info_outline,
+                    title: 'Finish your ongoing job first',
+                    message:
+                        'You already have a job in progress. Complete or '
+                        'cancel it before accepting a new one.',
+                    color: Color(0xFFB45309),
+                  ),
+                ],
+
+                const SizedBox(height: sectionSpacing),
+
+                const DetailSectionLabel('Customer'),
+                DetailCard(
+                  child: Column(
+                    children: [
+                      DetailKvRow(label: 'Name', value: job.customerName),
+                      if (job.phoneNumber != null)
+                        DetailKvRow(
+                          label: 'Phone',
+                          value: job.phoneNumber,
+                          valueColor: DispatchColors.brand,
+                          trailingIcon: Icons.phone,
+                          onTap: () => _callPhone(job.phoneNumber!),
                         ),
-                        BoxShadow(
-                          color: Color(0x1AFFFFFF),
-                          blurRadius: 12,
-                          offset: Offset(-6, -6),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 62,
-                                height: 62,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0x66FFFFFF),
-                                      Color(0x33FFFFFF),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  border: Border.all(
-                                    color: const Color(0x80FFFFFF),
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.assignment_turned_in,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      job.jobName ?? 'Job',
-                                      style: textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _getJobTypeString(job.typeJob),
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.86,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              buildPill(
-                                isOngoing
-                                    ? (isRescheduledStatus
-                                          ? 'Status: Rescheduled'
-                                          : 'Status: Ongoing')
-                                    : 'Status: Open',
-                                icon: isOngoing
-                                    ? (isRescheduledStatus
-                                          ? Icons.event_repeat
-                                          : Icons.timelapse)
-                                    : Icons.event_available,
-                                foreground: Colors.white,
-                                background: isOngoing
-                                    ? Colors.orange.withValues(alpha: 0.28)
-                                    : Colors.white.withValues(alpha: 0.22),
-                                borderColor: Colors.white,
-                              ),
-                              if (job.jobDate != null)
-                                buildPill(
-                                  'Date: ${_formatDate(job.jobDate)}',
-                                  icon: Icons.calendar_today_outlined,
-                                  foreground: Colors.white,
-                                  background: Colors.white.withValues(
-                                    alpha: 0.22,
-                                  ),
-                                  borderColor: Colors.white,
-                                ),
-                              // Reschedule status badges
-                              if (rescheduleStatus == 1 ||
-                                  (localRescheduledDate != null &&
-                                      rescheduleStatus != 2 &&
-                                      rescheduleStatus != 3))
-                                buildPill(
-                                  'Reschedule Pending',
-                                  icon: Icons.hourglass_top,
-                                  foreground: Colors.white,
-                                  background: Colors.amber.withValues(alpha: 0.32),
-                                  borderColor: Colors.white,
-                                ),
-                              if (rescheduleStatus == 3)
-                                buildPill(
-                                  'Reschedule Rejected',
-                                  icon: Icons.cancel_outlined,
-                                  foreground: Colors.white,
-                                  background: Colors.red.withValues(alpha: 0.32),
-                                  borderColor: Colors.white,
-                                ),
-                              if (rescheduleStatus == 2 && serverCanFinish != true)
-                                buildPill(
-                                  'Rescheduled to ${rescheduledDateJob ?? ''}',
-                                  icon: Icons.event_repeat,
-                                  foreground: Colors.white,
-                                  background: Colors.green.withValues(alpha: 0.28),
-                                  borderColor: Colors.white,
-                                ),
-                              if (rescheduleStatus == 2 && serverCanFinish == true)
-                                buildPill(
-                                  'Rescheduled — Ready',
-                                  icon: Icons.check_circle_outline,
-                                  foreground: Colors.white,
-                                  background: Colors.green.withValues(alpha: 0.28),
-                                  borderColor: Colors.white,
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
 
                 const SizedBox(height: sectionSpacing),
 
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: const Color(0x2132638F)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
+                const DetailSectionLabel('Address'),
+                DetailCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        job.address ?? 'N/A',
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontSize: 13.5,
+                          height: 1.5,
                         ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.person,
-                            title: 'Customer',
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            job.customerName ?? 'N/A',
-                            style: textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (job.phoneNumber != null) ...[
-                            const SizedBox(height: 12),
-                            GestureDetector(
-                              onTap: () => _callPhone(job.phoneNumber!),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.phone,
-                                    color: colorScheme.primary,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      job.phoneNumber!,
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => _navigateToJob(context),
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          style: TextButton.styleFrom(
+                            foregroundColor: DispatchColors.brand,
+                            padding: EdgeInsets.zero,
+                            overlayColor:
+                                DispatchColors.brand.withValues(alpha: 0.08),
+                          ),
+                          label: const Text('Open in Map'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
                 const SizedBox(height: sectionSpacing),
 
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFF2F6FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                const DetailSectionLabel('Job Information'),
+                DetailCard(
+                  child: Column(
+                    children: [
+                      DetailKvRow(
+                        label: 'Job type',
+                        value: _getJobTypeString(job.typeJob),
                       ),
-                      border: Border.all(color: const Color(0x2E3A4CFF)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
+                      DetailKvRow(
+                        label: 'Created by',
+                        value: job.createdBy?.toString(),
+                      ),
+                      if (job.createdAt != null)
+                        DetailKvRow(
+                          label: 'Created at',
+                          value: _formatDate(job.createdAt),
                         ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.place,
-                            title: 'Address',
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            job.address ?? 'N/A',
-                            style: textTheme.bodyMedium?.copyWith(height: 1.5),
-                          ),
-                          const SizedBox(height: 16),
-                          TextButton.icon(
-                            onPressed: () => _navigateToJob(context),
-                            icon: const Icon(Icons.map_outlined),
-                            style: TextButton.styleFrom(
-                              foregroundColor: colorScheme.primary,
-                              padding: EdgeInsets.zero,
-                              textStyle: textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overlayColor: colorScheme.primary.withValues(
-                                alpha: 0.08,
-                              ),
-                            ),
-                            label: const Text('Open in Map'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: sectionSpacing),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFEFF3FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: const Color(0x2132638F)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.info_outline,
-                            title: 'Job Information',
-                          ),
-                          const SizedBox(height: 16),
-                          _InfoRow(
-                            label: 'Job Type',
-                            value: _getJobTypeString(job.typeJob),
-                          ),
-                          const SizedBox(height: 12),
-                          _InfoRow(
-                            label: 'Created By',
-                            value: job.createdBy?.toString() ?? 'N/A',
-                          ),
-                          if (job.createdAt != null) ...[
-                            const SizedBox(height: 12),
-                            _InfoRow(
-                              label: 'Created At',
-                              value: _formatDate(job.createdAt),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
 
                 // Reschedule rejection info
                 if (isOngoing && rescheduleStatus == 3 && reasonReject != null) ...[
                   const SizedBox(height: sectionSpacing),
-                  Card(
-                    elevation: 0,
-                    color: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFF3F0), Color(0xFFFFE8E4)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            buildSectionHeader(
-                              icon: Icons.warning_amber_rounded,
-                              title: 'Reschedule Rejected',
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              reasonReject,
-                              style: textTheme.bodyMedium?.copyWith(height: 1.5),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'You must complete this job.',
-                              style: textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  DetailNoticeCard(
+                    icon: Icons.warning_amber_rounded,
+                    title: 'Reschedule Rejected',
+                    message: reasonReject,
+                    color: colorScheme.error,
+                    footnote: 'You must complete this job.',
                   ),
                 ],
 
                 // Reschedule pending info
                 if (isOngoing && (rescheduleStatus == 1 || localRescheduledDate != null)) ...[
                   const SizedBox(height: sectionSpacing),
-                  Card(
-                    elevation: 0,
-                    color: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFF8E1), Color(0xFFFFF3CD)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            buildSectionHeader(
-                              icon: Icons.hourglass_top,
-                              title: 'Reschedule Pending',
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Your reschedule request is awaiting admin approval.',
-                              style: textTheme.bodyMedium?.copyWith(height: 1.5),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  const DetailNoticeCard(
+                    icon: Icons.hourglass_top,
+                    title: 'Reschedule Pending',
+                    message:
+                        'Your reschedule request is awaiting admin approval.',
+                    color: Color(0xFFB45309),
                   ),
                 ],
 
@@ -704,53 +315,24 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isOngoing)
-                Row(
-                  children: [
-                    // Expanded(
-                    //   child: OutlinedButton.icon(
-                    //     onPressed: () {
-                    //       ScaffoldMessenger.of(context).showSnackBar(
-                    //         const SnackBar(
-                    //           content: Text('Postpone feature coming soon'),
-                    //         ),
-                    //       );
-                    //     },
-                    //     icon: const Icon(Icons.schedule),
-                    //     label: const Text('Postpone'),
-                    //     style: OutlinedButton.styleFrom(
-                    //       padding: const EdgeInsets.symmetric(vertical: 14),
-                    //       shape: RoundedRectangleBorder(
-                    //         borderRadius: BorderRadius.circular(16),
-                    //       ),
-                    //       side: BorderSide(
-                    //         color: colorScheme.primary.withValues(alpha:0.4),
-                    //       ),
-                    //       foregroundColor: colorScheme.primary,
-                    //     ),
-                    //   ),
-                    // ),
-                    // const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _navigateToJob(context),
-                        icon: const Icon(Icons.navigation_outlined),
-                        label: const Text('Navigate'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          side: BorderSide(
-                            color: colorScheme.primary.withValues(alpha: 0.4),
-                          ),
-                          foregroundColor: colorScheme.primary,
-                          overlayColor: colorScheme.primary.withValues(
-                            alpha: 0.08,
-                          ),
-                        ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _navigateToJob(context),
+                    icon: const Icon(Icons.navigation_outlined),
+                    label: const Text('Navigate'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      side: const BorderSide(color: DispatchColors.brand),
+                      foregroundColor: DispatchColors.brand,
+                      overlayColor: DispatchColors.brand.withValues(
+                        alpha: 0.08,
                       ),
                     ),
-                  ],
+                  ),
                 ),
               if (isOngoing) const SizedBox(height: 12),
               Row(
@@ -768,13 +350,14 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          side: BorderSide(
-                            color: colorScheme.error.withValues(alpha: 0.35),
+                          side: const BorderSide(
+                            color: DispatchColors.danger,
+                            width: 1.5,
                           ),
-                          foregroundColor: colorScheme.error,
-                          overlayColor: colorScheme.error.withValues(
+                          foregroundColor: DispatchColors.danger,
+                          overlayColor: DispatchColors.danger.withValues(
                             alpha: 0.08,
                           ),
                         ),
@@ -790,40 +373,44 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          side: BorderSide(
-                            color: Colors.orange.withValues(alpha: 0.5),
-                          ),
-                          foregroundColor: Colors.orange,
-                          overlayColor: Colors.orange.withValues(alpha: 0.08),
+                          side: const BorderSide(color: Color(0xFFFF9800)),
+                          foregroundColor: const Color(0xFFFF9800),
+                          overlayColor: const Color(
+                            0xFFFF9800,
+                          ).withValues(alpha: 0.08),
                         ),
                       ),
                     ),
                   ],
-                  const SizedBox(width: 12),
+                  if (isOngoing) const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: hasPendingAction
                           ? null
                           : isOngoing
                               ? (canFinish ? () => _finishJob(context) : null)
-                              : () => _startJob(context),
-                      icon: const Icon(Icons.play_arrow_rounded),
+                              : (blockStartForOngoing
+                                  ? null
+                                  : () => _startJob(context)),
+                      icon: Icon(
+                        hasPendingAction
+                            ? Icons.cloud_upload_outlined
+                            : isOngoing
+                                ? Icons.flag
+                                : Icons.play_arrow_rounded,
+                      ),
                       label: Text(hasPendingAction
                           ? 'Pending Upload'
                           : (isOngoing ? 'Finish Job' : 'Start Job')),
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        shadowColor: colorScheme.primary.withValues(alpha: 0.4),
-                        overlayColor: colorScheme.primary.withValues(
-                          alpha: 0.12,
-                        ),
+                        backgroundColor: DispatchColors.brand,
+                        foregroundColor: DispatchColors.onBrand,
                       ),
                     ),
                   ),
@@ -882,6 +469,17 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
 
   /// Starts the job, changing its status to ongoing.
   Future<void> _startJob(BuildContext context) async {
+    // Safety net: a driver can only have one job in progress at a time.
+    final hasOngoing =
+        _jobsController.ongoingJobsResponse.value?.data?.isNotEmpty ?? false;
+    if (hasOngoing) {
+      SnackbarUtils(
+        text: 'Finish your ongoing job before accepting another.',
+        backgroundColor: Colors.red,
+      ).showErrorSnackBar(context);
+      return;
+    }
+
     final jobId = widget.job.jobId as int?;
     if (jobId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1201,28 +799,125 @@ Future<void> _finishJob(BuildContext context) async {
   }
 }
   Future<ImageSource?> _showImageSourceSheet(BuildContext context) async {
+    final palette = context.dispatch;
     return showModalBottomSheet<ImageSource>(
       context: context,
+      backgroundColor: palette.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: const Text('Camera'),
-                onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Gallery'),
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(ImageSource.gallery),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: palette.divider,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Add job photos',
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Attach at least 2 photos as proof of completion.',
+                  style: TextStyle(color: palette.subtle, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                _photoSourceTile(
+                  context,
+                  icon: Icons.photo_camera_outlined,
+                  title: 'Camera',
+                  subtitle: 'Take photos now',
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(ImageSource.camera),
+                ),
+                const SizedBox(height: 12),
+                _photoSourceTile(
+                  context,
+                  icon: Icons.photo_library_outlined,
+                  title: 'Gallery',
+                  subtitle: 'Pick from your photos',
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(ImageSource.gallery),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  /// A single tappable photo-source option used in [_showImageSourceSheet].
+  Widget _photoSourceTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final palette = context.dispatch;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: palette.pageSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.cardBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: DispatchColors.brand.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, color: DispatchColors.brand, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: palette.subtle, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: palette.subtle, size: 20),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1279,17 +974,21 @@ Future<void> _finishJob(BuildContext context) async {
     final result =
         await showDialog<bool>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Add More'),
-            content: const Text('Do you want to take more photos?'),
+          builder: (dialogContext) => AppDialog(
+            icon: Icons.add_a_photo_outlined,
+            accent: DispatchColors.brand,
+            title: 'Add more photos?',
+            message: 'Capture another shot, or finish if you have enough.',
             actions: [
-              TextButton(
+              AppDialogButton(
+                label: 'Done',
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Done'),
               ),
-              TextButton(
+              AppDialogButton(
+                label: 'Add',
+                filled: true,
+                icon: Icons.photo_camera_outlined,
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Add'),
               ),
             ],
           ),
@@ -1307,22 +1006,28 @@ Future<void> _finishJob(BuildContext context) async {
 
     return (await showDialog<bool>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Preview Images'),
+          builder: (dialogContext) => AppDialog(
+            icon: Icons.photo_library_outlined,
+            accent: DispatchColors.brand,
+            title: 'Review photos',
+            message:
+                '${images.length} photo${images.length == 1 ? '' : 's'} '
+                'selected. Upload these, or retake if something\'s off.',
             content: SizedBox(
               width: double.maxFinite,
               child: SingleChildScrollView(
                 child: Wrap(
                   spacing: 12,
                   runSpacing: 12,
+                  alignment: WrapAlignment.center,
                   children: images
                       .map(
                         (image) => ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.file(
                             File(image.path),
-                            width: 120,
-                            height: 120,
+                            width: 110,
+                            height: 110,
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -1332,13 +1037,15 @@ Future<void> _finishJob(BuildContext context) async {
               ),
             ),
             actions: [
-              TextButton(
+              AppDialogButton(
+                label: 'Retake',
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Take Again'),
               ),
-              ElevatedButton(
+              AppDialogButton(
+                label: 'Upload',
+                filled: true,
+                icon: Icons.cloud_upload_outlined,
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Upload'),
               ),
             ],
           ),
@@ -1352,8 +1059,11 @@ Future<void> _finishJob(BuildContext context) async {
   try {
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Job Notes'),
+      builder: (dialogContext) => AppDialog(
+        icon: Icons.sticky_note_2_outlined,
+        accent: DispatchColors.brand,
+        title: 'Job notes',
+        message: 'Add an optional note before finishing — or skip it.',
         content: TextField(
           controller: controller,
           maxLines: 4,
@@ -1362,17 +1072,19 @@ Future<void> _finishJob(BuildContext context) async {
           ),
         ),
         actions: [
-          TextButton(
+          AppDialogButton(
+            label: 'Cancel',
+            color: DispatchColors.danger,
             onPressed: () => Navigator.of(dialogContext).pop(null),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppDialogButton(
+            label: 'Skip',
             onPressed: () => Navigator.of(dialogContext).pop(''),
-            child: const Text('Skip'),
           ),
-          ElevatedButton(
+          AppDialogButton(
+            label: 'Submit',
+            filled: true,
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Submit'),
           ),
         ],
       ),
@@ -1403,44 +1115,51 @@ Future<void> _finishJob(BuildContext context) async {
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Cancel Reason'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (int i = 0; i < suggestions.length; i++)
-                      ChoiceChip(
-                        label: Text(suggestions[i]),
-                        selected: selectedIndex == i,
-                        onSelected: (val) {
-                          setState(() => selectedIndex = val ? i : -1);
-                        },
-                      ),
-                  ],
+        builder: (ctx, setState) => AppDialog(
+          icon: Icons.edit_note,
+          accent: DispatchColors.danger,
+          title: 'Reason for cancelling',
+          message: 'Pick a reason or add your own — this is shared with the '
+              'dispatcher.',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (int i = 0; i < suggestions.length; i++)
+                    ChoiceChip(
+                      label: Text(suggestions[i]),
+                      selected: selectedIndex == i,
+                      selectedColor:
+                          DispatchColors.danger.withValues(alpha: 0.14),
+                      onSelected: (val) {
+                        setState(() => selectedIndex = val ? i : -1);
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Type additional details (optional)',
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'Type additional details (optional)',
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           actions: [
-            TextButton(
+            AppDialogButton(
+              label: 'Back',
               onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            AppDialogButton(
+              label: 'Submit',
+              filled: true,
+              color: DispatchColors.danger,
               onPressed: () {
                 String reason = '';
                 if (selectedIndex >= 0) {
@@ -1455,7 +1174,6 @@ Future<void> _finishJob(BuildContext context) async {
                 }
                 Navigator.of(dialogContext).pop(reason.trim());
               },
-              child: const Text('Submit'),
             ),
           ],
         ),
@@ -1485,8 +1203,8 @@ Future<void> _finishJob(BuildContext context) async {
     }
 
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final palette = context.dispatch;
 
     DateTime selectedDate = ManilaTimezone.now().add(const Duration(days: 1));
     final _manilaTime = ManilaTimezone.now();
@@ -1498,271 +1216,195 @@ Future<void> _finishJob(BuildContext context) async {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (ctx, setState) {
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFF)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+          const amber = Color(0xFFFF9800);
+          return AppDialog(
+            icon: Icons.event_repeat,
+            accent: amber,
+            title: 'Reschedule Job',
+            message: 'Pick a new date and time and tell the dispatcher why. '
+                'This needs admin approval before it takes effect.',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Date Time Picker
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: palette.cardBorder),
+                  ),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header
-                      Text(
-                        'Reschedule Job',
-                        textAlign: TextAlign.center,
-                        style: textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
+                      // Date Selector
+                      InkWell(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(14),
                         ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Date Time Picker
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colorScheme.primary.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            // Date Selector
-                            InkWell(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: dialogContext,
-                                  initialDate: selectedDate,
-                                  firstDate: ManilaTimezone.now(),
-                                  lastDate: ManilaTimezone.now().add(
-                                    const Duration(days: 365),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: dialogContext,
+                            initialDate: selectedDate,
+                            firstDate: ManilaTimezone.now(),
+                            lastDate: ManilaTimezone.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (picked != null) {
+                            setState(() => selectedDate = picked);
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    DateFormat('EEE MMM d').format(selectedDate),
+                                    style: textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: palette.ink,
+                                    ),
                                   ),
-                                );
-                                if (picked != null) {
-                                  setState(() => selectedDate = picked);
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          DateFormat(
-                                            'EEE MMM d',
-                                          ).format(selectedDate),
-                                          style: textTheme.bodyLarge?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                        Text(
-                                          DateFormat(
-                                            'yyyy',
-                                          ).format(selectedDate),
-                                          style: textTheme.bodySmall?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    DateFormat('yyyy').format(selectedDate),
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: palette.subtle,
                                     ),
-                                    Icon(
-                                      Icons.calendar_today,
-                                      color: colorScheme.primary,
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            Divider(
-                              height: 1,
-                              color: colorScheme.primary.withValues(alpha: 0.1),
-                            ),
-                            // Time Selector
-                            InkWell(
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: dialogContext,
-                                  initialTime: selectedTime,
-                                );
-                                if (picked != null) {
-                                  setState(() => selectedTime = picked);
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      selectedTime.format(dialogContext),
-                                      style: textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.access_time,
-                                      color: colorScheme.primary,
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
+                              const Icon(
+                                Icons.calendar_today,
+                                color: amber,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Notes TextField
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colorScheme.primary.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: notesController,
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            hintText: 'Leave notes here (Required)',
-                            hintStyle: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.all(16),
+                            ],
                           ),
                         ),
                       ),
-
-                      const SizedBox(height: 24),
-
-                      // Action Buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(null),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                backgroundColor: colorScheme.error,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
+                      Divider(height: 1, color: palette.divider),
+                      // Time Selector
+                      InkWell(
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(14),
+                        ),
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: dialogContext,
+                            initialTime: selectedTime,
+                          );
+                          if (picked != null) {
+                            setState(() => selectedTime = picked);
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                selectedTime.format(dialogContext),
+                                style: textTheme.bodyLarge?.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                                  color: palette.ink,
                                 ),
                               ),
-                            ),
+                              const Icon(
+                                Icons.access_time,
+                                color: amber,
+                                size: 20,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                // Validate notes field is not empty
-                                final notes = notesController.text.trim();
-                                if (notes.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Please provide notes for rescheduling',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                final scheduledDateTime = DateTime(
-                                  selectedDate.year,
-                                  selectedDate.month,
-                                  selectedDate.day,
-                                  selectedTime.hour,
-                                  selectedTime.minute,
-                                );
-
-                                if (scheduledDateTime.isBefore(
-                                  ManilaTimezone.now(),
-                                )) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Time cannot be in the past',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                Navigator.of(dialogContext).pop({
-                                  'date': scheduledDateTime,
-                                  'notes': notes,
-                                });
-                              },
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                backgroundColor: const Color(0xFFFF9800),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                'Reschedule',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
+
+                const SizedBox(height: 16),
+
+                // Notes TextField
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: palette.cardBorder),
+                  ),
+                  child: TextField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Leave notes here (Required)',
+                      hintStyle: textTheme.bodyMedium?.copyWith(
+                        color: palette.subtle,
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ),
+              ],
             ),
+            actions: [
+              AppDialogButton(
+                label: 'Cancel',
+                color: DispatchColors.danger,
+                onPressed: () => Navigator.of(dialogContext).pop(null),
+              ),
+              AppDialogButton(
+                label: 'Reschedule',
+                filled: true,
+                color: amber,
+                onPressed: () {
+                  // Validate notes field is not empty
+                  final notes = notesController.text.trim();
+                  if (notes.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Please provide notes for rescheduling',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  final scheduledDateTime = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
+
+                  if (scheduledDateTime.isBefore(ManilaTimezone.now())) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Time cannot be in the past',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.of(dialogContext).pop({
+                    'date': scheduledDateTime,
+                    'notes': notes,
+                  });
+                },
+              ),
+            ],
           );
         },
       ),
@@ -1858,17 +1500,23 @@ Future<void> _finishJob(BuildContext context) async {
     final confirmed =
         await showDialog<bool>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Cancel Job'),
-            content: const Text('Are you sure you want to cancel this job?'),
+          builder: (dialogContext) => AppDialog(
+            icon: Icons.cancel_outlined,
+            accent: DispatchColors.danger,
+            title: 'Cancel this job?',
+            message:
+                'This marks the job as cancelled and removes it from your '
+                'ongoing list. You\'ll be asked for a reason next.',
             actions: [
-              TextButton(
+              AppDialogButton(
+                label: 'Keep job',
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('No'),
               ),
-              ElevatedButton(
+              AppDialogButton(
+                label: 'Cancel job',
+                filled: true,
+                color: DispatchColors.danger,
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Yes, Cancel'),
               ),
             ],
           ),
@@ -2010,14 +1658,12 @@ Future<void> _finishJob(BuildContext context) async {
     GeoPoint coordinate,
   ) async {
     if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => JobNavigationPage(
-          latitude: coordinate.lat,
-          longitude: coordinate.lng,
-          jobName: widget.job.jobName ?? 'Job Destination',
-          address: widget.job.address,
-        ),
+    Get.to(
+      () => JobNavigationPage(
+        latitude: coordinate.lat,
+        longitude: coordinate.lng,
+        jobName: widget.job.jobName ?? 'Job Destination',
+        address: widget.job.address,
       ),
     );
   }
@@ -2137,42 +1783,3 @@ Future<void> _finishJob(BuildContext context) async {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

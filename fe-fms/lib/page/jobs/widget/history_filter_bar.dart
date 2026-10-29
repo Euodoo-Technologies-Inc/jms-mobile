@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/jobs/controller/history_filter_mixin.dart';
 
@@ -15,7 +16,8 @@ class HistoryFilterBar extends StatelessWidget {
     final controller = Get.find<JobsController>();
     final colorScheme = Theme.of(context).colorScheme;
     final primary = colorScheme.primary;
-    const borderColor = Color(0xFFE2E8F0);
+    final palette = context.dispatch;
+    final borderColor = palette.cardBorder;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -54,14 +56,14 @@ class HistoryFilterBar extends StatelessWidget {
                         Icon(
                           Icons.filter_list,
                           size: 18,
-                          color: hasFilters ? primary : const Color(0xFF64748B),
+                          color: hasFilters ? primary : palette.subtle,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           'Filter',
                           style: TextStyle(
                             color:
-                                hasFilters ? primary : const Color(0xFF64748B),
+                                hasFilters ? primary : palette.subtle,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -285,13 +287,14 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? primary : Colors.white,
+          color: selected ? primary : palette.card,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected ? primary : borderColor,
@@ -301,7 +304,7 @@ class _FilterChip extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF64748B),
+            color: selected ? Colors.white : palette.subtle,
             fontSize: 13,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             height: 1.0,
