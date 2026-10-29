@@ -42,7 +42,7 @@ class JobSummaryCard extends StatelessWidget {
     this.onTap,
     this.onDetails,
     this.detailsLabel = 'Details',
-    this.accentColor = const Color(0xFF1E58FF),
+    this.accentColor = DispatchColors.brand,
     this.gradientColors,
   });
 

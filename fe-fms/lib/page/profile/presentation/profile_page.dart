@@ -155,7 +155,8 @@ class _PlanBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isPro ? DispatchColors.brand : context.dispatch.subtle;
+    final color =
+        isPro ? Theme.of(context).colorScheme.primary : context.dispatch.subtle;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(

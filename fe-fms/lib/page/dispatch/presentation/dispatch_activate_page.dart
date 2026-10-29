@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../main.dart' show RootGate;
 import '../controller/dispatch_auth_controller.dart';
@@ -56,10 +56,8 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
       if (mounted) {
         Get.offAll(() => const RootGate());
       }
-    } on DispatchApiException catch (e) {
-      setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = userMessage(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

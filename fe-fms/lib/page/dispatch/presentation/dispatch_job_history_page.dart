@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:get/get.dart';
 
-import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/dispatch/dispatch_format.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../data/dispatch/datasource/dispatch_jobs_datasource.dart';
@@ -40,12 +40,9 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
       final jobs = await _ds.jobsHistory();
       if (!mounted) return;
       setState(() => _jobs = jobs);
-    } on DispatchApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.message);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = userMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -64,7 +61,7 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
         title: const Text(
-          'Completed jobs',
+          'Job history',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
       ),
@@ -120,7 +117,7 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
       );
     }
     return ListView.separated(
-      padding: EdgeInsets.zero,
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       itemCount: _jobs.length,
       separatorBuilder: (_, _) => Divider(
         height: 1,
@@ -252,12 +249,9 @@ class _DispatchJobHistoryDetailPageState
       final job = await _ds.jobDetail(widget.jobId);
       if (!mounted) return;
       setState(() => _job = job);
-    } on DispatchApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.message);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = userMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -337,7 +331,7 @@ class _DispatchJobHistoryDetailPageState
                     job.scheduledArrival, fallback: ''),
               ),
               _KvRow(
-                label: 'Actual arrival',
+                label: 'Started',
                 value: formatDispatchTimestamp(
                     job.actualArrival, fallback: ''),
               ),
@@ -370,7 +364,7 @@ class _DispatchJobHistoryDetailPageState
         _DetailCard(child: _Timeline(job: job)),
         if (job.photos != null && job.photos!.isNotEmpty) ...[
           const SizedBox(height: 22),
-          _SectionLabel('Proof of delivery (${job.photos!.length})'),
+          _SectionLabel('Proof of work (${job.photos!.length})'),
           _DetailCard(child: _Photos(photos: job.photos!)),
         ],
       ],
@@ -390,7 +384,7 @@ class _DetailHeader extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            job.jobName,
+            job.customer ?? job.jobName,
             style: TextStyle(
               color: palette.ink,
               fontSize: 20,
@@ -400,15 +394,19 @@ class _DetailHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _StatusPill(job: job),
-            if (job.externalStatusLabel != null) ...[
-              const SizedBox(height: 6),
-              DispatchExternalStatusPill(job: job),
+        // Capped so a long ORMECO flag wraps instead of squeezing the title.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _StatusPill(job: job),
+              if (job.externalStatusLabel != null) ...[
+                const SizedBox(height: 6),
+                DispatchExternalStatusPill(job: job),
+              ],
             ],
-          ],
+          ),
         ),
       ],
     );
@@ -531,7 +529,7 @@ class _Timeline extends StatelessWidget {
     final palette = context.dispatch;
     final entries = <(String, String?)>[
       ('Created', job.createdAt),
-      ('Arrived', job.actualArrival),
+      ('Started', job.actualArrival),
       ('Finished', job.finishWhen),
     ].where((e) => e.$2 != null && e.$2!.isNotEmpty).toList();
     if (entries.isEmpty) {

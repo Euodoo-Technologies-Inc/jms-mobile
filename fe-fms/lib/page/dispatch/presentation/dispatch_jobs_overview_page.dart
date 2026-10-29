@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
+import '../service/dispatch_notice_service.dart';
 
 /// A plain, flat list of today's jobs — a quick read-through of the day.
 /// Tapping a job focuses it on the map and returns.
@@ -24,12 +25,15 @@ class DispatchJobsOverviewPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
         title: const Text(
-          'Overview',
+          'Job list',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
       ),
       body: Obx(() {
-        if (ctrl.isLoading.value && ctrl.jobs.isEmpty) {
+        // First load only — a poll on a zero-job day refreshes in place.
+        if (ctrl.isLoading.value &&
+            ctrl.jobs.isEmpty &&
+            ctrl.lastFetchedAt.value == null) {
           return const Center(
             child: CircularProgressIndicator(color: DispatchColors.brand),
           );
@@ -50,7 +54,8 @@ class DispatchJobsOverviewPage extends StatelessWidget {
           color: DispatchColors.brand,
           onRefresh: ctrl.refreshToday,
           child: ListView.separated(
-            padding: EdgeInsets.zero,
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom),
             itemCount: jobs.length,
             separatorBuilder: (_, _) => Divider(
               height: 1,
@@ -65,8 +70,16 @@ class DispatchJobsOverviewPage extends StatelessWidget {
                 job: job,
                 stopNumber: job.routeOrder ?? (i + 1),
                 onTap: () {
-                  ctrl.selectJob(job);
-                  Get.back();
+                  // The map only shows unfinished, geocoded jobs — say why
+                  // instead of silently staying put.
+                  final notices = Get.find<DispatchNoticeController>();
+                  if (job.isFinished) {
+                    notices.info('This job is already finished.');
+                  } else if (!ctrl.selectJob(job)) {
+                    notices.info('This job has no coordinates yet.');
+                  } else {
+                    Get.back();
+                  }
                 },
               );
             },
@@ -88,7 +101,7 @@ class DispatchJobsOverviewPage extends StatelessWidget {
     return (accent: DispatchColors.accent, label: 'On the way');
   }
   if (job.isReschedulePending) {
-    return (accent: const Color(0xFFf59e0b), label: 'Reschedule');
+    return (accent: DispatchColors.warning, label: 'Reschedule');
   }
   return (accent: const Color(0xFF9aa4b2), label: 'Not started');
 }
@@ -133,8 +146,8 @@ class _OverviewJobRow extends StatelessWidget {
                     children: [
                       Text(
                         'STOP $stopNumber',
-                        style: const TextStyle(
-                          color: DispatchColors.brand,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,

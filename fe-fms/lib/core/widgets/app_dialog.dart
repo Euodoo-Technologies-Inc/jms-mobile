@@ -13,7 +13,7 @@ import '../theme/dispatch_palette.dart';
 ///
 /// Intent is communicated through [accent]:
 ///   • red   ([ColorScheme.error]) → destructive (cancel a job)
-///   • amber (0xFFFF9800)          → reschedule
+///   • amber ([DispatchColors.warning]) → reschedule
 ///   • green ([DispatchColors.brand]) → proceed / finish
 /// ===========================================================================
 class AppDialog extends StatelessWidget {

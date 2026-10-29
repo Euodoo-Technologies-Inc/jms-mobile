@@ -6,6 +6,7 @@ import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
+import '../widget/job_status.dart';
 import 'job_navigation_page.dart';
 import 'job_report_page.dart';
 
@@ -27,17 +28,13 @@ class JobHistoryDetailPage extends StatelessWidget {
         job.details?.where((d) => d.photoUrl != null).toList() ?? const [];
 
     return DetailScaffold(
-      title: job.jobName ?? 'Job History Details',
+      title: job.jobName ?? 'Job details',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
           DetailHeader(
             title: job.jobName ?? 'Job',
-            pill: const DetailStatusPill(
-              label: 'Completed',
-              color: DispatchColors.brand,
-              icon: Icons.verified_outlined,
-            ),
+            pill: JobStatus.completed.pill(context),
           ),
           const SizedBox(height: 22),
 
@@ -53,8 +50,11 @@ class JobHistoryDetailPage extends StatelessWidget {
                   value: _getJobTypeString(job.typeJob),
                 ),
                 DetailKvRow(label: 'Address', value: job.address),
-                if (job.jobDate != null)
-                  DetailKvRow(label: 'Completed', value: _formatDate(job.jobDate)),
+                if (job.finishWhen != null)
+                  DetailKvRow(
+                    label: 'Completed',
+                    value: _formatDateTime(job.finishWhen),
+                  ),
               ],
             ),
           ),
@@ -66,7 +66,7 @@ class JobHistoryDetailPage extends StatelessWidget {
                 () => JobNavigationPage(
                   latitude: latitude!,
                   longitude: longitude!,
-                  jobName: job.jobName ?? 'Job Destination',
+                  jobName: job.jobName ?? 'Job destination',
                   address: job.address,
                 ),
               );
@@ -74,7 +74,7 @@ class JobHistoryDetailPage extends StatelessWidget {
           ),
 
           const SizedBox(height: 22),
-          const DetailSectionLabel('Job Information'),
+          const DetailSectionLabel('Job information'),
           DetailCard(
             child: Column(
               children: [
@@ -101,7 +101,7 @@ class JobHistoryDetailPage extends StatelessWidget {
               entries: [
                 ('Created', _formatDateTime(job.createdAt)),
                 ('Assigned', _formatDateTime(job.assignWhen)),
-                ('Completed', _formatDateTime(job.jobDate)),
+                ('Completed', _formatDateTime(job.finishWhen)),
               ],
             ),
           ),
@@ -153,14 +153,14 @@ class JobHistoryDetailPage extends StatelessWidget {
                 Get.to(() => JobReportPage(job: job));
               },
               icon: const Icon(Icons.description_outlined),
-              label: const Text('View Report'),
+              label: const Text('View report'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                side: const BorderSide(color: DispatchColors.brand),
-                foregroundColor: DispatchColors.brand,
+                side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 overlayColor: DispatchColors.brand.withValues(alpha: 0.08),
               ),
             ),
@@ -173,11 +173,11 @@ class JobHistoryDetailPage extends StatelessWidget {
   String _getJobTypeString(int? type) {
     switch (type) {
       case 1:
-        return 'Line Interruption';
+        return 'Line interruption';
       case 2:
         return 'Reconnection';
       case 3:
-        return 'Short Circuit';
+        return 'Short circuit';
       case 4:
         return 'Disconnection';
       default:
@@ -185,9 +185,9 @@ class JobHistoryDetailPage extends StatelessWidget {
     }
   }
 
-  String _formatDate(dynamic value) {
+  String? _formatDate(dynamic value) {
     final dateTime = _parseDate(value);
-    if (dateTime == null) return 'N/A';
+    if (dateTime == null) return null;
     return DateFormat('EEE, dd MMM yyyy').format(ManilaTimezone.convert(dateTime));
   }
 
@@ -230,11 +230,11 @@ class _MapButton extends StatelessWidget {
             ? onOpen
             : () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Coordinates not available')),
+                  const SnackBar(content: Text("This job has no saved location.")),
                 );
               },
         icon: const Icon(Icons.map_outlined),
-        label: const Text('Open in Map'),
+        label: const Text('Open in map'),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 13),
           shape: RoundedRectangleBorder(
@@ -242,7 +242,7 @@ class _MapButton extends StatelessWidget {
           ),
           side: BorderSide(color: context.dispatch.cardBorder),
           foregroundColor: enabled
-              ? DispatchColors.brand
+              ? Theme.of(context).colorScheme.primary
               : context.dispatch.subtle,
         ),
       ),

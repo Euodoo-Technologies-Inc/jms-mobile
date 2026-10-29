@@ -143,10 +143,10 @@ class _FilterBody extends StatelessWidget {
   final Color borderColor;
 
   static const _jobTypes = {
-    1: 'Line Int.',
-    2: 'Recon.',
-    3: 'SC',
-    4: 'Disc.',
+    1: 'Line interruption',
+    2: 'Reconnection',
+    3: 'Short circuit',
+    4: 'Disconnection',
   };
 
   @override
@@ -185,9 +185,10 @@ class _FilterBody extends StatelessWidget {
           ),
         ),
 
-        // Date range chips
+        // Date range chips. The row grows with text size so the chips
+        // don't clip.
         SizedBox(
-          height: 38,
+          height: MediaQuery.textScalerOf(context).scale(38),
           child: Obx(() {
             return ListView(
               scrollDirection: Axis.horizontal,
@@ -213,7 +214,7 @@ class _FilterBody extends StatelessWidget {
 
         // Job type chips
         SizedBox(
-          height: 38,
+          height: MediaQuery.textScalerOf(context).scale(38),
           child: Obx(() {
             return ListView(
               scrollDirection: Axis.horizontal,

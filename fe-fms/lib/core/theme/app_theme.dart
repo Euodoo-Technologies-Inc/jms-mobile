@@ -2,122 +2,81 @@ import 'package:flutter/material.dart';
 
 import 'dispatch_palette.dart';
 
-/// Defines the application's theme configuration.
+/// Defines the application's theme configuration. Every colour comes from
+/// [DispatchColors] / [DispatchPalette], so Material defaults (spinners,
+/// refresh indicators, focus rings, buttons, chips) render in the brand green.
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light() {
-    const primary = Color(0xFF1B63FF); // clean blue
-    const surface = Color(0xFFF7F8FA);
-    const text = Color(0xFF0F172A);
-    const subtleText = Color(0xFF64748B);
+  static ThemeData light() => _build(
+    DispatchPalette.light,
+    Brightness.light,
+    Typography.blackMountainView,
+  );
 
+  static ThemeData dark() => _build(
+    DispatchPalette.dark,
+    Brightness.dark,
+    Typography.whiteMountainView,
+  );
+
+  static ThemeData _build(
+    DispatchPalette palette,
+    Brightness brightness,
+    TextTheme typography,
+  ) {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      primary: primary,
-      surface: surface,
-      brightness: Brightness.light,
+      seedColor: DispatchColors.brand,
+      // Light mode uses the brand green itself; dark mode keeps the seeded,
+      // lighter green so it stays legible as text on dark surfaces.
+      primary: brightness == Brightness.light ? DispatchColors.brand : null,
+      error: DispatchColors.danger,
+      surface: palette.pageSurface,
+      brightness: brightness,
+    );
+
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: palette.cardBorder),
     );
 
     return ThemeData(
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: surface,
-      appBarTheme: const AppBarTheme(
+      scaffoldBackgroundColor: palette.pageSurface,
+      // Matches the hand-styled app bars (AppBarWidget, DetailScaffold).
+      appBarTheme: AppBarTheme(
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: text,
+        scrolledUnderElevation: 0,
+        backgroundColor: palette.pageSurface,
+        surfaceTintColor: palette.pageSurface,
+        foregroundColor: palette.ink,
         centerTitle: true,
+        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: palette.card,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
+          side: BorderSide(color: palette.cardBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primary, width: 1.2),
+        fillColor: palette.card,
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
         ),
       ),
-      textTheme: Typography.blackMountainView.copyWith(
-        bodyMedium: const TextStyle(color: subtleText, height: 1.25),
-        bodyLarge: const TextStyle(color: text, height: 1.3),
-        titleMedium: const TextStyle(color: text, fontWeight: FontWeight.w600),
+      textTheme: typography.copyWith(
+        bodyMedium: TextStyle(color: palette.subtle, height: 1.25),
+        bodyLarge: TextStyle(color: palette.ink, height: 1.3),
+        titleMedium: TextStyle(color: palette.ink, fontWeight: FontWeight.w600),
       ),
-      extensions: const <ThemeExtension<dynamic>>[DispatchPalette.light],
-      useMaterial3: true,
-    );
-  }
-
-  static ThemeData dark() {
-    const primary = Color(0xFF4D86FF); // lifted blue, legible on dark
-    const surface = Color(0xFF0F141A);
-    const card = Color(0xFF1A222C);
-    const text = Color(0xFFE8EBF0);
-    const subtleText = Color(0xFF94A3B8);
-    const border = Color(0xFF2A3441);
-
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      primary: primary,
-      surface: surface,
-      brightness: Brightness.dark,
-    );
-
-    return ThemeData(
-      colorScheme: colorScheme,
-      scaffoldBackgroundColor: surface,
-      appBarTheme: const AppBarTheme(
-        elevation: 0,
-        backgroundColor: card,
-        foregroundColor: text,
-        centerTitle: true,
-      ),
-      cardTheme: CardThemeData(
-        color: card,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: border),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: card,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primary, width: 1.2),
-        ),
-      ),
-      textTheme: Typography.whiteMountainView.copyWith(
-        bodyMedium: const TextStyle(color: subtleText, height: 1.25),
-        bodyLarge: const TextStyle(color: text, height: 1.3),
-        titleMedium: const TextStyle(color: text, fontWeight: FontWeight.w600),
-      ),
-      extensions: const <ThemeExtension<dynamic>>[DispatchPalette.dark],
+      extensions: <ThemeExtension<dynamic>>[palette],
       useMaterial3: true,
     );
   }

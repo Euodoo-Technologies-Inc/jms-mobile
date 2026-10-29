@@ -10,15 +10,15 @@ class DispatchJobsDatasource {
 
   final DispatchApiClient _client;
 
-  Future<List<DispatchJob>> jobsToday() async {
+  /// Today's jobs as the raw API maps, so the offline cache keeps every
+  /// field (ORMECO customer, status pills, details) and not just the ones
+  /// [DispatchJob] parses today.
+  Future<List<Map<String, dynamic>>> jobsTodayJson() async {
     final body = await _client.getJson(DispatchConstants.jobsTodayEndpoint);
     final data = (body['data'] as Map?)?.cast<String, dynamic>() ?? const {};
     final jobs = data['jobs'];
     if (jobs is! List) return const [];
-    return jobs
-        .whereType<Map<String, dynamic>>()
-        .map(DispatchJob.fromJson)
-        .toList(growable: false);
+    return jobs.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   Future<List<DispatchJob>> jobsHistory({int limit = 50}) async {

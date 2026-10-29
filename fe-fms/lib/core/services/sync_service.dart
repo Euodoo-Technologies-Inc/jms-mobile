@@ -12,6 +12,7 @@ import 'package:fms/data/datasource/reschedule_job_datasource.dart';
 import 'package:fms/data/models/offline_queue_item.dart';
 import 'package:fms/data/repository/offline_queue_repository.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 class SyncService extends GetxService {
   final OfflineQueueRepository _queueRepo = OfflineQueueRepository();
@@ -56,7 +57,7 @@ class SyncService extends GetxService {
       Get.snackbar(
         'Syncing',
         'Syncing ${items.length} queued action(s)...',
-        backgroundColor: Colors.blue.withValues(alpha: 0.9),
+        backgroundColor: DispatchColors.brand.withValues(alpha: 0.9),
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
         duration: const Duration(seconds: 2),
@@ -114,7 +115,7 @@ class SyncService extends GetxService {
       Get.snackbar(
         'Synced',
         'Job #${item.jobId} synced successfully',
-        backgroundColor: Colors.green.withValues(alpha: 0.9),
+        backgroundColor: DispatchColors.brand.withValues(alpha: 0.9),
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
         duration: const Duration(seconds: 2),
@@ -133,7 +134,7 @@ class SyncService extends GetxService {
         Get.snackbar(
           'Sync Failed',
           'Job #${item.jobId} failed after 3 attempts. Discarded.',
-          backgroundColor: Colors.red.withValues(alpha: 0.9),
+          backgroundColor: DispatchColors.danger.withValues(alpha: 0.9),
           colorText: Colors.white,
           snackPosition: SnackPosition.TOP,
           duration: const Duration(seconds: 4),
@@ -145,7 +146,7 @@ class SyncService extends GetxService {
         Get.snackbar(
           'Sync Retry',
           'Job #${item.jobId} will retry ($newRetryCount/3)',
-          backgroundColor: Colors.orange.withValues(alpha: 0.9),
+          backgroundColor: DispatchColors.warning.withValues(alpha: 0.9),
           colorText: Colors.white,
           snackPosition: SnackPosition.TOP,
           duration: const Duration(seconds: 3),

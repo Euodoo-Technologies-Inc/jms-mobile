@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../controller/dispatch_auth_controller.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Dead-end screen shown after a 403 "account disabled" response. The user
 /// cannot proceed until they tap dismiss — prevents an immediate retry loop.
@@ -19,7 +20,7 @@ class DispatchDisabledPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.block, size: 64, color: Colors.red),
+              const Icon(Icons.block, size: 64, color: DispatchColors.danger),
               const SizedBox(height: 16),
               Obx(
                 () => Text(

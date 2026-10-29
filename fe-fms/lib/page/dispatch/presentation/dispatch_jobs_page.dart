@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -43,12 +46,23 @@ const double _kPanelMidFrac = 0.4;
 /// wrapping to three lines still fits the card without overflowing.
 const double _kCarouselHeight = 240;
 
+/// The part of [_kCarouselHeight] that doesn't grow with text size: the
+/// card's outer and inner padding, the divider and the fixed gaps.
+const double _kCarouselChrome = 64;
+
+/// [_kCarouselHeight] at the device's font size. Only the text share grows,
+/// so a 3-line name and 2-line address still fit at 1.3× and 2×.
+double _carouselHeight(BuildContext context) =>
+    _kCarouselChrome +
+    MediaQuery.textScalerOf(context)
+        .scale(_kCarouselHeight - _kCarouselChrome);
+
 /// Gap (logical px) between the status bar and the floating top island, and
 /// the island's own fixed height.
 const double _kTopBarTop = 8;
 const double _kTopBarHeight = 56;
 
-/// Compact "HH:mm" for the carousel card's scheduled metric. Today's jobs
+/// Compact "h:mm a" for the carousel card's scheduled metric. Today's jobs
 /// carry a same-day time, so the date portion would just be noise. Falls back
 /// to an em dash when the timestamp is missing or unparseable.
 String _compactTime(String? raw) {
@@ -56,7 +70,7 @@ String _compactTime(String? raw) {
   final dt = DateTime.tryParse(raw);
   if (dt == null) return raw;
   final local = dt.isUtc ? dt.toLocal() : dt;
-  return DateFormat('HH:mm').format(local);
+  return DateFormat('h:mm a').format(local);
 }
 
 /// Map of today's jobs with a horizontal carousel at the bottom. All the
@@ -91,6 +105,13 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
 
   late final DispatchJobsController _jobsCtrl;
 
+  /// Why the rider's position can't be read (GPS off / permission denied),
+  /// or null when location works. Drives the "Enable" banner.
+  final RxnString _locationOff = RxnString();
+
+  /// Re-checks location when the user comes back from system settings.
+  late final AppLifecycleListener _lifecycle;
+
   /// App-wide transient-notice banner.
   DispatchNoticeController get _notices =>
       Get.find<DispatchNoticeController>();
@@ -110,6 +131,55 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
         ? Get.find<DispatchJobsController>()
         : Get.put(DispatchJobsController(), permanent: true);
     _applyNoticeTopOffset();
+    _checkLocation(request: true);
+    // No prompt on resume: the permission dialog itself pauses/resumes the
+    // app, so requesting here would re-prompt in a loop after a denial.
+    _lifecycle = AppLifecycleListener(onResume: _checkLocation);
+  }
+
+  /// Asks for location once when the map opens and keeps [_locationOff] in
+  /// step with the OS, so a missing rider dot / "—" distances are explained.
+  Future<void> _checkLocation({bool request = false}) async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _locationOff.value = 'Location is off — your position and '
+            'distances to jobs can\'t show.';
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (request && permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _locationOff.value = 'Location access is off — your position and '
+            'distances to jobs can\'t show.';
+        return;
+      }
+      if (!mounted) return;
+      final wasOff = _locationOff.value != null;
+      _locationOff.value = null;
+      if (wasOff || request) {
+        unawaited(_jobsCtrl.refreshRiderPosition(force: true));
+      }
+    } catch (_) {
+      // No location plugin (tests / unsupported platform) — nothing to show.
+    }
+  }
+
+  /// Banner "Enable": GPS settings when the service is off, app settings when
+  /// the permission is permanently denied, otherwise the system prompt again.
+  Future<void> _enableLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        await Geolocator.openLocationSettings();
+      } else if (await Geolocator.checkPermission() ==
+          LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+      } else {
+        await _checkLocation(request: true);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -138,6 +208,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     // dispose runs during the unmount phase — also defer the Rx write so it
     // can't mark the host's Obx dirty while the frame is still being built.
     if (Get.isRegistered<DispatchNoticeController>()) {
@@ -176,16 +247,49 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     } on DispatchApiException catch (e) {
       if (!mounted) return;
       if (e.isConflict) {
-        _notices.info(e.message);
+        _notices.info(userMessage(e));
       } else {
-        _notices.error(e.message);
+        _notices.error(userMessage(e));
       }
     } catch (e) {
       if (!mounted) return;
-      _notices.error(e.toString());
+      _notices.error(userMessage(e));
     } finally {
       _starting.value = false;
     }
+  }
+
+  /// Back peels the map's layers one at a time — the focused panel, then the
+  /// route preview — and only then asks before leaving the app, matching the
+  /// 2W exit confirm in `nav_bar.dart`.
+  Future<void> _onBack(bool didPop, Object? _) async {
+    if (didPop) return;
+    if (_jobsCtrl.selectedJobId.value != null) {
+      _jobsCtrl.clearSelection();
+      return;
+    }
+    if (_jobsCtrl.routePreview.value) {
+      _jobsCtrl.toggleRoutePreview();
+      return;
+    }
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit App'),
+        content: const Text('Do you want to exit the application?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    if (shouldExit == true) SystemNavigator.pop();
   }
 
   @override
@@ -198,63 +302,84 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
-      child: Scaffold(
-        // No AppBar — the map runs full-bleed to the top edge of the screen.
-        // The profile entry point is a floating button overlaid on the map.
-        body: Obx(() {
-        // Top-level Obx: only top-of-tree state (loading / error / empty /
-        // stale). Map + panel have their own scoped Obx so they don't
-        // rebuild on unrelated state changes.
-        if (_jobsCtrl.isLoading.value && _jobsCtrl.jobs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (_jobsCtrl.error.value != null && _jobsCtrl.jobs.isEmpty) {
-          return SafeArea(
-            child: _ErrorState(
-              message: _jobsCtrl.error.value ?? 'Failed to load',
-              onRetry: _jobsCtrl.refreshToday,
-            ),
-          );
-        }
-
-        // Map fills the screen; the bottom panel + the offline / stale
-        // banner float over it via a Stack so neither one pushes the map
-        // around when it appears or resizes.
-        return Stack(
-          children: [
-            Positioned.fill(child: _buildMapArea()),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildBottomArea(),
-            ),
-            // Offline / stale-cache banner: bottom-anchored, floating above
-            // the carousel/panel rather than pushing the top bar down.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Obx(() {
-                if (!_jobsCtrl.isStale.value) return const SizedBox.shrink();
-                final panelH = _panelFracLive.value *
-                    MediaQuery.of(context).size.height;
-                final hasFocus = _jobsCtrl.selectedJobId.value != null &&
-                    !_jobsCtrl.routePreview.value;
-                final bottomGap = (hasFocus ? panelH : _kCarouselHeight) + 12;
-                return Padding(
-                  padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
-                  child: _StaleBanner(
-                    message:
-                        _jobsCtrl.error.value ?? 'Showing cached jobs.',
-                    onRetry: _jobsCtrl.refreshToday,
-                  ),
-                );
-              }),
-            ),
-          ],
-        );
-        }),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: _onBack,
+        child: Scaffold(
+          // No AppBar — the map runs full-bleed to the top edge of the
+          // screen. The profile entry point is a floating button overlaid on
+          // the map. Loading and load errors render *over* the map so the
+          // top bar (job list, profile, log out) is always reachable.
+          body: Stack(
+            children: [
+              Positioned.fill(child: _buildMapArea()),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildBottomArea(),
+              ),
+              // First load only — later polls refresh in place, so a day
+              // with zero jobs never blanks the map every 30 s.
+              Obx(() => _jobsCtrl.isLoading.value &&
+                      _jobsCtrl.jobs.isEmpty &&
+                      _jobsCtrl.lastFetchedAt.value == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : const SizedBox.shrink()),
+              // Location-off and offline / load-error banners: bottom-
+              // anchored, floating above the carousel/panel rather than
+              // pushing the top bar down.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Obx(() {
+                  final error = _jobsCtrl.error.value;
+                  final showError = _jobsCtrl.isStale.value ||
+                      (error != null && _jobsCtrl.jobs.isEmpty);
+                  final locationOff = _locationOff.value;
+                  if (!showError && locationOff == null) {
+                    return const SizedBox.shrink();
+                  }
+                  final panelH = _panelFracLive.value *
+                      MediaQuery.of(context).size.height;
+                  final hasFocus = _jobsCtrl.selectedJobId.value != null &&
+                      !_jobsCtrl.routePreview.value;
+                  final hasCarousel =
+                      _jobsCtrl.jobs.any((j) => !j.isFinished);
+                  final bottomGap = (hasFocus
+                          ? panelH
+                          : hasCarousel
+                              ? _carouselHeight(context)
+                              : MediaQuery.of(context).padding.bottom) +
+                      12;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (locationOff != null)
+                          _StaleBanner(
+                            icon: Icons.location_off,
+                            message: locationOff,
+                            actionLabel: 'Enable',
+                            onAction: _enableLocation,
+                          ),
+                        if (locationOff != null && showError)
+                          const SizedBox(height: 8),
+                        if (showError)
+                          _StaleBanner(
+                            message: error ?? 'Showing cached jobs.',
+                            onAction: _jobsCtrl.refreshToday,
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -331,7 +456,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             final screenH = mq.size.height;
             final bottomInset = isFocused
                 ? screenH * _panelFrac.value
-                : (jobs.isEmpty ? 0.0 : _kCarouselHeight) + bottomSafe;
+                : (jobs.isEmpty ? 0.0 : _carouselHeight(context)) + bottomSafe;
 
             return AdaptiveMap(
               key: const ValueKey('dispatchmap'),
@@ -526,7 +651,9 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             final dragging = _panelDragging.value;
             final bottomOffset = focused
                 ? screenH * frac + 12
-                : (hasCarousel ? _kCarouselHeight : 0) + bottomSafe + 12;
+                : (hasCarousel ? _carouselHeight(context) : 0) +
+                    bottomSafe +
+                    12;
             // No usable map left to recenter once the panel is dragged up to
             // (nearly) fill the screen — fade the button away.
             final hidden = focused && frac > 0.8;
@@ -552,7 +679,11 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                       tooltip: focused
                           ? 'Recenter on the route'
                           : 'Center on my location',
-                      onPressed: _jobsCtrl.recenterOnRider,
+                      // Centring on the rider needs a fix — explain and
+                      // offer to turn location on instead of doing nothing.
+                      onPressed: !focused && _locationOff.value != null
+                          ? _enableLocation
+                          : _jobsCtrl.recenterOnRider,
                       child: const Icon(Icons.my_location),
                     ),
                   ),
@@ -642,7 +773,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                     key: const ValueKey('carousel'),
                     top: false,
                     child: SizedBox(
-                      height: _kCarouselHeight,
+                      height: _carouselHeight(context),
                       child: _JobCarousel(
                         jobs: jobs,
                         etaMeters: _jobsCtrl.etaMeters.value,
@@ -994,15 +1125,20 @@ class _DispatchJobCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _JobStatusPill(job: job),
-                      if (job.externalStatusLabel != null) ...[
-                        const SizedBox(height: 4),
-                        DispatchExternalStatusPill(job: job),
+                  // Capped so a long ORMECO flag or large text wraps the
+                  // pills instead of squeezing the name off the card.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _JobStatusPill(job: job),
+                        if (job.externalStatusLabel != null) ...[
+                          const SizedBox(height: 4),
+                          DispatchExternalStatusPill(job: job),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -1072,7 +1208,7 @@ class _CardLabel extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: Colors.white.withValues(alpha: 0.9),
         fontSize: 10,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.8,
@@ -1153,6 +1289,9 @@ class _JobStatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
         style: TextStyle(
           color: fg,
           fontSize: 11.5,
@@ -1398,7 +1537,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       // the content has laid out — expand to exactly fit it next frame, so the
       // panel reads as the tapped card swelling open to its full detail.
       _entered = true;
-      _frac = (_kCarouselHeight / screenH).clamp(_minFrac, _maxFrac);
+      _frac = (_carouselHeight(context) / screenH).clamp(_minFrac, _maxFrac);
       WidgetsBinding.instance.addPostFrameCallback((_) => _openToFitContent());
     }
 
@@ -1519,40 +1658,59 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                               color: Colors.white.withValues(alpha: 0.22),
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                _JobStatusPill(job: job),
-                                if (job.externalStatusLabel != null) ...[
-                                  const SizedBox(width: 6),
-                                  DispatchExternalStatusPill(job: job),
-                                ],
-                                const Spacer(),
-                                if (widget.etaMeters != null) ...[
-                                  const Icon(Icons.near_me_outlined,
-                                      size: 15, color: Colors.white),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    formatTravelDistance(widget.etaMeters!),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: [
-                                        FontFeature.tabularFigures(),
+                            // Pills left, distance right; each drops to its
+                            // own line when a long flag or large text won't
+                            // fit them side by side.
+                            SizedBox(
+                              // Full width, or spaceBetween has no room.
+                              width: double.infinity,
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      _JobStatusPill(job: job),
+                                      if (job.externalStatusLabel != null)
+                                        DispatchExternalStatusPill(job: job),
+                                    ],
+                                  ),
+                                  if (widget.etaMeters != null)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.near_me_outlined,
+                                            size: 15, color: Colors.white),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          formatTravelDistance(
+                                              widget.etaMeters!),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'away',
+                                          style: TextStyle(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.75),
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'away',
-                                    style: TextStyle(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.75),
-                                      fontSize: 12,
-                                    ),
-                                  ),
                                 ],
-                              ],
+                              ),
                             ),
                             const SizedBox(height: 6),
                             if (job.scheduledArrival != null)
@@ -1597,7 +1755,6 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 context,
                                 lat: job.lat!,
                                 lng: job.lng!,
-                                label: job.jobName,
                               ),
                             ),
                           ],
@@ -1736,6 +1893,35 @@ class _PanelActions extends StatelessWidget {
   }
 }
 
+/// The bottom carousel at its live height, and the focused job panel, for
+/// widget tests that pump them without the map page around them.
+@visibleForTesting
+Widget debugJobCarousel(List<DispatchJob> jobs, {double? etaMeters}) =>
+    Builder(
+      builder: (context) => SizedBox(
+        height: _carouselHeight(context),
+        child: _JobCarousel(
+            jobs: jobs, etaMeters: etaMeters, onSelect: (_) {}),
+      ),
+    );
+
+@visibleForTesting
+Widget debugFocusedJobPanel(DispatchJob job, {double? etaMeters}) =>
+    _FocusedJobPanel(
+      job: job,
+      stopNumber: 1,
+      etaMeters: etaMeters,
+      starting: false.obs,
+      hasOtherActive: false,
+      isNextInQueue: true,
+      onClose: () {},
+      onStart: () {},
+      onFinish: () {},
+      onFracChanged: (_) {},
+      onFracLive: (_) {},
+      panelDragging: false.obs,
+    );
+
 /// One ORMECO details section, collapsed so the panel stays map-sized. Public
 /// only so a widget test can pump it without the map page around it.
 @visibleForTesting
@@ -1780,7 +1966,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Colors.white.withValues(alpha: 0.78);
+    final muted = Colors.white.withValues(alpha: 0.9);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -1806,9 +1992,16 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _StaleBanner extends StatelessWidget {
-  const _StaleBanner({required this.message, required this.onRetry});
+  const _StaleBanner({
+    required this.message,
+    required this.onAction,
+    this.icon = Icons.cloud_off,
+    this.actionLabel = 'Retry',
+  });
   final String message;
-  final VoidCallback onRetry;
+  final VoidCallback onAction;
+  final IconData icon;
+  final String actionLabel;
 
   static const Color _amber = Color(0xFFb45309);
 
@@ -1827,7 +2020,7 @@ class _StaleBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.cloud_off, size: 18, color: _amber),
+            Icon(icon, size: 18, color: _amber),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -1842,7 +2035,7 @@ class _StaleBanner extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: onRetry,
+              onPressed: onAction,
               style: TextButton.styleFrom(
                 foregroundColor: DispatchColors.brand,
                 textStyle: const TextStyle(
@@ -1852,7 +2045,7 @@ class _StaleBanner extends StatelessWidget {
                 minimumSize: const Size(56, 36),
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
-              child: const Text('Retry'),
+              child: Text(actionLabel),
             ),
           ],
         ),
@@ -1861,28 +2054,11 @@ class _StaleBanner extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 80),
-        const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
-        const SizedBox(height: 12),
-        Center(child: Text(message)),
-        const SizedBox(height: 16),
-        Center(
-          child: FilledButton.tonal(
-            onPressed: onRetry,
-            child: const Text('Retry'),
-          ),
-        ),
-      ],
+/// The job card, for widget tests that pump it without the map page around it.
+@visibleForTesting
+Widget debugJobCard(DispatchJob job, {double? etaMeters}) => _DispatchJobCard(
+      job: job,
+      stopNumber: 1,
+      etaMeters: etaMeters,
+      onTap: () {},
     );
-  }
-}
-

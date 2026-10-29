@@ -1,14 +1,11 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:fms/core/services/connectivity_service.dart';
-import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/constants/variables.dart';
-import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:get/get.dart';
-import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 
 /// Custom HTTP client that validates company type before every API call
 class ApiClient {
@@ -91,28 +88,9 @@ class ApiClient {
     _hasLoggedOut = true;
 
     try {
-      // Clear all data
-      await AuthRemoteDataSource().logout();
-
-      // Show message and redirect to login
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        SnackbarUtils(
-          text: 'Subscription Mismatch',
-          backgroundColor: Colors.red,
-        ).showErrorSnackBar(context);
-        // Get.snackbar(
-        //   'Subscription Mismatch',
-        //   'Your subscription type has changed. Please login again.',
-        //   //snackPosition: SnackPosition.BOTTOM,
-        //   backgroundColor: Colors.red,
-        //   colorText: Colors.white,
-        //   duration: const Duration(seconds: 3),
-        // );
-      }
-
-      // Redirect to login page
-      Get.offAll(() => const LoginPage());
+      await Get.find<AuthController>().logout(
+        notice: 'Your subscription type has changed. Please sign in again.',
+      );
     } catch (e) {
       log('Error during logout: $e', name: 'ApiClient', level: 1000);
     }

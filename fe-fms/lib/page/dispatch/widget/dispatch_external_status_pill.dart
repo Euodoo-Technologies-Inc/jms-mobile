@@ -17,7 +17,8 @@ class DispatchExternalStatusPill extends StatelessWidget {
     final label = job.externalStatusLabel;
     if (label == null || label.isEmpty) return const SizedBox.shrink();
     return Tooltip(
-      message: 'ORMECO status',
+      // The label may be cut short on the card; the tooltip has all of it.
+      message: 'ORMECO status: $label',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
@@ -30,13 +31,17 @@ class DispatchExternalStatusPill extends StatelessWidget {
           children: [
             const Icon(Icons.warning_amber_rounded, size: 13, color: _fg),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: _fg,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _fg,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
             ),
           ],

@@ -9,7 +9,7 @@ String formatDispatchTimestamp(String? raw, {String fallback = '—'}) {
   final dt = DateTime.tryParse(raw);
   if (dt == null) return raw; // upstream sent a non-ISO label — show as-is.
   final local = dt.isUtc ? dt.toLocal() : dt;
-  return DateFormat('MMM dd, yyyy HH:mm').format(local);
+  return DateFormat('MMM dd, yyyy h:mm a').format(local);
 }
 
 /// Road-distance formatter used for the "850 m away" / "1.5 km away" label
