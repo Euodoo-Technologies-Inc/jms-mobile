@@ -11,6 +11,7 @@ import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/page/home/controller/home_controller.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for managing user profile data and authentication state.
 class ProfileController extends GetxController {
@@ -98,7 +99,7 @@ class ProfileController extends GetxController {
       if (mounted) {
         SnackbarUtils(
           text: 'Logout successful',
-          backgroundColor: Colors.green,
+          backgroundColor: DispatchColors.brand,
           icon: Icons.logout,
         ).showSuccessSnackBar(context);
         Navigator.pushAndRemoveUntil(
@@ -115,7 +116,7 @@ class ProfileController extends GetxController {
       } else {
         SnackbarUtils(
           text: 'Logout failed',
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
           icon: Icons.logout,
         ).showErrorSnackBar(context);
       }
@@ -123,7 +124,7 @@ class ProfileController extends GetxController {
       if (mounted) {
         SnackbarUtils(
           text: 'Logout failed',
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
           icon: Icons.logout,
         ).showErrorSnackBar(context);
       }

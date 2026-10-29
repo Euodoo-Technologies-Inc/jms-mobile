@@ -7,6 +7,7 @@ import 'package:fms/core/constants/variables.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:get/get.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Service for verifying if the user's company subscription type matches the local data.
 class CompanyTypeCheckService {
@@ -100,7 +101,7 @@ class CompanyTypeCheckService {
       if (context != null && context.mounted) {
         Get.snackbar(
           colorText: Colors.white,
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
           icon: const Icon(Icons.error, color: Colors.white),
           'Subscription Mismatch',
           'Your subscription type has changed. Please login again.',

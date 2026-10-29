@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +8,7 @@ import 'package:fms/core/constants/variables.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:get/get.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Custom HTTP client that validates company type before every API call
 class ApiClient {
@@ -99,7 +99,7 @@ class ApiClient {
       if (context != null && context.mounted) {
         SnackbarUtils(
           text: 'Subscription Mismatch',
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
         ).showErrorSnackBar(context);
         // Get.snackbar(
         //   'Subscription Mismatch',

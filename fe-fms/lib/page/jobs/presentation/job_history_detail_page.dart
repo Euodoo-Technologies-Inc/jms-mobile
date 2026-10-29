@@ -6,6 +6,7 @@ import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
+import '../widget/job_status.dart';
 import 'job_navigation_page.dart';
 import 'job_report_page.dart';
 
@@ -33,11 +34,7 @@ class JobHistoryDetailPage extends StatelessWidget {
         children: [
           DetailHeader(
             title: job.jobName ?? 'Job',
-            pill: const DetailStatusPill(
-              label: 'Completed',
-              color: DispatchColors.brand,
-              icon: Icons.verified_outlined,
-            ),
+            pill: JobStatus.completed.pill(context),
           ),
           const SizedBox(height: 22),
 
@@ -159,8 +156,8 @@ class JobHistoryDetailPage extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                side: const BorderSide(color: DispatchColors.brand),
-                foregroundColor: DispatchColors.brand,
+                side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 overlayColor: DispatchColors.brand.withValues(alpha: 0.08),
               ),
             ),
@@ -242,7 +239,7 @@ class _MapButton extends StatelessWidget {
           ),
           side: BorderSide(color: context.dispatch.cardBorder),
           foregroundColor: enabled
-              ? DispatchColors.brand
+              ? Theme.of(context).colorScheme.primary
               : context.dispatch.subtle,
         ),
       ),

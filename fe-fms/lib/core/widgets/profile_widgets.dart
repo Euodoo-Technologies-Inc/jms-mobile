@@ -9,8 +9,6 @@ import '../theme/theme_controller.dart';
 /// identical — branded green header, section labels, info/action rows, the
 /// theme-mode picker, and a palette-styled log-out confirmation.
 
-const Color _danger = Color(0xFFdc2626);
-
 /// Branded green profile header — avatar, name, a subtitle line, and an
 /// optional status chip, with a back button + "Profile" title.
 class ProfileBrandHeader extends StatelessWidget {
@@ -94,7 +92,7 @@ class ProfileBrandHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 13,
                       ),
                     ),
@@ -104,7 +102,9 @@ class ProfileBrandHeader extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          // A deeper green, not a lighter one, keeps the 11 pt
+                          // white label at 6.7:1.
+                          color: Colors.black.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -231,7 +231,7 @@ class ProfileActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
-    final tint = danger ? _danger : DispatchColors.brand;
+    final tint = danger ? DispatchColors.danger : DispatchColors.brand;
     return Material(
       color: palette.card,
       borderRadius: BorderRadius.circular(14),
@@ -390,10 +390,14 @@ class _LogoutConfirmDialog extends StatelessWidget {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: _danger.withValues(alpha: 0.12),
+                      color: DispatchColors.danger.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.logout, color: _danger, size: 20),
+                    child: const Icon(
+                      Icons.logout,
+                      color: DispatchColors.danger,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -447,7 +451,7 @@ class _LogoutConfirmDialog extends StatelessWidget {
                       child: FilledButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: FilledButton.styleFrom(
-                          backgroundColor: _danger,
+                          backgroundColor: DispatchColors.danger,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),

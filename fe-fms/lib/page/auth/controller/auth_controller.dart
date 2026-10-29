@@ -27,6 +27,7 @@ import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/profile/controller/profile_controller.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for handling authentication logic.
 ///
@@ -217,7 +218,7 @@ class AuthController extends GetxController {
 
       SnackbarUtils(
         text: 'Login Success',
-        backgroundColor: Colors.green,
+        backgroundColor: DispatchColors.brand,
       ).showSuccessSnackBar(context);
 
       Navigator.of(context).pushAndRemoveUntil(

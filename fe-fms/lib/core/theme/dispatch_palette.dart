@@ -14,7 +14,10 @@ class DispatchColors {
   DispatchColors._();
 
   /// Primary brand green — job cards, focus panel, headers, accents.
-  static const Color brand = Color(0xFF2d9353);
+  /// Deep enough that white text on it is 5.2:1 (WCAG AA for small text).
+  /// As text on dark surfaces use `colorScheme.primary`, a lighter green
+  /// seeded from this.
+  static const Color brand = Color(0xFF267c46);
 
   /// Content (text / icons) shown on top of [brand].
   static const Color onBrand = Color(0xFFFFFFFF);
@@ -26,6 +29,10 @@ class DispatchColors {
   /// actions. A strong, consistent red across light and dark (the muted
   /// [ColorScheme.error] reads as pink on dark surfaces).
   static const Color danger = Color(0xFFdc2626);
+
+  /// Caution amber — in-progress / rescheduled status, "finish first"
+  /// notices, offline saves. 5.0:1 against white, both as text and as a fill.
+  static const Color warning = Color(0xFFb45309);
 
   /// Active rider route polyline (hex form — `MapZoneStyle` wants a string).
   static const String routeHex = '#1976D2';

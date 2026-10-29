@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
+import 'package:fms/page/jobs/widget/job_status.dart';
 
 /// A page displaying a summary report of a completed job.
 ///
@@ -60,11 +61,7 @@ class JobReportPage extends StatelessWidget {
         children: [
           DetailHeader(
             title: job.jobName ?? 'Job',
-            pill: const DetailStatusPill(
-              label: 'Completed',
-              color: DispatchColors.brand,
-              icon: Icons.verified_outlined,
-            ),
+            pill: JobStatus.completed.pill(context),
           ),
           const SizedBox(height: 22),
 

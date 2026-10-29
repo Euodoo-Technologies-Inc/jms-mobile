@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/core/storage/secure_storage.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Service for managing user sessions and handling unauthorized responses.
 class SessionService {
@@ -64,7 +65,7 @@ class SessionService {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Session expired. Please login again.'),
-            backgroundColor: Colors.red,
+            backgroundColor: DispatchColors.danger,
             duration: Duration(seconds: 2),
           ),
         );

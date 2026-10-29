@@ -134,10 +134,10 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: _submitting
                             ? null
                             : () => Get.to(() => const ForgotPasswordPage()),
-                        child: const Text(
+                        child: Text(
                           'Forgot Password',
                           style: TextStyle(
-                            color: DispatchColors.brand,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

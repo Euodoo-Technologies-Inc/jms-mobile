@@ -6,6 +6,7 @@ import '../../../core/dispatch/dispatch_navigation.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
 import 'dispatch_finish_job_page.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 // DispatchQueuedException lives in dispatch_jobs_controller.dart
 
@@ -61,7 +62,7 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Saved offline. Will sync when online.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: DispatchColors.warning,
         ),
       );
     } on DispatchApiException catch (e) {
@@ -69,13 +70,17 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          backgroundColor: e.isConflict ? Colors.orange : Colors.red,
+          backgroundColor:
+              e.isConflict ? DispatchColors.warning : DispatchColors.danger,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: DispatchColors.danger,
+        ),
       );
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -225,7 +230,7 @@ class _StatusBanner extends StatelessWidget {
   (String, Color, IconData) _badge(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (job.isFinished) {
-      return ('Finished', Colors.green, Icons.verified_outlined);
+      return ('Finished', DispatchColors.brand, Icons.verified_outlined);
     }
     if (job.isOnTheWay) {
       return ('On the way', scheme.primary, Icons.timelapse);
@@ -233,7 +238,7 @@ class _StatusBanner extends StatelessWidget {
     if (job.isReschedulePending) {
       return (
         'Reschedule pending — awaiting dispatcher',
-        Colors.orange,
+        DispatchColors.warning,
         Icons.event_repeat,
       );
     }

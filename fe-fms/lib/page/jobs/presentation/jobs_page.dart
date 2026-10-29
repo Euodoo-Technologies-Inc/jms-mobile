@@ -10,6 +10,7 @@ import 'package:fms/core/widgets/skeleton_loading.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
 import '../widget/job_summary_card.dart';
 import '../widget/history_filter_bar.dart';
+import '../widget/job_status.dart';
 import 'job_history_detail_page.dart';
 
 /// Displays a tabbed list of jobs for the driver, including all, ongoing,
@@ -151,11 +152,7 @@ class JobsPage extends StatelessWidget {
               dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
               badges: [
                 _buildJobTypeBadge(context, job.typeJob),
-                _buildStatusBadge(
-                  label: 'Open',
-                  color: accent,
-                  icon: Icons.outlined_flag,
-                ),
+                JobStatus.open.badge(context),
               ],
               accentColor: accent,
               onTap: () => _openJobDetails(job),
@@ -229,19 +226,15 @@ class JobsPage extends StatelessWidget {
               dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
               badges: [
                 _buildJobTypeBadge(context, job.typeJob),
-                _buildStatusBadge(
-                  label: isRescheduledStatus ? 'Rescheduled' : 'In Progress',
-                  color: isRescheduledStatus ? Colors.orange : accent,
-                  icon: isRescheduledStatus
-                      ? Icons.event_repeat
-                      : Icons.timelapse,
-                ),
+                (isRescheduledStatus
+                        ? JobStatus.rescheduled
+                        : JobStatus.inProgress)
+                    .badge(context),
                 if (rescheduledDate != null)
-                  _buildStatusBadge(
+                  JobStatus.rescheduled.badge(
+                    context,
                     label:
                         'Rescheduled · ${DateFormat('dd MMM, HH:mm').format(ManilaTimezone.convert(rescheduledDate))}',
-                    color: Colors.orange,
-                    icon: Icons.event_repeat,
                   ),
               ],
               accentColor: accent,
@@ -332,11 +325,7 @@ class JobsPage extends StatelessWidget {
                               : null,
                           badges: [
                             _buildJobTypeBadge(context, job.typeJob),
-                            _buildStatusBadge(
-                              label: 'Completed',
-                              color: Colors.green,
-                              icon: Icons.verified_outlined,
-                            ),
+                            JobStatus.completed.badge(context),
                           ],
                           accentColor: accent,
                           onTap: () => _openHistoryDetails(job),
@@ -418,21 +407,6 @@ class JobsPage extends StatelessWidget {
       backgroundColor: accent.withValues(alpha: 0.22),
       foregroundColor: accent,
       borderColor: accent.withValues(alpha: 0.4),
-    );
-  }
-
-  /// Creates a badge widget that visually represents the job status.
-  JobCardBadge _buildStatusBadge({
-    required String label,
-    required Color color,
-    IconData? icon,
-  }) {
-    return JobCardBadge(
-      label: label,
-      icon: icon,
-      backgroundColor: color.withValues(alpha: 0.14),
-      foregroundColor: color,
-      borderColor: color.withValues(alpha: 0.28),
     );
   }
 

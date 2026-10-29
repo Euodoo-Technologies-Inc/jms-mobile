@@ -133,10 +133,10 @@ class _DispatchLoginPageState extends State<DispatchLoginPage> {
                             ? null
                             : () =>
                                 Get.to(() => const DispatchActivatePage()),
-                        child: const Text(
+                        child: Text(
                           'First time? Activate account',
                           style: TextStyle(
-                            color: DispatchColors.brand,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
