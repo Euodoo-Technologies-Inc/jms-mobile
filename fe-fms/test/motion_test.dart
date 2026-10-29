@@ -87,6 +87,28 @@ void main() {
     });
   });
 
+  for (final reduce in [false, true]) {
+    testWidgets(
+        'MotionSize ${reduce ? 'resizes instantly under reduce motion' : 'animates'}',
+        (tester) async {
+      late StateSetter setState;
+      var tall = false;
+      await tester.pumpWidget(_app(
+        Align(
+          child: StatefulBuilder(builder: (context, set) {
+            setState = set;
+            return MotionSize(child: SizedBox(width: 10, height: tall ? 100 : 0));
+          }),
+        ),
+        reduce: reduce,
+      ));
+      setState(() => tall = true);
+      await tester.pump();
+      expect(tester.getSize(find.byType(MotionSize)).height,
+          reduce ? 100 : lessThan(100));
+    });
+  }
+
   testWidgets('shimmer holds still under reduce motion', (tester) async {
     await tester.pumpWidget(_app(
       const ShimmerProvider(child: ShimmerBox()),

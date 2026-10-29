@@ -114,9 +114,7 @@ class HistoryFilterBar extends StatelessWidget {
         ),
 
         // Collapsible filter section — grows open and shut.
-        Obx(() => AnimatedSize(
-              duration: Motion.of(context, Motion.medium),
-              curve: Motion.emphasized,
+        Obx(() => MotionSize(
               alignment: Alignment.topCenter,
               child: controller.isHistoryFilterVisible.value
                   ? _FilterBody(

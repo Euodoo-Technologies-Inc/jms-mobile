@@ -39,3 +39,27 @@ abstract final class Motion {
   static bool get reducedNow => WidgetsBinding
       .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
 }
+
+/// [AnimatedSize] on the [Motion] tokens that resizes instantly under reduce
+/// motion. AnimatedSize itself asserts when its duration is zero, so it is
+/// left out of the tree instead.
+class MotionSize extends StatelessWidget {
+  const MotionSize({
+    super.key,
+    this.alignment = Alignment.center,
+    required this.child,
+  });
+
+  final AlignmentGeometry alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Motion.reduced(context)
+      ? child
+      : AnimatedSize(
+          duration: Motion.medium,
+          curve: Motion.emphasized,
+          alignment: alignment,
+          child: child,
+        );
+}

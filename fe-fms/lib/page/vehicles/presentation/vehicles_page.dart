@@ -111,6 +111,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                 child: () {
               if (controller.isLoading.value && controller.objects.isEmpty) {
                 return ShimmerProvider(
+                  key: const ValueKey('skeleton'),
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),

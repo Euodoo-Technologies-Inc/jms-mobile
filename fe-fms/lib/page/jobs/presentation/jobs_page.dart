@@ -94,6 +94,7 @@ class JobsPage extends StatelessWidget {
     Widget body() {
       if (controller.isLoadingAllJobs.value) {
         return ShimmerProvider(
+          key: const ValueKey('skeleton'),
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: const [
@@ -181,6 +182,7 @@ class JobsPage extends StatelessWidget {
     Widget body() {
       if (controller.isLoadingOngoingJobs.value) {
         return ShimmerProvider(
+          key: const ValueKey('skeleton'),
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: const [
@@ -270,6 +272,7 @@ class JobsPage extends StatelessWidget {
     Widget body() {
       if (controller.isLoadingHistoryJobs.value) {
         return ShimmerProvider(
+          key: const ValueKey('skeleton'),
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: const [

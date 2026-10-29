@@ -229,7 +229,7 @@ class _HomeTabState extends State<HomeTab> {
                     ? AnimatedSwitcher(
                         duration: Motion.of(context, Motion.short),
                         child: controller.isLoading.value
-                        ? ShimmerProvider(child: const SkeletonMapPlaceholder())
+                        ? ShimmerProvider(key: const ValueKey('skeleton'), child: const SkeletonMapPlaceholder())
                         : Stack(
                             children: [
                               AdaptiveMap(
@@ -250,9 +250,7 @@ class _HomeTabState extends State<HomeTab> {
                                     padding: const EdgeInsets.symmetric(horizontal: 8),
                                     // Banners grow in and out from the bottom
                                     // edge instead of popping.
-                                    child: AnimatedSize(
-                                      duration: Motion.of(context, Motion.medium),
-                                      curve: Motion.emphasized,
+                                    child: MotionSize(
                                       alignment: Alignment.bottomCenter,
                                       child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -301,7 +299,7 @@ class _HomeTabState extends State<HomeTab> {
                                 AnimatedSwitcher(
                                   duration: Motion.of(context, Motion.short),
                                   child: controller.isOverviewLoading.value
-                                      ? ShimmerProvider(child: const SkeletonStatCards())
+                                      ? ShimmerProvider(key: const ValueKey('skeleton'), child: const SkeletonStatCards())
                                       : _overviewCards(controller),
                                 ),
                               ],
@@ -335,7 +333,7 @@ class _HomeTabState extends State<HomeTab> {
                 AnimatedSwitcher(
                   duration: Motion.of(context, Motion.short),
                   child: controller.isOverviewLoading.value
-                      ? ShimmerProvider(child: const SkeletonStatCards())
+                      ? ShimmerProvider(key: const ValueKey('skeleton'), child: const SkeletonStatCards())
                       : _overviewCards(controller),
                 ),
               ],
