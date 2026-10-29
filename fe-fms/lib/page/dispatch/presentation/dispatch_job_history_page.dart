@@ -388,15 +388,19 @@ class _DetailHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _StatusPill(job: job),
-            if (job.externalStatusLabel != null) ...[
-              const SizedBox(height: 6),
-              DispatchExternalStatusPill(job: job),
+        // Capped so a long ORMECO flag wraps instead of squeezing the title.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _StatusPill(job: job),
+              if (job.externalStatusLabel != null) ...[
+                const SizedBox(height: 6),
+                DispatchExternalStatusPill(job: job),
+              ],
             ],
-          ],
+          ),
         ),
       ],
     );
