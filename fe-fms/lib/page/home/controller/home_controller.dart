@@ -784,7 +784,7 @@ class HomeController extends GetxController {
             ?.take(3)
             .map(
               (job) => {
-                'title': job.jobName ?? 'Unknown Job',
+                'title': job.jobName ?? 'Unknown job',
                 'status': job.typeJobName ?? 'Open',
                 'time': job.jobDate?.toIso8601String() ?? '',
               },

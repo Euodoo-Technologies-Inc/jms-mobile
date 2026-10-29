@@ -117,7 +117,7 @@ Future<AuthResponseModel> login({
     if (model.success == true && model.data?.apiKey != null) {
       return model;
     } else {
-      throw Exception('Login failed: invalid response');
+      throw Exception("Couldn't log in. Try again.");
     }
   } else if (response.statusCode == 429) {
     final retryAfter = response.headers['retry-after'];

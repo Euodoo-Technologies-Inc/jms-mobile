@@ -63,7 +63,7 @@ class _NavBarState extends State<NavBar> {
         return const NavigationDestination(
           icon: Icon(Icons.home_outlined),
           selectedIcon: Icon(Icons.home),
-          label: 'Home',
+          label: 'Dashboard',
         );
       case 'Vehicles':
         return const NavigationDestination(

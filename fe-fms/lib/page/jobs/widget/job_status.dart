@@ -8,7 +8,7 @@ import 'job_summary_card.dart';
 /// pills both read their label, icon and colour from here.
 enum JobStatus {
   open('Open', Icons.outlined_flag),
-  inProgress('In Progress', Icons.timelapse),
+  inProgress('In progress', Icons.timelapse),
   rescheduled('Rescheduled', Icons.event_repeat),
   completed('Completed', Icons.verified_outlined);
 

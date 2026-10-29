@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/services/image_storage_service.dart';
@@ -85,16 +86,6 @@ class JobsController extends GetxController
     }
   }
 
-  String _toUserMessage(Object e) {
-    final message = e.toString();
-    if (message.contains('SocketException') ||
-        message.contains('Failed host lookup') ||
-        message.contains('Network is unreachable')) {
-      return 'No internet connection. Please check your connection and try again.';
-    }
-    return message;
-  }
-
   @override
   void onClose() {
     disposeHistoryFilter();
@@ -127,7 +118,7 @@ class JobsController extends GetxController
       }
       allJobsResponse.value = await _getJobDatasource.getJob();
     } catch (e) {
-      errorAllJobs.value = _toUserMessage(e);
+      errorAllJobs.value = userMessage(e);
     } finally {
       isLoadingAllJobs.value = false;
     }
@@ -148,7 +139,7 @@ class JobsController extends GetxController
       historyJobsResponse.value = await _getJobHistoryDatasource
           .getJobHistory();
     } catch (e) {
-      errorHistoryJobs.value = _toUserMessage(e);
+      errorHistoryJobs.value = userMessage(e);
     } finally {
       isLoadingHistoryJobs.value = false;
     }
@@ -199,7 +190,7 @@ class JobsController extends GetxController
       // Cache for offline use
       await _jobCacheRepo.cacheOngoingJobs(jobs);
     } catch (e) {
-      errorOngoingJobs.value = _toUserMessage(e);
+      errorOngoingJobs.value = userMessage(e);
     } finally {
       isLoadingOngoingJobs.value = false;
     }
