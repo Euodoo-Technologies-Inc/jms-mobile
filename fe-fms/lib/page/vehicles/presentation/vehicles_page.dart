@@ -5,6 +5,8 @@ import 'package:fms/core/widgets/object_status_bottom_sheet.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:fms/core/widgets/skeleton_loading.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
+import 'package:fms/core/widgets/detail_widgets.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// A page that displays a list of vehicles with filtering and search capabilities.
 ///
@@ -23,43 +25,65 @@ class _VehiclesPageState extends State<VehiclesPage> {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(VehiclesController());
-    final theme = Theme.of(context);
+    final palette = context.dispatch;
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                children: [
-                  TextField(
-                    onChanged: controller.updateQuery,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      labelText: 'Search vehicles',
-                      hintText: 'Type name or note',
-                    ),
+          child: DetailCard(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                TextField(
+                  onChanged: controller.updateQuery,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    labelText: 'Search vehicles',
+                    hintText: 'Type name or note',
                   ),
-                  const SizedBox(height: 8),
-                  Obx(
-                    () => DropdownButtonFormField<String>(
-                      value: controller.selectedGroup.value,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.group_outlined),
-                        labelText: 'Select a group',
+                ),
+                const SizedBox(height: 8),
+                Obx(
+                  () => DropdownButtonFormField<String>(
+                    value: controller.selectedGroup.value,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.group_outlined),
+                      labelText: 'Select a group',
+                    ),
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem(
+                        value: '',
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('All'),
+                            Text(
+                              '${controller.totalVehicleCount}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      items: <DropdownMenuItem<String>>[
-                        DropdownMenuItem(
-                          value: '',
+                      ...controller.availableGroups.map((g) {
+                        final count = controller.groupCounts[g] ?? 0;
+                        return DropdownMenuItem(
+                          value: g,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('All'),
+                              Expanded(
+                                child: Text(
+                                  g,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               Text(
-                                '${controller.totalVehicleCount}',
+                                '$count',
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 14,
@@ -67,37 +91,13 @@ class _VehiclesPageState extends State<VehiclesPage> {
                               ),
                             ],
                           ),
-                        ),
-                        ...controller.availableGroups.map((g) {
-                          final count = controller.groupCounts[g] ?? 0;
-                          return DropdownMenuItem(
-                            value: g,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    g,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text(
-                                  '$count',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                      onChanged: controller.updateSelectedGroup,
-                    ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: controller.updateSelectedGroup,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -126,6 +126,18 @@ class _VehiclesPageState extends State<VehiclesPage> {
               }
 
               final filtered = controller.filteredObjects;
+              if (filtered.isEmpty) {
+                final failed = controller.loadFailed.value;
+                return _VehiclesMessage(
+                  icon: failed ? Icons.cloud_off : Icons.search_off,
+                  message: failed
+                      ? "Couldn't load vehicles."
+                      : controller.objects.isEmpty
+                          ? 'No vehicles yet.'
+                          : 'No vehicles match your search.',
+                  onRetry: failed ? controller.loadData : null,
+                );
+              }
 
               return ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -147,15 +159,32 @@ class _VehiclesPageState extends State<VehiclesPage> {
                       vehicleId != null &&
                       _loadingActions[vehicleId] == 'detail';
 
-                  return Card(
+                  return Material(
+                    color: palette.card,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: palette.cardBorder),
+                    ),
+                    clipBehavior: Clip.antiAlias,
                     child: ListTile(
+                      iconColor: palette.subtle,
                       leading: _VehicleIcon(url: iconUrl),
                       title: Text(
                         vehicle.name ?? 'Object ${vehicle.id ?? index + 1}',
-                        style: theme.textTheme.titleMedium,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: subtitle != null && subtitle.isNotEmpty
-                          ? Text(subtitle, style: theme.textTheme.bodyMedium)
+                          ? Text(
+                              subtitle,
+                              style: TextStyle(
+                                color: palette.subtle,
+                                fontSize: 13,
+                              ),
+                            )
                           : null,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -346,6 +375,48 @@ class _VehicleIcon extends StatelessWidget {
                 errorWidget: (_, __, ___) => Center(child: fallbackIcon()),
               ),
       ),
+    );
+  }
+}
+
+/// Empty / error state for the vehicle list. Scrollable so pull-to-refresh
+/// still works.
+class _VehiclesMessage extends StatelessWidget {
+  const _VehiclesMessage({
+    required this.icon,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.dispatch;
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 60),
+        Icon(icon, size: 56, color: palette.subtle),
+        const SizedBox(height: 12),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: palette.subtle, fontSize: 15),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(height: 16),
+          Center(
+            child: FilledButton.tonal(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

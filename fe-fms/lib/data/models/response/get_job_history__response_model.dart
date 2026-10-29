@@ -39,6 +39,8 @@ class Data {
   final DateTime? jobDate;
   final DateTime? createdAt;
   final dynamic assignWhen;
+  final DateTime? finishWhen;
+  final String? notes;
   final String? customerName;
   final String? phoneNumber;
   final String? address;
@@ -56,6 +58,8 @@ class Data {
     this.jobDate,
     this.createdAt,
     this.assignWhen,
+    this.finishWhen,
+    this.notes,
     this.customerName,
     this.phoneNumber,
     this.address,
@@ -80,6 +84,8 @@ class Data {
         ? null
         : DateTime.parse(json["created_at"]),
     assignWhen: json["AssignWhen"],
+    finishWhen: DateTime.tryParse(json["FinishWhen"]?.toString() ?? ''),
+    notes: json["Notes"]?.toString(),
     customerName: json["CustomerName"],
     phoneNumber: json["PhoneNumber"],
     address: json["Address"],
@@ -104,6 +110,8 @@ class Data {
         : "${jobDate!.year.toString().padLeft(4, '0')}-${jobDate!.month.toString().padLeft(2, '0')}-${jobDate!.day.toString().padLeft(2, '0')}",
     "created_at": createdAt?.toIso8601String(),
     "AssignWhen": assignWhen,
+    "FinishWhen": finishWhen?.toIso8601String(),
+    "Notes": notes,
     "CustomerName": customerName,
     "PhoneNumber": phoneNumber,
     "Address": address,

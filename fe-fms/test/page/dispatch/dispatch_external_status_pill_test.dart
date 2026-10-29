@@ -25,7 +25,7 @@ void main() {
 
     expect(find.text('Has problem'), findsOneWidget);
     expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
-    expect(find.byTooltip('ORMECO status'), findsOneWidget);
+    expect(find.byTooltip('ORMECO status: Has problem'), findsOneWidget);
   });
 
   testWidgets('unflagged, own or older-backend job renders nothing',

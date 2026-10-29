@@ -155,7 +155,7 @@ class _ObjectStatusBottomSheetState extends State<ObjectStatusBottomSheet> {
                         });
                       },
                       child: Text(
-                        _showAllSensors ? 'Show Less' : 'Show More Sensors',
+                        _showAllSensors ? 'Show less' : 'Show more sensors',
                       ),
                     ),
                   // Display all sensors when expanded
@@ -183,7 +183,7 @@ class _ObjectStatusBottomSheetState extends State<ObjectStatusBottomSheet> {
                             child: ElevatedButton.icon(
                               onPressed: widget.onTrack,
                               icon: const Icon(Icons.near_me_outlined),
-                              label: const Text('Track Vehicle'),
+                              label: const Text('Track vehicle'),
                             ),
                           ),
                         if (widget.onTrack != null && widget.onNavigate != null)

@@ -5,12 +5,9 @@ import 'package:get/get.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/data/datasource/profile_remote_datasource.dart';
-import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/response/profile_response_model.dart';
-import 'package:fms/page/auth/presentation/login_page.dart';
-import 'package:fms/page/home/controller/home_controller.dart';
-import 'package:fms/page/jobs/controller/jobs_controller.dart';
-import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for managing user profile data and authentication state.
 class ProfileController extends GetxController {
@@ -65,65 +62,30 @@ class ProfileController extends GetxController {
   }
 
   /// Logs out the user, clearing all local data and navigating to login.
+  ///
+  /// Delegates to [AuthController.logout] — the one path that also clears
+  /// secure storage (the release-build API key), the FCM token and the
+  /// offline queue/cache, and lands on the chooser.
   Future<void> logout({
     required BuildContext context,
     required bool mounted,
   }) async {
     try {
-      // Clear all auth data
-      await _authDs.logout();
-
-      // Clear Traxroot token cache
-      await TraxrootAuthDatasource().clearCachedToken();
-
-      // Clear controller caches
-      try {
-        if (Get.isRegistered<HomeController>()) {
-          Get.delete<HomeController>();
-        }
-      } catch (_) {}
-
-      try {
-        if (Get.isRegistered<VehiclesController>()) {
-          Get.delete<VehiclesController>();
-        }
-      } catch (_) {}
-
-      try {
-        if (Get.isRegistered<JobsController>()) {
-          Get.delete<JobsController>();
-        }
-      } catch (_) {}
-
-      if (mounted) {
+      await Get.find<AuthController>().logout();
+      // The profile page is gone now; show the toast on the root navigator.
+      final ctx = Get.context;
+      if (ctx != null && ctx.mounted) {
         SnackbarUtils(
           text: 'Logout successful',
-          backgroundColor: Colors.green,
+          backgroundColor: DispatchColors.brand,
           icon: Icons.logout,
-        ).showSuccessSnackBar(context);
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-          (route) => false,
-        );
-
-        // Drop the cached profile so a re-login (same app session) fetches
-        // fresh data instead of showing the previous user's profile.
-        try {
-          Get.delete<ProfileController>();
-        } catch (_) {}
-      } else {
-        SnackbarUtils(
-          text: 'Logout failed',
-          backgroundColor: Colors.red,
-          icon: Icons.logout,
-        ).showErrorSnackBar(context);
+        ).showSuccessSnackBar(ctx);
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && context.mounted) {
         SnackbarUtils(
           text: 'Logout failed',
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
           icon: Icons.logout,
         ).showErrorSnackBar(context);
       }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
@@ -6,6 +7,7 @@ import '../../../core/dispatch/dispatch_navigation.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
 import 'dispatch_finish_job_page.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 // DispatchQueuedException lives in dispatch_jobs_controller.dart
 
@@ -38,10 +40,8 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
     });
     try {
       await Get.find<DispatchJobsController>().fetchDetail(widget.jobId);
-    } on DispatchApiException catch (e) {
-      _error = e.message;
     } catch (e) {
-      _error = e.toString();
+      _error = userMessage(e);
     } finally {
       if (mounted) setState(() => _loadingDetail = false);
     }
@@ -61,21 +61,25 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Saved offline. Will sync when online.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: DispatchColors.warning,
         ),
       );
     } on DispatchApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.message),
-          backgroundColor: e.isConflict ? Colors.orange : Colors.red,
+          content: Text(userMessage(e)),
+          backgroundColor:
+              e.isConflict ? DispatchColors.warning : DispatchColors.danger,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(userMessage(e)),
+          backgroundColor: DispatchColors.danger,
+        ),
       );
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -186,7 +190,6 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
                     context,
                     lat: job.lat!,
                     lng: job.lng!,
-                    label: job.jobName,
                   ),
                 ),
               ],
@@ -225,7 +228,7 @@ class _StatusBanner extends StatelessWidget {
   (String, Color, IconData) _badge(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (job.isFinished) {
-      return ('Finished', Colors.green, Icons.verified_outlined);
+      return ('Finished', DispatchColors.brand, Icons.verified_outlined);
     }
     if (job.isOnTheWay) {
       return ('On the way', scheme.primary, Icons.timelapse);
@@ -233,7 +236,7 @@ class _StatusBanner extends StatelessWidget {
     if (job.isReschedulePending) {
       return (
         'Reschedule pending — awaiting dispatcher',
-        Colors.orange,
+        DispatchColors.warning,
         Icons.event_repeat,
       );
     }

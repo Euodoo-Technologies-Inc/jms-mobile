@@ -106,7 +106,7 @@ void main() {
     });
 
     test("today's jobs match the board's Riders view", () async {
-      final mine = await jobs.jobsToday();
+      final mine = (await jobs.jobsTodayJson()).map(DispatchJob.fromJson);
       expect(mine.map((j) => j.id), containsAll(boardJobIds));
       // The app also keeps earlier days' unfinished jobs (carry-over); the
       // board's Riders view shows the selected day only.

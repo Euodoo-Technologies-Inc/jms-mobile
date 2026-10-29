@@ -63,7 +63,7 @@ class DispatchBrandHeader extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,
             ),
           ),
@@ -150,7 +150,7 @@ class DispatchErrorText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFdc2626);
+    const red = DispatchColors.danger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(

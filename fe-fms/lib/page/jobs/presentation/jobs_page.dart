@@ -10,6 +10,7 @@ import 'package:fms/core/widgets/skeleton_loading.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
 import '../widget/job_summary_card.dart';
 import '../widget/history_filter_bar.dart';
+import '../widget/job_status.dart';
 import 'job_history_detail_page.dart';
 
 /// Displays a tabbed list of jobs for the driver, including all, ongoing,
@@ -43,7 +44,7 @@ class JobsPage extends StatelessWidget {
           splashFactory: NoSplash.splashFactory,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           tabs: const [
-            Tab(text: 'All Job'),
+            Tab(text: 'All jobs'),
             Tab(text: 'Ongoing'),
             Tab(text: 'History'),
           ],
@@ -90,7 +91,9 @@ class JobsPage extends StatelessWidget {
     final accent = colorScheme.primary;
 
     return Obx(() {
-      if (controller.isLoadingAllJobs.value) {
+      // Skeletons only on first load; a pull-to-refresh keeps the list.
+      if (controller.isLoadingAllJobs.value &&
+          controller.allJobsResponse.value == null) {
         return ShimmerProvider(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -111,7 +114,7 @@ class JobsPage extends StatelessWidget {
       if (controller.errorAllJobs.value != null) {
         return _buildRefreshableMessage(
           controller,
-          'Error: ${controller.errorAllJobs.value}',
+          controller.errorAllJobs.value!,
         );
       }
       if (controller.allJobsResponse.value?.data == null ||
@@ -145,17 +148,13 @@ class JobsPage extends StatelessWidget {
           itemBuilder: (context, index) {
             final job = visibleJobs[index];
             return JobSummaryCard(
-              title: job.jobName ?? 'Untitled Job',
+              title: job.jobName ?? 'Untitled job',
               customerName: job.customerName,
               address: job.address,
               dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
               badges: [
                 _buildJobTypeBadge(context, job.typeJob),
-                _buildStatusBadge(
-                  label: 'Open',
-                  color: accent,
-                  icon: Icons.outlined_flag,
-                ),
+                JobStatus.open.badge(context),
               ],
               accentColor: accent,
               onTap: () => _openJobDetails(job),
@@ -175,7 +174,9 @@ class JobsPage extends StatelessWidget {
     final accent = colorScheme.primary;
 
     return Obx(() {
-      if (controller.isLoadingOngoingJobs.value) {
+      // Skeletons only on first load; a pull-to-refresh keeps the list.
+      if (controller.isLoadingOngoingJobs.value &&
+          controller.ongoingJobsResponse.value == null) {
         return ShimmerProvider(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -196,7 +197,7 @@ class JobsPage extends StatelessWidget {
       if (controller.errorOngoingJobs.value != null) {
         return _buildRefreshableMessage(
           controller,
-          'Error: ${controller.errorOngoingJobs.value}',
+          controller.errorOngoingJobs.value!,
         );
       }
       if (controller.ongoingJobsResponse.value?.data == null ||
@@ -223,25 +224,21 @@ class JobsPage extends StatelessWidget {
             final hasRescheduled =
                 rescheduledDate != null || isRescheduledStatus;
             return JobSummaryCard(
-              title: job.jobName ?? 'Untitled Job',
+              title: job.jobName ?? 'Untitled job',
               customerName: job.customerName,
               address: job.address,
               dateLabel: job.jobDate != null ? _formatDate(job.jobDate) : null,
               badges: [
                 _buildJobTypeBadge(context, job.typeJob),
-                _buildStatusBadge(
-                  label: isRescheduledStatus ? 'Rescheduled' : 'In Progress',
-                  color: isRescheduledStatus ? Colors.orange : accent,
-                  icon: isRescheduledStatus
-                      ? Icons.event_repeat
-                      : Icons.timelapse,
-                ),
+                (isRescheduledStatus
+                        ? JobStatus.rescheduled
+                        : JobStatus.inProgress)
+                    .badge(context),
                 if (rescheduledDate != null)
-                  _buildStatusBadge(
+                  JobStatus.rescheduled.badge(
+                    context,
                     label:
-                        'Rescheduled · ${DateFormat('dd MMM, HH:mm').format(ManilaTimezone.convert(rescheduledDate))}',
-                    color: Colors.orange,
-                    icon: Icons.event_repeat,
+                        'Rescheduled · ${DateFormat('dd MMM, h:mm a').format(ManilaTimezone.convert(rescheduledDate))}',
                   ),
               ],
               accentColor: accent,
@@ -262,7 +259,9 @@ class JobsPage extends StatelessWidget {
     final accent = colorScheme.primary;
 
     return Obx(() {
-      if (controller.isLoadingHistoryJobs.value) {
+      // Skeletons only on first load; a pull-to-refresh keeps the list.
+      if (controller.isLoadingHistoryJobs.value &&
+          controller.historyJobsResponse.value == null) {
         return ShimmerProvider(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -283,12 +282,12 @@ class JobsPage extends StatelessWidget {
       if (controller.errorHistoryJobs.value != null) {
         return _buildRefreshableMessage(
           controller,
-          'Error: ${controller.errorHistoryJobs.value}',
+          controller.errorHistoryJobs.value!,
         );
       }
       if (controller.historyJobsResponse.value?.data == null ||
           controller.historyJobsResponse.value!.data!.isEmpty) {
-        return _buildRefreshableMessage(controller, 'No history jobs found');
+        return _buildRefreshableMessage(controller, 'No completed jobs yet');
       }
 
       // Read reactive filter values so Obx rebuilds on changes
@@ -324,7 +323,7 @@ class JobsPage extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final job = filteredJobs[index];
                         return JobSummaryCard(
-                          title: job.jobName ?? 'Untitled Job',
+                          title: job.jobName ?? 'Untitled job',
                           customerName: job.customerName,
                           address: job.address,
                           dateLabel: job.jobDate != null
@@ -332,11 +331,7 @@ class JobsPage extends StatelessWidget {
                               : null,
                           badges: [
                             _buildJobTypeBadge(context, job.typeJob),
-                            _buildStatusBadge(
-                              label: 'Completed',
-                              color: Colors.green,
-                              icon: Icons.verified_outlined,
-                            ),
+                            JobStatus.completed.badge(context),
                           ],
                           accentColor: accent,
                           onTap: () => _openHistoryDetails(job),
@@ -396,11 +391,11 @@ class JobsPage extends StatelessWidget {
   String _getJobTypeString(int? type) {
     switch (type) {
       case 1:
-        return 'Line Interruption';
+        return 'Line interruption';
       case 2:
         return 'Reconnection';
       case 3:
-        return 'Short Circuit';
+        return 'Short circuit';
       case 4:
         return 'Disconnection';
       default:
@@ -418,21 +413,6 @@ class JobsPage extends StatelessWidget {
       backgroundColor: accent.withValues(alpha: 0.22),
       foregroundColor: accent,
       borderColor: accent.withValues(alpha: 0.4),
-    );
-  }
-
-  /// Creates a badge widget that visually represents the job status.
-  JobCardBadge _buildStatusBadge({
-    required String label,
-    required Color color,
-    IconData? icon,
-  }) {
-    return JobCardBadge(
-      label: label,
-      icon: icon,
-      backgroundColor: color.withValues(alpha: 0.14),
-      foregroundColor: color,
-      borderColor: color.withValues(alpha: 0.28),
     );
   }
 

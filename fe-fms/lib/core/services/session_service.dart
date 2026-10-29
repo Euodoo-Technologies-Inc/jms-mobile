@@ -1,19 +1,15 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fms/page/auth/presentation/login_page.dart';
-import 'package:fms/core/storage/secure_storage.dart';
+import 'package:fms/core/network/http_error_handler.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 
 /// Service for managing user sessions and handling unauthorized responses.
 class SessionService {
   SessionService._();
-
-  static bool _isRedirecting = false;
-  static final _storage = SecureStorage();
 
   /// Checks if a response is unauthorized and handles redirection if necessary.
   ///
@@ -50,30 +46,8 @@ class SessionService {
     return false;
   }
 
-  static Future<void> _clearSessionAndRedirect() async {
-    if (_isRedirecting) return;
-    _isRedirecting = true;
-
-    try {
-      // Clear all data from SecureStorage
-      await _storage.deleteAll();
-
-      // Show snackbar
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Session expired. Please login again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-
-      // Redirect to login page using GetX
-      Get.offAll(() => const LoginPage());
-    } finally {
-      _isRedirecting = false;
-    }
-  }
+  static Future<void> _clearSessionAndRedirect() =>
+      Get.find<AuthController>().logout(
+        notice: HttpErrorHandler.sessionExpiredNotice,
+      );
 }

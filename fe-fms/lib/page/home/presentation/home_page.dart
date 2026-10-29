@@ -9,6 +9,8 @@ import 'package:fms/core/services/subscription.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:fms/core/widgets/skeleton_loading.dart';
+import 'package:fms/core/widgets/detail_widgets.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 import '../../../core/models/geo.dart';
 
@@ -28,8 +30,8 @@ class FullMapPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<HomeController>();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Map')),
+    return DetailScaffold(
+      title: 'Map',
       body: Obx(
         () => controller.isLoading.value
             ? const Center(child: CircularProgressIndicator())
@@ -78,17 +80,32 @@ class _MovingVehicleBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = status.name ?? status.trackerId ?? 'Vehicle';
-    final theme = Theme.of(context);
-    final bgColor = isMove ? theme.colorScheme.primaryContainer : theme.colorScheme.secondaryContainer;
+    final palette = context.dispatch;
 
-    return Card(
-      color: bgColor,
-      child: ListTile(
-        leading: const Icon(Icons.directions_car),
-        title: Text('$name $message'),
-        onTap: () {
-          Get.to(() => VehicleTrackingPage(vehicle: status, iconUrl: iconUrl));
-        },
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: palette.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: palette.cardBorder),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: Icon(
+            Icons.directions_car,
+            color: isMove ? DispatchColors.brand : palette.subtle,
+          ),
+          title: Text(
+            '$name $message',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: palette.ink, fontSize: 14),
+          ),
+          onTap: () {
+            Get.to(() => VehicleTrackingPage(vehicle: status, iconUrl: iconUrl));
+          },
+        ),
       ),
     );
   }
@@ -240,6 +257,10 @@ class _HomeTabState extends State<HomeTab> {
                                 if (movingList.isEmpty) {
                                   return const SizedBox.shrink();
                                 }
+                                // Two banners at most, so the map stays
+                                // visible; the rest are counted.
+                                final shown = movingList.take(2);
+                                final more = movingList.length - shown.length;
 
                                 return Positioned(
                                   left: 0,
@@ -250,7 +271,7 @@ class _HomeTabState extends State<HomeTab> {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        for (final moving in movingList)
+                                        for (final moving in shown)
                                           _MovingVehicleBanner(
                                             status: moving,
                                             iconUrl: moving.id != null ? controller.iconUrlByObjectId[moving.id!] : null,
@@ -262,6 +283,8 @@ class _HomeTabState extends State<HomeTab> {
                                                     (controller.lastMovementTextByObjectId[moving.id!]?.toLowerCase().contains('moving') ?? false))
                                                 : false,
                                           ),
+                                        if (more > 0)
+                                          _MoreVehiclesChip(count: more),
                                       ],
                                     ),
                                   ),
@@ -344,6 +367,9 @@ class _HomeTabState extends State<HomeTab> {
 
 /// The three job-overview stat cards (Open / Ongoing / Complete).
 Widget _overviewCards(HomeController controller) {
+  if (controller.overviewFailed.value) {
+    return _OverviewError(onRetry: controller.loadData);
+  }
   return Row(
     children: [
       Expanded(
@@ -378,20 +404,80 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+    final palette = context.dispatch;
+    return DetailCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(color: palette.subtle, fontSize: 13)),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: palette.ink,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "+N more" under the capped moving-vehicle banners.
+class _MoreVehiclesChip extends StatelessWidget {
+  const _MoreVehiclesChip({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.dispatch;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: palette.card,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: palette.cardBorder),
         ),
+        child: Text(
+          '+$count more',
+          style: TextStyle(
+            color: palette.ink,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown in place of the stat cards when the job counts failed to load.
+class _OverviewError extends StatelessWidget {
+  const _OverviewError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.dispatch;
+    return DetailCard(
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off, color: palette.subtle),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "Couldn't load job counts.",
+              style: TextStyle(color: palette.ink, fontSize: 14),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
     );
   }

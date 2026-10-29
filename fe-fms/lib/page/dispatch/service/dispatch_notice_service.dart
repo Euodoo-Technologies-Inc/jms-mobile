@@ -161,11 +161,11 @@ class _NoticeBanner extends StatelessWidget {
         ),
       DispatchNoticeKind.error => (
           Icons.error_outline,
-          const Color(0xFFdc2626),
+          DispatchColors.danger,
         ),
       DispatchNoticeKind.info => (
           Icons.info_outline,
-          const Color(0xFFf59e0b),
+          DispatchColors.warning,
         ),
     };
     // Material ancestor: the banner is mounted in GetMaterialApp.builder,

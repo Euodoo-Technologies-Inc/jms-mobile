@@ -4,6 +4,9 @@ import 'package:fms/page/auth/controller/auth_controller.dart';
 
 /// Helper class for handling HTTP errors globally.
 class HttpErrorHandler {
+  /// Shown over the chooser whenever a 2W request comes back 401.
+  static const sessionExpiredNotice = 'Session expired. Please sign in again.';
+
   /// Handles the HTTP response based on the status code.
   ///
   /// [statusCode] - The HTTP status code.
@@ -32,24 +35,9 @@ class HttpErrorHandler {
   }
 
   static void _handleUnauthorized() {
-    // Get AuthController
     try {
-      final authController = Get.find<AuthController>();
-
-      // Clear all data and redirect to login
-      authController.logout();
-
-      // Show snackbar using Flutter's SnackBar (not Get.snackbar)
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(
-        //     content: Text('Session expired. Please login again.'),
-        //     backgroundColor: Colors.red,
-        //     duration: Duration(seconds: 2),
-        //   ),
-        // );
-      }
+      // Clear all data and redirect to the chooser.
+      Get.find<AuthController>().logout(notice: sessionExpiredNotice);
     } catch (e) {
       // If AuthController not found, just log the error
       debugPrint('Error handling unauthorized: $e');
