@@ -1124,15 +1124,20 @@ class _DispatchJobCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _JobStatusPill(job: job),
-                      if (job.externalStatusLabel != null) ...[
-                        const SizedBox(height: 4),
-                        DispatchExternalStatusPill(job: job),
+                  // Capped so a long ORMECO flag or large text wraps the
+                  // pills instead of squeezing the name off the card.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _JobStatusPill(job: job),
+                        if (job.externalStatusLabel != null) ...[
+                          const SizedBox(height: 4),
+                          DispatchExternalStatusPill(job: job),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -1652,40 +1657,59 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                               color: Colors.white.withValues(alpha: 0.22),
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                _JobStatusPill(job: job),
-                                if (job.externalStatusLabel != null) ...[
-                                  const SizedBox(width: 6),
-                                  DispatchExternalStatusPill(job: job),
-                                ],
-                                const Spacer(),
-                                if (widget.etaMeters != null) ...[
-                                  const Icon(Icons.near_me_outlined,
-                                      size: 15, color: Colors.white),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    formatTravelDistance(widget.etaMeters!),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: [
-                                        FontFeature.tabularFigures(),
+                            // Pills left, distance right; each drops to its
+                            // own line when a long flag or large text won't
+                            // fit them side by side.
+                            SizedBox(
+                              // Full width, or spaceBetween has no room.
+                              width: double.infinity,
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      _JobStatusPill(job: job),
+                                      if (job.externalStatusLabel != null)
+                                        DispatchExternalStatusPill(job: job),
+                                    ],
+                                  ),
+                                  if (widget.etaMeters != null)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.near_me_outlined,
+                                            size: 15, color: Colors.white),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          formatTravelDistance(
+                                              widget.etaMeters!),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'away',
+                                          style: TextStyle(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.75),
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'away',
-                                    style: TextStyle(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.75),
-                                      fontSize: 12,
-                                    ),
-                                  ),
                                 ],
-                              ],
+                              ),
                             ),
                             const SizedBox(height: 6),
                             if (job.scheduledArrival != null)
@@ -2028,3 +2052,12 @@ class _StaleBanner extends StatelessWidget {
     );
   }
 }
+
+/// The job card, for widget tests that pump it without the map page around it.
+@visibleForTesting
+Widget debugJobCard(DispatchJob job, {double? etaMeters}) => _DispatchJobCard(
+      job: job,
+      stopNumber: 1,
+      etaMeters: etaMeters,
+      onTap: () {},
+    );
