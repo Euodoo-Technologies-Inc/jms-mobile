@@ -146,179 +146,168 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         (_jobsController.ongoingJobsResponse.value?.data?.isNotEmpty ?? false);
 
     const sectionSpacing = 22.0;
-    return Scaffold(
-      backgroundColor: palette.pageSurface,
-      appBar: AppBar(
-        backgroundColor: palette.pageSurface,
-        surfaceTintColor: palette.pageSurface,
-        foregroundColor: palette.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: Text(job.jobName ?? 'Job details'),
-        // Profile is intentionally not reachable from the job detail page —
-        // drivers shouldn't jump to their profile mid-job.
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DetailHeader(
-                  title: job.jobName ?? 'Job',
-                  pill: (isOngoing
-                          ? (isRescheduledStatus
-                              ? JobStatus.rescheduled
-                              : JobStatus.inProgress)
-                          : JobStatus.open)
-                      .pill(context),
+    return DetailScaffold(
+      title: job.jobName ?? 'Job details',
+      // Profile is intentionally not reachable from the job detail page —
+      // drivers shouldn't jump to their profile mid-job.
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DetailHeader(
+                title: job.jobName ?? 'Job',
+                pill: (isOngoing
+                        ? (isRescheduledStatus
+                            ? JobStatus.rescheduled
+                            : JobStatus.inProgress)
+                        : JobStatus.open)
+                    .pill(context),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _getJobTypeString(job.typeJob),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (job.jobDate != null)
+                    DetailStatusPill(
+                      label: _formatDate(job.jobDate),
+                      color: palette.subtle,
+                      icon: Icons.calendar_today_outlined,
+                    ),
+                  if (rescheduleStatus == 2)
+                    DetailStatusPill(
+                      label: serverCanFinish == true
+                          ? 'Rescheduled — Ready'
+                          : 'Rescheduled to ${rescheduledDateJob ?? ''}',
+                      color: Theme.of(context).colorScheme.primary,
+                      icon: serverCanFinish == true
+                          ? Icons.check_circle_outline
+                          : Icons.event_repeat,
+                    ),
+                ],
+              ),
+
+              if (blockStartForOngoing) ...[
+                const SizedBox(height: sectionSpacing),
+                const DetailNoticeCard(
+                  icon: Icons.info_outline,
+                  title: 'Finish your ongoing job first',
+                  message:
+                      'You already have a job in progress. Complete or '
+                      'cancel it before accepting a new one.',
+                  color: DispatchColors.warning,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  _getJobTypeString(job.typeJob),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+              ],
+
+              const SizedBox(height: sectionSpacing),
+
+              const DetailSectionLabel('Customer'),
+              DetailCard(
+                child: Column(
                   children: [
-                    if (job.jobDate != null)
-                      DetailStatusPill(
-                        label: _formatDate(job.jobDate),
-                        color: palette.subtle,
-                        icon: Icons.calendar_today_outlined,
-                      ),
-                    if (rescheduleStatus == 2)
-                      DetailStatusPill(
-                        label: serverCanFinish == true
-                            ? 'Rescheduled — Ready'
-                            : 'Rescheduled to ${rescheduledDateJob ?? ''}',
-                        color: Theme.of(context).colorScheme.primary,
-                        icon: serverCanFinish == true
-                            ? Icons.check_circle_outline
-                            : Icons.event_repeat,
+                    DetailKvRow(label: 'Name', value: job.customerName),
+                    if (job.phoneNumber != null)
+                      DetailKvRow(
+                        label: 'Phone',
+                        value: job.phoneNumber,
+                        valueColor: Theme.of(context).colorScheme.primary,
+                        trailingIcon: Icons.phone,
+                        onTap: () => _callPhone(job.phoneNumber!),
                       ),
                   ],
                 ),
+              ),
 
-                if (blockStartForOngoing) ...[
-                  const SizedBox(height: sectionSpacing),
-                  const DetailNoticeCard(
-                    icon: Icons.info_outline,
-                    title: 'Finish your ongoing job first',
-                    message:
-                        'You already have a job in progress. Complete or '
-                        'cancel it before accepting a new one.',
-                    color: DispatchColors.warning,
-                  ),
-                ],
+              const SizedBox(height: sectionSpacing),
 
-                const SizedBox(height: sectionSpacing),
-
-                const DetailSectionLabel('Customer'),
-                DetailCard(
-                  child: Column(
-                    children: [
-                      DetailKvRow(label: 'Name', value: job.customerName),
-                      if (job.phoneNumber != null)
-                        DetailKvRow(
-                          label: 'Phone',
-                          value: job.phoneNumber,
-                          valueColor: Theme.of(context).colorScheme.primary,
-                          trailingIcon: Icons.phone,
-                          onTap: () => _callPhone(job.phoneNumber!),
-                        ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: sectionSpacing),
-
-                const DetailSectionLabel('Address'),
-                DetailCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        job.address ?? 'N/A',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: palette.ink,
-                          height: 1.5,
-                        ),
+              const DetailSectionLabel('Address'),
+              DetailCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      job.address ?? 'N/A',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: palette.ink,
+                        height: 1.5,
                       ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: () => _navigateToJob(context),
-                          icon: const Icon(Icons.map_outlined, size: 18),
-                          style: TextButton.styleFrom(
-                            foregroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            padding: EdgeInsets.zero,
-                            overlayColor:
-                                DispatchColors.brand.withValues(alpha: 0.08),
-                          ),
-                          label: const Text('Open in Map'),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => _navigateToJob(context),
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          padding: EdgeInsets.zero,
+                          overlayColor:
+                              DispatchColors.brand.withValues(alpha: 0.08),
                         ),
+                        label: const Text('Open in Map'),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: sectionSpacing),
+              const SizedBox(height: sectionSpacing),
 
-                const DetailSectionLabel('Job information'),
-                DetailCard(
-                  child: Column(
-                    children: [
+              const DetailSectionLabel('Job information'),
+              DetailCard(
+                child: Column(
+                  children: [
+                    DetailKvRow(
+                      label: 'Job type',
+                      value: _getJobTypeString(job.typeJob),
+                    ),
+                    DetailKvRow(
+                      label: 'Created by',
+                      value: job.createdBy?.toString(),
+                    ),
+                    if (job.createdAt != null)
                       DetailKvRow(
-                        label: 'Job type',
-                        value: _getJobTypeString(job.typeJob),
+                        label: 'Created at',
+                        value: _formatDate(job.createdAt),
                       ),
-                      DetailKvRow(
-                        label: 'Created by',
-                        value: job.createdBy?.toString(),
-                      ),
-                      if (job.createdAt != null)
-                        DetailKvRow(
-                          label: 'Created at',
-                          value: _formatDate(job.createdAt),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
+              ),
 
-                // Reschedule rejection info
-                if (isOngoing && rescheduleStatus == 3 && reasonReject != null) ...[
-                  const SizedBox(height: sectionSpacing),
-                  DetailNoticeCard(
-                    icon: Icons.warning_amber_rounded,
-                    title: 'Reschedule rejected',
-                    message: reasonReject,
-                    color: colorScheme.error,
-                    footnote: 'You must complete this job.',
-                  ),
-                ],
-
-                // Reschedule pending info
-                if (isOngoing && (rescheduleStatus == 1 || localRescheduledDate != null)) ...[
-                  const SizedBox(height: sectionSpacing),
-                  const DetailNoticeCard(
-                    icon: Icons.hourglass_top,
-                    title: 'Reschedule pending',
-                    message:
-                        'Your reschedule request is awaiting admin approval.',
-                    color: DispatchColors.warning,
-                  ),
-                ],
-
-                const SizedBox(height: 120),
+              // Reschedule rejection info
+              if (isOngoing && rescheduleStatus == 3 && reasonReject != null) ...[
+                const SizedBox(height: sectionSpacing),
+                DetailNoticeCard(
+                  icon: Icons.warning_amber_rounded,
+                  title: 'Reschedule rejected',
+                  message: reasonReject,
+                  color: colorScheme.error,
+                  footnote: 'You must complete this job.',
+                ),
               ],
-            ),
+
+              // Reschedule pending info
+              if (isOngoing && (rescheduleStatus == 1 || localRescheduledDate != null)) ...[
+                const SizedBox(height: sectionSpacing),
+                const DetailNoticeCard(
+                  icon: Icons.hourglass_top,
+                  title: 'Reschedule pending',
+                  message:
+                      'Your reschedule request is awaiting admin approval.',
+                  color: DispatchColors.warning,
+                ),
+              ],
+
+              const SizedBox(height: 120),
+            ],
           ),
         ),
       ),

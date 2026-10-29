@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../controller/dispatch_auth_controller.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import '../widget/dispatch_auth_widgets.dart';
 
 /// Dead-end screen shown after a 403 "account disabled" response. The user
 /// cannot proceed until they tap dismiss — prevents an immediate retry loop.
@@ -13,6 +14,7 @@ class DispatchDisabledPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Get.find<DispatchAuthController>();
     return Scaffold(
+      backgroundColor: context.dispatch.pageSurface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -32,9 +34,9 @@ class DispatchDisabledPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              FilledButton(
+              DispatchPrimaryButton(
+                label: 'Dismiss',
                 onPressed: auth.dismissDisabled,
-                child: const Text('Dismiss'),
               ),
             ],
           ),

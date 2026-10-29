@@ -54,6 +54,7 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
     required this.ink,
     required this.subtle,
     required this.divider,
+    required this.warning,
   });
 
   /// Page / scaffold background.
@@ -77,6 +78,10 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
   /// Hairline divider colour.
   final Color divider;
 
+  /// Caution amber as text/icon colour: [DispatchColors.warning] in light
+  /// mode; a lighter amber in dark mode, where the deep one is only 2.8:1.
+  final Color warning;
+
   /// Light-mode neutrals.
   static const DispatchPalette light = DispatchPalette(
     pageSurface: Color(0xFFFFFFFF),
@@ -86,6 +91,7 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
     ink: Color(0xFF111827),
     subtle: Color(0xFF6b7280),
     divider: Color(0xFFe5e7eb),
+    warning: DispatchColors.warning,
   );
 
   /// Dark-mode neutrals.
@@ -97,6 +103,7 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
     ink: Color(0xFFE8EBF0),
     subtle: Color(0xFF94A3B8),
     divider: Color(0xFF2A3441),
+    warning: Color(0xFFf59e0b),
   );
 
   @override
@@ -108,6 +115,7 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
     Color? ink,
     Color? subtle,
     Color? divider,
+    Color? warning,
   }) {
     return DispatchPalette(
       pageSurface: pageSurface ?? this.pageSurface,
@@ -117,6 +125,7 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
       ink: ink ?? this.ink,
       subtle: subtle ?? this.subtle,
       divider: divider ?? this.divider,
+      warning: warning ?? this.warning,
     );
   }
 
@@ -131,6 +140,7 @@ class DispatchPalette extends ThemeExtension<DispatchPalette> {
       ink: Color.lerp(ink, other.ink, t)!,
       subtle: Color.lerp(subtle, other.subtle, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
     );
   }
 }

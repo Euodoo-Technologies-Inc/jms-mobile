@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_format.dart';
 import '../../../core/theme/dispatch_palette.dart';
+import '../../../core/widgets/detail_widgets.dart';
 import '../../../data/dispatch/datasource/dispatch_jobs_datasource.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../widget/dispatch_external_status_pill.dart';
+import '../widget/dispatch_job_status.dart';
 
 /// Read-only list of the rider's recently completed jobs (server-capped at
 /// 50). Pulled on open + pull-to-refresh; no caching since it's not a
@@ -50,18 +52,8 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
-    return Scaffold(
-      backgroundColor: palette.pageSurface,
-      appBar: AppBar(
-        backgroundColor: palette.pageSurface,
-        surfaceTintColor: palette.pageSurface,
-        foregroundColor: palette.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text('Job history'),
-      ),
+    return DetailScaffold(
+      title: 'Job history',
       body: RefreshIndicator(
         color: DispatchColors.brand,
         onRefresh: _load,
@@ -116,7 +108,6 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
       );
     }
     return ListView.separated(
-      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       itemCount: _jobs.length,
       separatorBuilder: (_, _) => Divider(
         height: 1,
@@ -130,7 +121,7 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
   }
 }
 
-/// A completed-job row — flat and divider-separated, mirroring the overview
+/// A completed-job row — flat and divider-separated, like the overview
 /// page's `_OverviewJobRow`. Every history entry is a finished job, so the
 /// accent bar is always the brand green.
 class _HistoryRow extends StatelessWidget {
@@ -248,18 +239,8 @@ class _DispatchJobHistoryDetailPageState
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
-    return Scaffold(
-      backgroundColor: palette.pageSurface,
-      appBar: AppBar(
-        backgroundColor: palette.pageSurface,
-        surfaceTintColor: palette.pageSurface,
-        foregroundColor: palette.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text('Job detail'),
-      ),
+    return DetailScaffold(
+      title: 'Job detail',
       body: RefreshIndicator(
         color: DispatchColors.brand,
         onRefresh: _load,
@@ -302,260 +283,84 @@ class _DispatchJobHistoryDetailPageState
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
-        _DetailHeader(job: job),
+        DetailHeader(
+          title: job.customer ?? job.jobName,
+          // Capped so a long ORMECO flag wraps instead of squeezing the title.
+          pill: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                DispatchJobStatus.of(job).pill(context),
+                if (job.externalStatusLabel != null) ...[
+                  const SizedBox(height: 6),
+                  DispatchExternalStatusPill(job: job),
+                ],
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 22),
-        const _SectionLabel('Details'),
-        _DetailCard(
+        const DetailSectionLabel('Details'),
+        DetailCard(
           child: Column(
             children: [
-              _KvRow(label: 'Customer', value: job.customer),
-              _KvRow(label: 'Service type', value: job.serviceType),
-              _KvRow(label: 'Address', value: job.address),
-              _KvRow(
+              DetailKvRow(label: 'Customer', value: job.customer),
+              DetailKvRow(label: 'Service type', value: job.serviceType),
+              DetailKvRow(label: 'Address', value: job.address),
+              DetailKvRow(
                 label: 'Scheduled',
                 value: formatDispatchTimestamp(
                     job.scheduledArrival, fallback: ''),
               ),
-              _KvRow(
+              DetailKvRow(
                 label: 'Started',
                 value: formatDispatchTimestamp(
                     job.actualArrival, fallback: ''),
               ),
-              _KvRow(
+              DetailKvRow(
                 label: 'Finished at',
                 value:
                     formatDispatchTimestamp(job.finishWhen, fallback: ''),
               ),
               if (job.meterNumber != null && job.meterNumber!.isNotEmpty)
-                _KvRow(label: 'Meter no.', value: job.meterNumber),
+                DetailKvRow(label: 'Meter no.', value: job.meterNumber),
               if (job.notes != null && job.notes!.isNotEmpty)
-                _KvRow(label: 'Notes', value: job.notes),
+                DetailKvRow(label: 'Notes', value: job.notes),
             ],
           ),
         ),
         for (final section in job.externalDetails) ...[
           const SizedBox(height: 22),
-          _SectionLabel(section.heading),
-          _DetailCard(
+          DetailSectionLabel(section.heading),
+          DetailCard(
             child: Column(
               children: [
                 for (final f in section.fields)
-                  _KvRow(label: f.label, value: f.value),
+                  DetailKvRow(label: f.label, value: f.value),
               ],
             ),
           ),
         ],
         const SizedBox(height: 22),
-        const _SectionLabel('Timeline'),
-        _DetailCard(child: _Timeline(job: job)),
-        if (job.photos != null && job.photos!.isNotEmpty) ...[
-          const SizedBox(height: 22),
-          _SectionLabel('Proof of work (${job.photos!.length})'),
-          _DetailCard(child: _Photos(photos: job.photos!)),
-        ],
-      ],
-    );
-  }
-}
-
-class _DetailHeader extends StatelessWidget {
-  const _DetailHeader({required this.job});
-  final DispatchJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            job.customer ?? job.jobName,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              height: 1.25,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // Capped so a long ORMECO flag wraps instead of squeezing the title.
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 140),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _StatusPill(job: job),
-              if (job.externalStatusLabel != null) ...[
-                const SizedBox(height: 6),
-                DispatchExternalStatusPill(job: job),
-              ],
+        const DetailSectionLabel('Timeline'),
+        DetailCard(
+          child: DetailTimeline(
+            entries: [
+              for (final (label, raw) in [
+                ('Created', job.createdAt),
+                ('Started', job.actualArrival),
+                ('Finished', job.finishWhen),
+              ])
+                (label, formatDispatchTimestamp(raw, fallback: '')),
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.job});
-  final DispatchJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    final (String label, Color color) = job.isFinished
-        ? ('Finished', DispatchColors.brand)
-        : job.isOnTheWay
-            ? ('On the way', const Color(0xFFb45309))
-            : job.isReschedulePending
-                ? ('Reschedule', const Color(0xFFb45309))
-                : ('Assigned', context.dispatch.subtle);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-/// Small all-caps section heading.
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        text.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          letterSpacing: 0.6,
-        ),
-      ),
-    );
-  }
-}
-
-/// A bordered, theme-aware content card.
-class _DetailCard extends StatelessWidget {
-  const _DetailCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.dispatch;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: palette.cardBorder),
-      ),
-      child: child,
-    );
-  }
-}
-
-class _KvRow extends StatelessWidget {
-  const _KvRow({required this.label, required this.value});
-  final String label;
-  final String? value;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.dispatch;
-    final shown = (value == null || value!.isEmpty) ? '—' : value!;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 108,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              shown,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: palette.ink,
-              ),
-            ),
-          ),
+        if (job.photos != null && job.photos!.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          DetailSectionLabel('Proof of work (${job.photos!.length})'),
+          DetailCard(child: _Photos(photos: job.photos!)),
         ],
-      ),
-    );
-  }
-}
-
-class _Timeline extends StatelessWidget {
-  const _Timeline({required this.job});
-  final DispatchJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = <(String, String?)>[
-      ('Created', job.createdAt),
-      ('Started', job.actualArrival),
-      ('Finished', job.finishWhen),
-    ].where((e) => e.$2 != null && e.$2!.isNotEmpty).toList();
-    if (entries.isEmpty) {
-      return Text(
-        'No timeline data available.',
-        style: Theme.of(context).textTheme.bodyMedium,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < entries.length; i++)
-          Padding(
-            padding:
-                EdgeInsets.only(bottom: i == entries.length - 1 ? 0 : 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 3),
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: DispatchColors.brand,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entries[i].$1,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        formatDispatchTimestamp(entries[i].$2),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
