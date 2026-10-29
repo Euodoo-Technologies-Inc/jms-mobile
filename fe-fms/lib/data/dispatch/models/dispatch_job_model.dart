@@ -21,6 +21,31 @@ class DispatchJobPhoto {
   }
 }
 
+/// One section of an ORMECO job's details ("Detail", "Changes", "Action"),
+/// from `external_details` — the same fields the web board's job drawer shows.
+class DispatchJobDetailSection {
+  DispatchJobDetailSection({required this.heading, required this.fields});
+
+  final String heading;
+  final List<({String label, String value})> fields;
+
+  factory DispatchJobDetailSection.fromJson(Map<String, dynamic> json) {
+    final rawFields = json['fields'];
+    return DispatchJobDetailSection(
+      heading: json['heading']?.toString() ?? '',
+      fields: rawFields is List
+          ? rawFields
+              .whereType<Map<String, dynamic>>()
+              .map((f) => (
+                    label: f['label']?.toString() ?? '',
+                    value: f['value']?.toString() ?? '',
+                  ))
+              .toList(growable: false)
+          : const [],
+    );
+  }
+}
+
 /// Job entity from `/jobs/today` and `/jobs/{id}`.
 ///
 /// Status semantics:
@@ -33,6 +58,8 @@ class DispatchJob {
     required this.id,
     required this.jobName,
     this.status,
+    this.externalStatus,
+    this.externalStatusLabel,
     this.jobDate,
     this.address,
     this.lat,
@@ -48,11 +75,17 @@ class DispatchJob {
     this.notes,
     this.meterNumber,
     this.photos,
+    this.externalDetails = const [],
   });
 
   final int id;
   final String jobName;
   final int? status;
+
+  /// ORMECO's own status (e.g. `has_problem`) and its display label (e.g.
+  /// "Has problem"). Null for our own jobs and on older backends.
+  final String? externalStatus;
+  final String? externalStatusLabel;
   final String? jobDate;
   final String? address;
   final double? lat;
@@ -71,6 +104,10 @@ class DispatchJob {
   /// `null` on the today list, possibly-empty list on the detail/finish view.
   final List<DispatchJobPhoto>? photos;
 
+  /// ORMECO job details; empty for our own jobs and on older backends. When
+  /// present, [notes] is null — the backend moved its text into these.
+  final List<DispatchJobDetailSection> externalDetails;
+
   bool get isAssigned => status == null;
   bool get isOnTheWay => status == 1;
   bool get isFinished => status == 2;
@@ -85,10 +122,13 @@ class DispatchJob {
           .map(DispatchJobPhoto.fromJson)
           .toList(growable: false);
     }
+    final rawDetails = json['external_details'];
     return DispatchJob(
       id: (json['id'] as num).toInt(),
       jobName: json['job_name']?.toString() ?? 'Untitled job',
       status: (json['status'] as num?)?.toInt(),
+      externalStatus: json['external_status']?.toString(),
+      externalStatusLabel: json['external_status_label']?.toString(),
       jobDate: json['job_date']?.toString(),
       address: json['address']?.toString(),
       lat: (json['lat'] as num?)?.toDouble(),
@@ -104,6 +144,13 @@ class DispatchJob {
       notes: json['notes']?.toString(),
       meterNumber: json['meter_number']?.toString(),
       photos: photos,
+      externalDetails: rawDetails is List
+          ? rawDetails
+              .whereType<Map<String, dynamic>>()
+              .map(DispatchJobDetailSection.fromJson)
+              .where((s) => s.fields.isNotEmpty)
+              .toList(growable: false)
+          : const [],
     );
   }
 }
