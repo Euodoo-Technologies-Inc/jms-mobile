@@ -134,10 +134,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: Text(
-          job.jobName ?? 'Job Details',
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
+        title: Text(job.jobName ?? 'Job Details'),
         // Profile is intentionally not reachable from the job detail page —
         // drivers shouldn't jump to their profile mid-job.
       ),
@@ -160,7 +157,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                 const SizedBox(height: 6),
                 Text(
                   _getJobTypeString(job.typeJob),
-                  style: TextStyle(color: palette.subtle, fontSize: 13.5),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -226,9 +223,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                     children: [
                       Text(
                         job.address ?? 'N/A',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: palette.ink,
-                          fontSize: 13.5,
                           height: 1.5,
                         ),
                       ),
@@ -828,16 +824,12 @@ Future<void> _finishJob(BuildContext context) async {
                 const SizedBox(height: 16),
                 Text(
                   'Add job photos',
-                  style: TextStyle(
-                    color: palette.ink,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Attach at least 2 photos as proof of completion.',
-                  style: TextStyle(color: palette.subtle, fontSize: 13),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
                 _photoSourceTile(
@@ -902,15 +894,11 @@ Future<void> _finishJob(BuildContext context) async {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: palette.ink,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(color: palette.subtle, fontSize: 12.5),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),

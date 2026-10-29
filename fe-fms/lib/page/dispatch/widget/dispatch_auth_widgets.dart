@@ -53,18 +53,15 @@ class DispatchBrandHeader extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: DispatchColors.onBrand,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 14,
             ),
           ),
         ],
@@ -165,7 +162,7 @@ class DispatchErrorText extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: red, fontSize: 12.5),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: red),
             ),
           ),
         ],
@@ -195,7 +192,9 @@ class DispatchPrimaryButton extends StatelessWidget {
         foregroundColor: DispatchColors.onBrand,
         disabledBackgroundColor: DispatchColors.brand.withValues(alpha: 0.5),
         minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
       ),
       onPressed: loading ? null : onPressed,
       child: loading

@@ -62,11 +62,9 @@ class HistoryFilterBar extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           'Filter',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             color:
                                 hasFilters ? primary : palette.subtle,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         if (hasFilters) ...[
@@ -99,10 +97,8 @@ class HistoryFilterBar extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         isNewest ? 'Newest' : 'Oldest',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -304,9 +300,8 @@ class _FilterChip extends StatelessWidget {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: selected ? Colors.white : palette.subtle,
-            fontSize: 13,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             height: 1.0,
           ),

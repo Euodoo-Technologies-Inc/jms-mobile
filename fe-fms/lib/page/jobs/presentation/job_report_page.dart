@@ -103,9 +103,8 @@ class JobReportPage extends StatelessWidget {
               'Job completed successfully. All electrical connections have been '
               'restored and tested. Ensure follow-up inspection is scheduled '
               'within 7 days.',
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: palette.ink,
-                fontSize: 13.5,
                 height: 1.5,
               ),
             ),

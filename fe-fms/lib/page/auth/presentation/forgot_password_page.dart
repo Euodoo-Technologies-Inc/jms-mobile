@@ -104,7 +104,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           Text(
             'Enter the email linked to your account and we\'ll send you a '
             'link to reset your password.',
-            style: TextStyle(color: palette.subtle, fontSize: 13.5, height: 1.4),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
           ),
           const SizedBox(height: 24),
           DispatchTextField(
@@ -179,18 +179,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         Text(
           'Check your email',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: palette.ink,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 10),
         Text(
           'If an account exists for ${_emailController.text.trim()}, a reset '
           'link is on its way. Check your inbox — and your spam folder.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: palette.subtle, fontSize: 13.5, height: 1.45),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
         ),
         const SizedBox(height: 28),
         DispatchPrimaryButton(

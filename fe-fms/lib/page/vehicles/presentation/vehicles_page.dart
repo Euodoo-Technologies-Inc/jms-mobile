@@ -61,9 +61,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                               const Text('All'),
                               Text(
                                 '${controller.totalVehicleCount}',
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: Colors.grey[600],
-                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -84,9 +83,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                                 ),
                                 Text(
                                   '$count',
-                                  style: TextStyle(
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: Colors.grey[600],
-                                    fontSize: 14,
                                   ),
                                 ),
                               ],

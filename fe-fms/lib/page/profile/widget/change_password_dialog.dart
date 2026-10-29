@@ -139,19 +139,12 @@ class _ChangePasswordDialogContentState
                           children: [
                             Text(
                               'Change password',
-                              style: TextStyle(
-                                color: palette.ink,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: Theme.of(context).textTheme.titleLarge,
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Use at least 8 characters.',
-                              style: TextStyle(
-                                color: palette.subtle,
-                                fontSize: 12.5,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ),
@@ -223,10 +216,7 @@ class _ChangePasswordDialogContentState
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              textStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              textStyle: Theme.of(context).textTheme.titleSmall,
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -244,8 +234,7 @@ class _ChangePasswordDialogContentState
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              textStyle: const TextStyle(
-                                fontSize: 14,
+                              textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
