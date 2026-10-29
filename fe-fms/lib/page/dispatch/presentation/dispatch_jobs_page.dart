@@ -1055,7 +1055,7 @@ class _CardLabel extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: Colors.white.withValues(alpha: 0.9),
         fontSize: 10,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.8,
@@ -1759,7 +1759,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Colors.white.withValues(alpha: 0.78);
+    final muted = Colors.white.withValues(alpha: 0.9);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
