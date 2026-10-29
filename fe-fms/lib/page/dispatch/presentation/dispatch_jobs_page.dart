@@ -12,6 +12,7 @@ import '../../../core/dispatch/dispatch_format.dart';
 import '../../../core/dispatch/dispatch_navigation.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/theme/dispatch_palette.dart';
+import '../../../core/theme/motion.dart';
 import '../../../core/widgets/adaptive_map.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
@@ -23,7 +24,6 @@ import 'dispatch_jobs_overview_page.dart';
 import 'dispatch_profile_page.dart';
 
 const GeoPoint _kFallbackCenter = GeoPoint(14.5995, 120.9842); // Manila
-const Duration _kPanelAnim = Duration(milliseconds: 320);
 
 /// Route polyline colours — sourced from the central palette so a re-skin
 /// only touches [DispatchColors].
@@ -321,11 +321,16 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
               ),
               // First load only — later polls refresh in place, so a day
               // with zero jobs never blanks the map every 30 s.
-              Obx(() => _jobsCtrl.isLoading.value &&
-                      _jobsCtrl.jobs.isEmpty &&
-                      _jobsCtrl.lastFetchedAt.value == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : const SizedBox.shrink()),
+              Obx(() => AnimatedSwitcher(
+                    duration: Motion.of(context, Motion.short),
+                    child: _jobsCtrl.isLoading.value &&
+                            _jobsCtrl.jobs.isEmpty &&
+                            _jobsCtrl.lastFetchedAt.value == null
+                        ? const Center(
+                            key: ValueKey('spinner'),
+                            child: CircularProgressIndicator())
+                        : const SizedBox.shrink(),
+                  )),
               // Location-off and offline / load-error banners: bottom-
               // anchored, floating above the carousel/panel rather than
               // pushing the top bar down.
@@ -338,9 +343,6 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                   final showError = _jobsCtrl.isStale.value ||
                       (error != null && _jobsCtrl.jobs.isEmpty);
                   final locationOff = _locationOff.value;
-                  if (!showError && locationOff == null) {
-                    return const SizedBox.shrink();
-                  }
                   final panelH = _panelFracLive.value *
                       MediaQuery.of(context).size.height;
                   final hasFocus = _jobsCtrl.selectedJobId.value != null &&
@@ -355,7 +357,11 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                       12;
                   return Padding(
                     padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
-                    child: Column(
+                    // Banners grow in and out from the bottom edge instead
+                    // of popping; instant under reduce motion.
+                    child: MotionSize(
+                      alignment: Alignment.bottomCenter,
+                      child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (locationOff != null)
@@ -373,6 +379,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                             onAction: _jobsCtrl.refreshToday,
                           ),
                       ],
+                    ),
                     ),
                   );
                 }),
@@ -495,33 +502,39 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             child: Obx(() {
               final count =
                   Get.find<DispatchSyncService>().pendingCount.value;
-              if (count == 0) return const SizedBox.shrink();
-              return Material(
-                color: palette.control,
-                elevation: 3,
-                borderRadius: BorderRadius.circular(999),
-                child: Tooltip(
-                  message: '$count action(s) pending sync',
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.sync, size: 14, color: palette.ink),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$count',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: palette.ink,
+              // Fades in and out instead of popping.
+              return AnimatedSwitcher(
+                duration: Motion.of(context, Motion.short),
+                child: count == 0
+                    ? const SizedBox.shrink()
+                    : Material(
+                        key: const ValueKey('pending'),
+                        color: palette.control,
+                        elevation: 3,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Tooltip(
+                          message: '$count action(s) pending sync',
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.sync, size: 14, color: palette.ink),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: palette.ink,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
               );
             }),
           ),
@@ -551,11 +564,11 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                 // button tracks the finger with no lag; ease only on settle.
                 duration: dragging
                     ? Duration.zero
-                    : const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
+                    : Motion.of(context, Motion.medium),
+                curve: Motion.standard,
                 padding: EdgeInsets.only(right: 8, bottom: bottomOffset),
                 child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 160),
+                  duration: Motion.of(context, Motion.short),
                   opacity: hidden ? 0 : 1,
                   child: IgnorePointer(
                     ignoring: hidden,
@@ -605,9 +618,9 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
       }());
 
       return AnimatedSwitcher(
-        duration: _kPanelAnim,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
+        duration: Motion.of(context, Motion.medium),
+        switchInCurve: Motion.emphasized,
+        switchOutCurve: Motion.standard,
         // A plain cross-fade — both the carousel card and the panel are the
         // same green, and the panel animates its own height growth, so the
         // swap reads as the tapped card enlarging in place.
@@ -1277,7 +1290,6 @@ class _FocusedJobPanel extends StatefulWidget {
 class _FocusedJobPanelState extends State<_FocusedJobPanel> {
   static const double _minFrac = 0.12;
   static const double _maxFrac = 0.88;
-  static const Duration _snap = Duration(milliseconds: 260);
 
   /// Vertical extent of the drag handle (22 + 4 + 22) — added to the measured
   /// content when sizing the panel.
@@ -1393,6 +1405,18 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     widget.onFracLive(target);
   }
 
+  /// An ORMECO section expanded or collapsed: once its animation is done,
+  /// re-fit the panel to the new content height.
+  void _refitAfterSectionToggle(bool _) {
+    Future.delayed(Motion.of(context, Motion.short), () {
+      if (!mounted) return;
+      WidgetsBinding.instance
+        ..addPostFrameCallback(
+            (_) => _openToFitContent(keepFracIfDragged: true))
+        ..scheduleFrame();
+    });
+  }
+
   @override
   void didUpdateWidget(covariant _FocusedJobPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1438,8 +1462,8 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: AnimatedContainer(
-        duration: _dragging ? Duration.zero : _snap,
-        curve: Curves.easeOutCubic,
+        duration: _dragging ? Duration.zero : Motion.of(context, Motion.medium),
+        curve: Motion.standard,
         height: height,
         child: SafeArea(
           top: false,
@@ -1634,7 +1658,10 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 value: job.notes!,
                               ),
                             for (final section in job.externalDetails)
-                              DispatchJobDetailSectionTile(section: section),
+                              DispatchJobDetailSectionTile(
+                                section: section,
+                                onExpansionChanged: _refitAfterSectionToggle,
+                              ),
                             const SizedBox(height: 16),
                             _PanelActions(
                               job: job,
@@ -1953,8 +1980,13 @@ Widget debugFocusedJobPanel(DispatchJob job, {double? etaMeters}) =>
 /// only so a widget test can pump it without the map page around it.
 @visibleForTesting
 class DispatchJobDetailSectionTile extends StatelessWidget {
-  const DispatchJobDetailSectionTile({super.key, required this.section});
+  const DispatchJobDetailSectionTile({
+    super.key,
+    required this.section,
+    this.onExpansionChanged,
+  });
   final DispatchJobDetailSection section;
+  final ValueChanged<bool>? onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1962,6 +1994,11 @@ class DispatchJobDetailSectionTile extends StatelessWidget {
       // ExpansionTile draws theme dividers above and below; the panel has none.
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
+        expansionAnimationStyle: AnimationStyle(
+          duration: Motion.of(context, Motion.short),
+          curve: Motion.standard,
+        ),
+        onExpansionChanged: onExpansionChanged,
         tilePadding: EdgeInsets.zero,
         iconColor: Colors.white,
         collapsedIconColor: Colors.white,
