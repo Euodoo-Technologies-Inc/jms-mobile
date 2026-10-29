@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +11,8 @@ import '../../../core/dispatch/dispatch_constants.dart';
 import '../../../core/dispatch/dispatch_idempotency.dart';
 import '../../../data/dispatch/datasource/dispatch_auth_datasource.dart';
 import '../../../data/dispatch/models/dispatch_rider_model.dart';
+import '../../../main.dart' show RootGate;
+import '../service/dispatch_notice_service.dart';
 import '../service/dispatch_sync_service.dart';
 import 'dispatch_jobs_controller.dart';
 
@@ -162,8 +165,21 @@ class DispatchAuthController extends GetxController {
   }
 
   /// Called by any authenticated controller that catches a terminal 401.
-  /// Wipes state and (callers should) routes to login.
-  Future<void> handleUnauthorized() => _wipe();
+  /// Wipes state and routes to sign-in with a "Session expired" notice.
+  Future<void> handleUnauthorized() async {
+    final wasSignedIn = isAuthenticated.value;
+    await _wipe();
+    if (!wasSignedIn) return; // a parallel 401 already routed
+    _backToRootGate();
+    // After the frame: the page whose call 401'd still catches the error in
+    // this tick and would otherwise replace this notice with its own.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (Get.isRegistered<DispatchNoticeController>()) {
+        Get.find<DispatchNoticeController>()
+            .error('Session expired. Please sign in again.');
+      }
+    });
+  }
 
   /// Called by any authenticated controller that catches a 403-disabled.
   /// Surfaces a non-dismissable message + wipes state.
@@ -171,7 +187,13 @@ class DispatchAuthController extends GetxController {
     disabledMessage.value =
         message.isNotEmpty ? message : 'Account disabled. Contact your dispatcher.';
     await _wipe();
+    _backToRootGate();
   }
+
+  /// Drops any pushed page (Finish, Profile, History…) so the rider isn't
+  /// left on a screen whose controller [_wipe] just deleted. [RootGate] then
+  /// shows sign-in or the disabled page.
+  void _backToRootGate() => Get.offAll(() => const RootGate());
 
   /// Clears the latched disabled message so the login screen can be shown again.
   void dismissDisabled() => disabledMessage.value = '';
