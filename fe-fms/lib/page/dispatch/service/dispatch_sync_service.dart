@@ -21,8 +21,11 @@ import '../controller/dispatch_jobs_controller.dart';
 ///   - 401 → stop draining, route to login
 ///   - 5xx / network → stop, retry later (no removal)
 class DispatchSyncService extends GetxService {
+  DispatchSyncService({DispatchJobsDatasource? jobs})
+      : _jobs = jobs ?? DispatchJobsDatasource();
+
   final DispatchQueueRepository _queue = DispatchQueueRepository();
-  final DispatchJobsDatasource _jobs = DispatchJobsDatasource();
+  final DispatchJobsDatasource _jobs;
   final DispatchAuthDatasource _auth = DispatchAuthDatasource();
 
   Worker? _connWorker;
@@ -58,8 +61,8 @@ class DispatchSyncService extends GetxService {
   }
 
   /// Returns true if the action was queued; false if it should bubble up.
-  Future<bool> enqueueStart(int jobId) async {
-    await _queue.enqueueStart(jobId);
+  Future<bool> enqueueStart(int jobId, {DateTime? startedAt}) async {
+    await _queue.enqueueStart(jobId, startedAt: startedAt);
     await _refreshCount();
     return true;
   }
@@ -69,12 +72,14 @@ class DispatchSyncService extends GetxService {
     String? notes,
     String? meterNumber,
     List<File> photos = const [],
+    DateTime? finishedAt,
   }) async {
     await _queue.enqueueFinish(
       jobId,
       notes: notes,
       meterNumber: meterNumber,
       photos: photos,
+      finishedAt: finishedAt,
     );
     await _refreshCount();
     return true;
@@ -126,8 +131,11 @@ class DispatchSyncService extends GetxService {
             action: 'start',
             jobId: jobId,
           );
-          final updated =
-              await _jobs.startJob(jobId, idempotencyKey: key);
+          final updated = await _jobs.startJob(
+            jobId,
+            idempotencyKey: key,
+            startedAt: entry.actionAt,
+          );
           await DispatchIdempotencyStore.clear(action: 'start', jobId: jobId);
           _patchJobsController(updated);
           return true;
@@ -158,6 +166,7 @@ class DispatchSyncService extends GetxService {
             notes: entry.notes,
             meterNumber: entry.meterNumber,
             photos: files,
+            finishedAt: entry.actionAt,
           );
           await DispatchIdempotencyStore.clear(action: 'finish', jobId: jobId);
           _patchJobsController(updated);
