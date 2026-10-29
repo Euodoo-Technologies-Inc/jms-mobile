@@ -79,10 +79,7 @@ class DispatchProfilePage extends StatelessWidget {
                     Center(
                       child: Text(
                         '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
-                        style: TextStyle(
-                          color: palette.subtle,
-                          fontSize: 12,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                   ],
@@ -160,11 +157,7 @@ class _LogoutConfirmDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Log out?',
-                      style: TextStyle(
-                        color: palette.ink,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
                 ],
@@ -172,9 +165,7 @@ class _LogoutConfirmDialog extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 'You will need to sign in again to receive jobs.',
-                style: TextStyle(
-                  color: palette.subtle,
-                  fontSize: 13.5,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   height: 1.4,
                 ),
               ),
@@ -192,10 +183,7 @@ class _LogoutConfirmDialog extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          textStyle: Theme.of(context).textTheme.titleSmall,
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -213,8 +201,7 @@ class _LogoutConfirmDialog extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 14,
+                          textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -259,12 +246,10 @@ class _ProfileHeader extends StatelessWidget {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Profile',
-                style: TextStyle(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: DispatchColors.onBrand,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -295,18 +280,15 @@ class _ProfileHeader extends StatelessWidget {
                       name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: DispatchColors.onBrand,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       phone.isEmpty ? 'No phone on file' : phone,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -317,12 +299,10 @@ class _ProfileHeader extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
+                      child: Text(
                         'DRIVER',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: DispatchColors.onBrand,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -349,10 +329,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: TextStyle(
-          color: context.dispatch.subtle,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           letterSpacing: 0.6,
         ),
       ),
@@ -383,11 +360,7 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: TextStyle(
-                color: palette.ink,
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
         ],
@@ -438,20 +411,15 @@ class _ActionRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: danger ? tint : palette.ink,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         subtitle!,
-                        style: TextStyle(
-                          color: palette.subtle,
-                          fontSize: 12.5,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ],
@@ -492,11 +460,7 @@ class _ThemeModeTile extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 'Theme',
-                style: TextStyle(
-                  color: palette.ink,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ],
           ),

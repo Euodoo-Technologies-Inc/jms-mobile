@@ -91,9 +91,7 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
                       'Enter the 8-character code your dispatcher provided, '
                       'along with your phone number, to set a password and '
                       'finish activation.',
-                      style: TextStyle(
-                        color: palette.subtle,
-                        fontSize: 13,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         height: 1.35,
                       ),
                     ),
@@ -175,7 +173,7 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
                     Text(
                       'If activation keeps failing, contact your dispatcher.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: palette.subtle),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),

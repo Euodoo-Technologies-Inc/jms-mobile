@@ -508,9 +508,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                             Text(
                               DateFormat('EEE, MMM d')
                                   .format(DateTime.now()),
-                              style: TextStyle(
-                                color: palette.subtle,
-                                fontSize: 10.5,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
                               ),
@@ -522,9 +520,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                                   : remaining == 1
                                       ? '1 job remaining'
                                       : '$remaining jobs remaining',
-                              style: TextStyle(
-                                color: palette.ink,
-                                fontSize: 13.5,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -620,8 +616,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                                 const SizedBox(width: 4),
                                 Text(
                                   '$count',
-                                  style: TextStyle(
-                                    fontSize: 12,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: palette.ink,
                                   ),
@@ -1107,10 +1102,8 @@ class _DispatchJobCard extends StatelessWidget {
                       job.customer ?? job.jobName,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
                         height: 1.2,
                       ),
                     ),
@@ -1132,9 +1125,8 @@ class _DispatchJobCard extends StatelessWidget {
                         : 'No address provided',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white,
-                      fontSize: 14.5,
                       height: 1.3,
                     ),
                   ),
@@ -1184,10 +1176,8 @@ class _CardLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
         color: Colors.white.withValues(alpha: 0.72),
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
         letterSpacing: 0.8,
       ),
     );
@@ -1219,12 +1209,11 @@ class _CardMetric extends StatelessWidget {
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: Colors.white,
-            fontSize: 15.5,
             fontWeight: FontWeight.w700,
             height: 1.1,
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -1266,9 +1255,8 @@ class _JobStatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: fg,
-          fontSize: 11.5,
           fontWeight: FontWeight.w600,
           height: 1.2,
         ),
@@ -1305,10 +1293,8 @@ class _StopNumber extends StatelessWidget {
       ),
       child: Text(
         '$number',
-        style: TextStyle(
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: foregroundColor ?? Colors.white,
-          fontSize: 11.5,
-          fontWeight: FontWeight.w700,
           height: 1.0,
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
@@ -1599,10 +1585,8 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                   job.customer ?? job.jobName,
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
                                     height: 1.2,
                                   ),
                                 ),
@@ -1631,9 +1615,8 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                       job.address!.isNotEmpty)
                                   ? job.address!
                                   : 'No address provided',
-                              style: const TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.white,
-                                fontSize: 14.5,
                                 height: 1.3,
                               ),
                             ),
@@ -1653,22 +1636,17 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                   const SizedBox(width: 4),
                                   Text(
                                     formatTravelDistance(widget.etaMeters!),
-                                    style: const TextStyle(
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                       color: Colors.white,
-                                      fontSize: 15,
                                       fontWeight: FontWeight.w700,
-                                      fontFeatures: [
-                                        FontFeature.tabularFigures(),
-                                      ],
+                                      fontFeatures: const [FontFeature.tabularFigures()],
                                     ),
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
                                     'away',
-                                    style: TextStyle(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.75),
-                                      fontSize: 12,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.white.withValues(alpha: 0.75),
                                     ),
                                   ),
                                 ],
@@ -1778,7 +1756,9 @@ class _PanelActions extends StatelessWidget {
       disabledBackgroundColor: Colors.white.withValues(alpha: 0.45),
       disabledForegroundColor: green.withValues(alpha: 0.5),
       minimumSize: const Size.fromHeight(50),
-      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
     );
 
     final primary = job.isOnTheWay
@@ -1828,7 +1808,9 @@ class _PanelActions extends StatelessWidget {
                   child: Text(
                     blockedNotice,
                     style:
-                        const TextStyle(fontSize: 12.5, color: Colors.white),
+                        Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                        ),
                   ),
                 ),
               ],
@@ -1886,9 +1868,8 @@ class DispatchJobDetailSectionTile extends StatelessWidget {
         collapsedIconColor: Colors.white,
         title: Text(
           section.heading,
-          style: const TextStyle(
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: Colors.white,
-            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1925,11 +1906,15 @@ class _InfoRow extends StatelessWidget {
           SizedBox(
             width: 86,
             child: Text(label,
-                style: TextStyle(color: muted, fontSize: 13)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: muted,
+                )),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                )),
           ),
         ],
       ),
@@ -1971,8 +1956,7 @@ class _StaleBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(
-                  fontSize: 12.5,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: palette.ink,
                   height: 1.3,
                 ),
@@ -1984,8 +1968,7 @@ class _StaleBanner extends StatelessWidget {
               onPressed: onAction,
               style: TextButton.styleFrom(
                 foregroundColor: DispatchColors.brand,
-                textStyle: const TextStyle(
-                  fontSize: 13,
+                textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
                 minimumSize: const Size(56, 36),

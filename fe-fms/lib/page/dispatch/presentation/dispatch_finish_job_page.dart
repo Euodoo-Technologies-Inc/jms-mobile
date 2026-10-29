@@ -188,10 +188,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
           elevation: 0,
           scrolledUnderElevation: 0,
           shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-          title: const Text(
-            'Finish job',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-          ),
+          title: const Text('Finish job'),
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -269,8 +266,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 15,
+                      textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -316,10 +312,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: TextStyle(
-          color: context.dispatch.subtle,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           letterSpacing: 0.6,
         ),
       ),
@@ -354,19 +347,15 @@ class _PhotoCounter extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           '$count/$max photos',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: met ? DispatchColors.brand : palette.subtle,
-            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 6),
         Text(
           '(min $min)',
-          style: TextStyle(
-            color: palette.subtle,
-            fontSize: 12,
-          ),
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
@@ -403,9 +392,7 @@ class _MissingRequirementsHint extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-              color: palette.subtle,
-              fontSize: 12.5,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               height: 1.3,
             ),
           ),
@@ -444,10 +431,7 @@ class _PhotoPickButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: Theme.of(context).textTheme.titleSmall,
         ),
         icon: Icon(icon, size: 18),
         label: Text(label),
@@ -481,11 +465,15 @@ class _PaletteTextField extends StatelessWidget {
       maxLength: maxLength,
       inputFormatters: inputFormatters,
       cursorColor: DispatchColors.brand,
-      style: TextStyle(color: palette.ink, fontSize: 14.5),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: palette.ink,
+      ),
       decoration: InputDecoration(
-        counterStyle: TextStyle(color: palette.subtle, fontSize: 11),
+        counterStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w400,
+        ),
         hintText: hint,
-        hintStyle: TextStyle(color: palette.subtle, fontSize: 14),
+        hintStyle: Theme.of(context).textTheme.bodyMedium,
         filled: true,
         fillColor: palette.pageSurface,
         isDense: true,
@@ -532,7 +520,7 @@ class _PhotoGrid extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'No photos yet',
-              style: TextStyle(color: palette.subtle, fontSize: 12.5),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),

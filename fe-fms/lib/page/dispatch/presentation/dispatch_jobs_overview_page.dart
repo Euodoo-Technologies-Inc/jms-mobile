@@ -24,10 +24,7 @@ class DispatchJobsOverviewPage extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text(
-          'Overview',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
+        title: const Text('Overview'),
       ),
       body: Obx(() {
         // First load only — a poll on a zero-job day refreshes in place.
@@ -46,7 +43,9 @@ class DispatchJobsOverviewPage extends StatelessWidget {
           return Center(
             child: Text(
               'No jobs for today.',
-              style: TextStyle(color: palette.subtle, fontSize: 15),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: palette.subtle,
+              ),
             ),
           );
         }
@@ -145,19 +144,15 @@ class _OverviewJobRow extends StatelessWidget {
                     children: [
                       Text(
                         'STOP $stopNumber',
-                        style: const TextStyle(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: DispatchColors.brand,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
                       ),
                       const Spacer(),
                       Text(
                         status.label,
-                        style: TextStyle(
-                          color: palette.subtle,
-                          fontSize: 11.5,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -166,10 +161,7 @@ class _OverviewJobRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     job.customer ?? job.jobName,
-                    style: TextStyle(
-                      color: palette.ink,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       height: 1.25,
                     ),
                   ),
@@ -177,9 +169,7 @@ class _OverviewJobRow extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       address,
-                      style: TextStyle(
-                        color: palette.subtle,
-                        fontSize: 12.5,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         height: 1.3,
                       ),
                     ),
