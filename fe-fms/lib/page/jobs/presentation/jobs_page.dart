@@ -90,7 +90,9 @@ class JobsPage extends StatelessWidget {
     final accent = colorScheme.primary;
 
     return Obx(() {
-      if (controller.isLoadingAllJobs.value) {
+      // Skeletons only on first load; a pull-to-refresh keeps the list.
+      if (controller.isLoadingAllJobs.value &&
+          controller.allJobsResponse.value == null) {
         return ShimmerProvider(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -175,7 +177,9 @@ class JobsPage extends StatelessWidget {
     final accent = colorScheme.primary;
 
     return Obx(() {
-      if (controller.isLoadingOngoingJobs.value) {
+      // Skeletons only on first load; a pull-to-refresh keeps the list.
+      if (controller.isLoadingOngoingJobs.value &&
+          controller.ongoingJobsResponse.value == null) {
         return ShimmerProvider(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -262,7 +266,9 @@ class JobsPage extends StatelessWidget {
     final accent = colorScheme.primary;
 
     return Obx(() {
-      if (controller.isLoadingHistoryJobs.value) {
+      // Skeletons only on first load; a pull-to-refresh keeps the list.
+      if (controller.isLoadingHistoryJobs.value &&
+          controller.historyJobsResponse.value == null) {
         return ShimmerProvider(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -33,6 +33,10 @@ class HomeController extends GetxController {
   /// Job-overview stats load independently of the (slower) Traxroot map
   /// pipeline, so the dashboard overview no longer waits for vehicle data.
   final RxBool isOverviewLoading = false.obs;
+
+  /// The last overview (job counts) fetch failed — the Home tab shows an
+  /// error with Retry instead of zero counts.
+  final RxBool overviewFailed = false.obs;
   final RxString error = ''.obs;
   final RxList<MapMarkerModel> markers = <MapMarkerModel>[].obs;
   final RxList<MapZoneModel> zones = <MapZoneModel>[].obs;
@@ -82,6 +86,7 @@ class HomeController extends GetxController {
   Future<void> loadData() async {
     isLoading.value = true;
     isOverviewLoading.value = true;
+    overviewFailed.value = false;
     error.value = '';
 
     try {
@@ -145,6 +150,7 @@ class HomeController extends GetxController {
         } catch (e) {
           log('Overview job load failed: $e',
               name: 'HomeController.loadData', level: 1000);
+          overviewFailed.value = true;
         }
       }
       isOverviewLoading.value = false;
@@ -414,6 +420,9 @@ class HomeController extends GetxController {
     if (allJobs != null) allJobsResponse.value = allJobs;
     if (ongoingJobs != null) ongoingJobsResponse.value = ongoingJobs;
     if (completedJobs != null) completedJobsResponse.value = completedJobs;
+    if (allJobs != null && ongoingJobs != null && completedJobs != null) {
+      overviewFailed.value = false;
+    }
     _updateWidgets();
   }
 
@@ -820,6 +829,7 @@ class HomeController extends GetxController {
   void reset() {
     isLoading.value = false;
     isOverviewLoading.value = false;
+    overviewFailed.value = false;
     error.value = '';
     markers.clear();
     zones.clear();

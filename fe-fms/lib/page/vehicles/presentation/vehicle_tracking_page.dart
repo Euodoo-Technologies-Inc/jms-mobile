@@ -5,7 +5,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/utils/timezone_util.dart';
 
+import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/adaptive_map.dart';
+import '../../../core/widgets/detail_widgets.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
 import '../../../data/models/traxroot_object_status_model.dart';
 import '../controller/vehicles_controller.dart';
@@ -140,28 +142,26 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
     final vehicle = _vehicle;
     final marker = vehicle?.toMarker(icon: widget.iconUrl);
     final hasLocation = marker != null;
+    final palette = context.dispatch;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(vehicle?.name ?? 'Vehicle Tracking'),
-        actions: [
-          IconButton(
-            tooltip: _autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF',
-            onPressed: _toggleAutoRefresh,
-            icon: Icon(
-              Icons.autorenew,
-              color: _autoRefresh
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
+    // DetailScaffold's SafeArea keeps the bottom card above the nav bar.
+    return DetailScaffold(
+      title: vehicle?.name ?? 'Vehicle Tracking',
+      actions: [
+        IconButton(
+          tooltip: _autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF',
+          onPressed: _toggleAutoRefresh,
+          icon: Icon(
+            Icons.autorenew,
+            color: _autoRefresh ? DispatchColors.brand : null,
           ),
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _loading ? null : _refreshLatestStatus,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+        ),
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _loading ? null : _refreshLatestStatus,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -177,45 +177,60 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                   : Center(
                       child: Text(
                         'Vehicle location is unavailable',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: TextStyle(color: palette.subtle, fontSize: 14),
                       ),
                     ),
             ),
             const SizedBox(height: 12),
             //card display
-            Card(
-              child: ListTile(
-                leading: SizedBox(
-                  width: 20,
-                  child: Center(child: _VehicleAvatar(iconUrl: widget.iconUrl)),
-                ),
-                title: Text(vehicle?.name ?? 'Vehicle'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (vehicle?.status != null)
-                      Text('Status: ${vehicle!.status}'),
-                    if (vehicle?.speed != null)
-                      Text('Speed: ${vehicle!.speed!.toStringAsFixed(1)} km/h'),
-                    if (vehicle?.address != null &&
-                        vehicle!.address!.isNotEmpty)
-                      Text(vehicle.address!),
-                    if (vehicle?.updatedAt != null)
-                      Text(
-                        'Updated: ${ManilaTimezone.convert(vehicle!.updatedAt!)}',
-                        style: Theme.of(context).textTheme.bodySmall,
+            DetailCard(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _VehicleAvatar(iconUrl: widget.iconUrl),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DefaultTextStyle.merge(
+                      style: TextStyle(color: palette.subtle, fontSize: 13),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            vehicle?.name ?? 'Vehicle',
+                            style: TextStyle(
+                              color: palette.ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          if (vehicle?.status != null)
+                            Text('Status: ${vehicle!.status}'),
+                          if (vehicle?.speed != null)
+                            Text(
+                                'Speed: ${vehicle!.speed!.toStringAsFixed(1)} km/h'),
+                          if (vehicle?.address != null &&
+                              vehicle!.address!.isNotEmpty)
+                            Text(vehicle.address!),
+                          if (vehicle?.updatedAt != null)
+                            Text(
+                              'Updated: ${ManilaTimezone.convert(vehicle!.updatedAt!)}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          if (_error != null)
+                            Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: DispatchColors.danger,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
                       ),
-                    if (_error != null)
-                      Text(
-                        _error!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                  ],
-                ),
-                isThreeLine: true,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

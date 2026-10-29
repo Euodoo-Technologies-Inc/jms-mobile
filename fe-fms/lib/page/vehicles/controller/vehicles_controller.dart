@@ -20,6 +20,9 @@ class VehiclesController extends GetxController {
   );
 
   final RxBool isLoading = false.obs;
+
+  /// The last [loadData] failed — the page shows an error with Retry.
+  final RxBool loadFailed = false.obs;
   final RxList<TraxrootObjectModel> objects = <TraxrootObjectModel>[].obs;
   final RxMap<int, TraxrootIconModel> iconsById =
       <int, TraxrootIconModel>{}.obs;
@@ -81,6 +84,7 @@ class VehiclesController extends GetxController {
   /// observable variables. It also builds the group mapping and precaches icons.
   Future<void> loadData() async {
     isLoading.value = true;
+    loadFailed.value = false;
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -173,6 +177,7 @@ class VehiclesController extends GetxController {
 
       _precacheIcons(iconMap);
     } catch (e) {
+      loadFailed.value = true;
       Get.snackbar(
         colorText: Colors.white,
         backgroundColor: Colors.red,
