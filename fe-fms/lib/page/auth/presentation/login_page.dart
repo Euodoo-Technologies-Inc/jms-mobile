@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
+import 'package:fms/core/utils/user_message.dart';
 import '../../dispatch/widget/dispatch_auth_widgets.dart';
 import 'forgot_password_page.dart';
 
@@ -50,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       // Show the failure inline (e.g. invalid credentials) instead of
       // navigating away — consistent with the four-wheels dispatch login.
       if (mounted) {
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = userMessage(e));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -84,7 +85,7 @@ class _LoginPageState extends State<LoginPage> {
                     DispatchTextField(
                       controller: _emailController,
                       label: 'Email',
-                      hint: 'Fill your email',
+                      hint: 'name@company.com',
                       keyboardType: TextInputType.emailAddress,
                       prefixIcon: Icons.email_outlined,
                       autocorrect: false,
@@ -96,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                         if (!RegExp(
                           r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                         ).hasMatch(value)) {
-                          return 'Invalid email address';
+                          return 'Enter a valid email address';
                         }
                         return null;
                       },
@@ -105,7 +106,7 @@ class _LoginPageState extends State<LoginPage> {
                     DispatchTextField(
                       controller: _passwordController,
                       label: 'Password',
-                      hint: 'Fill your password',
+                      hint: 'Your password',
                       obscureText: _obscure,
                       prefixIcon: Icons.lock_outline,
                       suffixIcon: IconButton(
@@ -123,7 +124,7 @@ class _LoginPageState extends State<LoginPage> {
                           return 'Password is required';
                         }
                         if (value.length < 4) {
-                          return 'Password must be at least 4 characters long';
+                          return 'Password must be at least 4 characters';
                         }
                         return null;
                       },
@@ -135,7 +136,7 @@ class _LoginPageState extends State<LoginPage> {
                             ? null
                             : () => Get.to(() => const ForgotPasswordPage()),
                         child: const Text(
-                          'Forgot Password',
+                          'Forgot password?',
                           style: TextStyle(
                             color: DispatchColors.brand,
                             fontWeight: FontWeight.w600,

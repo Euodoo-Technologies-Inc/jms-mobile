@@ -143,10 +143,10 @@ class _FilterBody extends StatelessWidget {
   final Color borderColor;
 
   static const _jobTypes = {
-    1: 'Line Int.',
-    2: 'Recon.',
-    3: 'SC',
-    4: 'Disc.',
+    1: 'Line interruption',
+    2: 'Reconnection',
+    3: 'Short circuit',
+    4: 'Disconnection',
   };
 
   @override

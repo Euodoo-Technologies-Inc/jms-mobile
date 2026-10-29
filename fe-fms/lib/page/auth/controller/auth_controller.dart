@@ -151,7 +151,7 @@ class AuthController extends GetxController {
       );
 
       if (apiKeyResult == null || apiKeyResult.isEmpty) {
-        throw Exception('Error fetch data');
+        throw Exception("Couldn't log in. Try again.");
       }
 
       await prefs.setString(Variables.prefApiKey, apiKeyResult);
@@ -216,7 +216,7 @@ class AuthController extends GetxController {
       _preloadTraxrootData();
 
       SnackbarUtils(
-        text: 'Login Success',
+        text: 'Logged in.',
         backgroundColor: Colors.green,
       ).showSuccessSnackBar(context);
 
@@ -228,7 +228,7 @@ class AuthController extends GetxController {
       // Surface the failure to the caller (the login page) so it can show an
       // inline error message — mirroring the four-wheels dispatch login —
       // instead of swallowing it here and rebuilding the page.
-      String errorMessage = 'Login Failed';
+      String errorMessage = "Couldn't log in. Try again.";
       final exceptionMessage = e.toString();
       log(exceptionMessage, name: 'Login', level: 900);
       if (exceptionMessage.startsWith('Exception: ')) {

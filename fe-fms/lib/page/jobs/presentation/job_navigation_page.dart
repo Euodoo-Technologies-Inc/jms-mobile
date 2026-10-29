@@ -67,7 +67,7 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
         title: const Text(
-          'Job Navigation',
+          'Job navigation',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: [

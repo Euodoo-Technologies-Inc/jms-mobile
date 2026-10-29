@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/page/dispatch/widget/dispatch_auth_widgets.dart';
 import 'package:fms/page/profile/controller/profile_controller.dart';
 
 /// Shows a dialog that lets the user change their password.
@@ -54,6 +56,7 @@ class _ChangePasswordDialogContentState
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -66,7 +69,10 @@ class _ChangePasswordDialogContentState
   Future<void> _submit() async {
     if (!widget.formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
       final message = await widget.controller.changePassword(
@@ -85,14 +91,11 @@ class _ChangePasswordDialogContentState
       ).showSuccessSnackBar(context);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      final errorMsg = e.toString().replaceFirst('Exception: ', '');
-      SnackbarUtils(
-        text: errorMsg,
-        backgroundColor: Colors.red,
-        icon: Icons.error,
-      ).showErrorSnackBar(context);
+      // Inline, inside the dialog: a page snackbar sits under the barrier.
+      setState(() {
+        _isLoading = false;
+        _error = userMessage(e);
+      });
     }
   }
 
@@ -200,7 +203,7 @@ class _ChangePasswordDialogContentState
                         setState(() => _obscureConfirm = !_obscureConfirm),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please confirm your new password';
+                        return 'Confirm your new password';
                       }
                       if (value.trim() != widget.newPasswordCtrl.text.trim()) {
                         return 'Passwords do not match';
@@ -208,6 +211,10 @@ class _ChangePasswordDialogContentState
                       return null;
                     },
                   ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 14),
+                    DispatchErrorText(_error!),
+                  ],
                   const SizedBox(height: 22),
                   Row(
                     children: [
@@ -292,7 +299,7 @@ class _ChangePasswordDialogContentState
         prefixIcon: Icon(icon, color: DispatchColors.brand, size: 20),
         suffixIcon: IconButton(
           icon: Icon(
-            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
             color: palette.subtle,
             size: 20,
           ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/utils/timezone_util.dart';
@@ -127,10 +128,10 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.toString();
+        _error = userMessage(e);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update vehicle: ${e.toString()}')),
+        SnackBar(content: const Text("Couldn't update the vehicle location.")),
       );
     }
   }
@@ -143,7 +144,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(vehicle?.name ?? 'Vehicle Tracking'),
+        title: Text(vehicle?.name ?? 'Vehicle tracking'),
         actions: [
           IconButton(
             tooltip: _autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF',

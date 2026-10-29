@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:get/get.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
@@ -38,10 +39,8 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
     });
     try {
       await Get.find<DispatchJobsController>().fetchDetail(widget.jobId);
-    } on DispatchApiException catch (e) {
-      _error = e.message;
     } catch (e) {
-      _error = e.toString();
+      _error = userMessage(e);
     } finally {
       if (mounted) setState(() => _loadingDetail = false);
     }
@@ -68,14 +67,14 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.message),
+          content: Text(userMessage(e)),
           backgroundColor: e.isConflict ? Colors.orange : Colors.red,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(content: Text(userMessage(e)), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _starting = false);

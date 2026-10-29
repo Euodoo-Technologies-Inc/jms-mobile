@@ -19,16 +19,17 @@ class JobReportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
+    final notes = job.notes?.trim() ?? '';
 
     void shareReport() {
       final buffer = StringBuffer()
-        ..writeln('Job Report')
-        ..writeln('Job: ${job.jobName ?? 'N/A'}')
+        ..writeln('Job report')
+        ..writeln('Job: ${job.jobName ?? '—'}')
         ..writeln('Status: Completed')
         ..writeln('Type: ${_getJobTypeString(job.typeJob)}')
-        ..writeln('Customer: ${job.customerName ?? 'N/A'}')
-        ..writeln('Phone: ${job.phoneNumber ?? 'N/A'}')
-        ..writeln('Address: ${job.address ?? 'N/A'}');
+        ..writeln('Customer: ${job.customerName ?? '—'}')
+        ..writeln('Phone: ${job.phoneNumber ?? '—'}')
+        ..writeln('Address: ${job.address ?? '—'}');
 
       if (job.createdAt != null) {
         buffer.writeln('Created: ${_formatDate(job.createdAt)}');
@@ -36,18 +37,21 @@ class JobReportPage extends StatelessWidget {
       if (job.assignWhen != null) {
         buffer.writeln('Assigned: ${_formatDate(job.assignWhen)}');
       }
-      if (job.jobDate != null) {
-        buffer.writeln('Completed: ${_formatDate(job.jobDate)}');
+      if (job.finishWhen != null) {
+        buffer.writeln('Completed: ${_formatDateTime(job.finishWhen)}');
+      }
+      if (notes.isNotEmpty) {
+        buffer.writeln('Notes: $notes');
       }
 
       Share.share(
         buffer.toString().trim(),
-        subject: job.jobName ?? 'Job Report',
+        subject: job.jobName ?? 'Job report',
       );
     }
 
     return DetailScaffold(
-      title: 'Job Report',
+      title: 'Job report',
       actions: [
         IconButton(
           tooltip: 'Share',
@@ -82,13 +86,16 @@ class JobReportPage extends StatelessWidget {
                 ),
                 DetailKvRow(label: 'Created at', value: _formatDate(job.createdAt)),
                 DetailKvRow(label: 'Assigned at', value: _formatDate(job.assignWhen)),
-                DetailKvRow(label: 'Completed at', value: _formatDate(job.jobDate)),
+                DetailKvRow(
+                  label: 'Completed at',
+                  value: _formatDateTime(job.finishWhen),
+                ),
               ],
             ),
           ),
 
           const SizedBox(height: 22),
-          const DetailSectionLabel('Customer & Contact'),
+          const DetailSectionLabel('Customer & contact'),
           DetailCard(
             child: Column(
               children: [
@@ -99,20 +106,21 @@ class JobReportPage extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 22),
-          const DetailSectionLabel('Completion Notes'),
-          DetailCard(
-            child: Text(
-              'Job completed successfully. All electrical connections have been '
-              'restored and tested. Ensure follow-up inspection is scheduled '
-              'within 7 days.',
-              style: TextStyle(
-                color: palette.ink,
-                fontSize: 13.5,
-                height: 1.5,
+          // The crew's own notes from Finish; no section when they left none.
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            const DetailSectionLabel('Completion notes'),
+            DetailCard(
+              child: Text(
+                notes,
+                style: TextStyle(
+                  color: palette.ink,
+                  fontSize: 13.5,
+                  height: 1.5,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -141,7 +149,7 @@ class JobReportPage extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: shareReport,
                   icon: const Icon(Icons.share),
-                  label: const Text('Share Report'),
+                  label: const Text('Share report'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -162,11 +170,11 @@ class JobReportPage extends StatelessWidget {
   String _getJobTypeString(int? type) {
     switch (type) {
       case 1:
-        return 'Line Interruption';
+        return 'Line interruption';
       case 2:
         return 'Reconnection';
       case 3:
-        return 'Short Circuit';
+        return 'Short circuit';
       case 4:
         return 'Disconnection';
       default:
@@ -174,10 +182,17 @@ class JobReportPage extends StatelessWidget {
     }
   }
 
-  String _formatDate(dynamic value) {
+  String? _formatDate(dynamic value) {
     final dateTime = _parseDate(value);
-    if (dateTime == null) return 'N/A';
+    if (dateTime == null) return null;
     return DateFormat('EEE, dd MMM yyyy').format(ManilaTimezone.convert(dateTime));
+  }
+
+  String? _formatDateTime(dynamic value) {
+    final dateTime = _parseDate(value);
+    if (dateTime == null) return null;
+    return DateFormat('dd MMM yyyy · h:mm a')
+        .format(ManilaTimezone.convert(dateTime));
   }
 
   DateTime? _parseDate(dynamic value) {

@@ -24,7 +24,7 @@ class DispatchJobsOverviewPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
         title: const Text(
-          'Overview',
+          'Job list',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
       ),

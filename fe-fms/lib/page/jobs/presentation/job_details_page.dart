@@ -8,6 +8,8 @@ import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/core/widgets/app_dialog.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/core/utils/user_message.dart';
+import 'package:fms/page/dispatch/widget/dispatch_auth_widgets.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:fms/core/utils/timezone_util.dart';
@@ -75,7 +77,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
 
     Share.share(
       buffer.toString().trim(),
-      subject: job.jobName ?? 'Job Details',
+      subject: job.jobName ?? 'Job details',
     );
   }
 
@@ -131,7 +133,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
         title: Text(
-          job.jobName ?? 'Job Details',
+          job.jobName ?? 'Job details',
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         // Profile is intentionally not reachable from the job detail page —
@@ -256,7 +258,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
 
                 const SizedBox(height: sectionSpacing),
 
-                const DetailSectionLabel('Job Information'),
+                const DetailSectionLabel('Job information'),
                 DetailCard(
                   child: Column(
                     children: [
@@ -282,7 +284,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                   const SizedBox(height: sectionSpacing),
                   DetailNoticeCard(
                     icon: Icons.warning_amber_rounded,
-                    title: 'Reschedule Rejected',
+                    title: 'Reschedule rejected',
                     message: reasonReject,
                     color: colorScheme.error,
                     footnote: 'You must complete this job.',
@@ -294,7 +296,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                   const SizedBox(height: sectionSpacing),
                   const DetailNoticeCard(
                     icon: Icons.hourglass_top,
-                    title: 'Reschedule Pending',
+                    title: 'Reschedule pending',
                     message:
                         'Your reschedule request is awaiting admin approval.',
                     color: Color(0xFFB45309),
@@ -402,8 +404,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                                 : Icons.play_arrow_rounded,
                       ),
                       label: Text(hasPendingAction
-                          ? 'Pending Upload'
-                          : (isOngoing ? 'Finish Job' : 'Start Job')),
+                          ? 'Pending upload'
+                          : (isOngoing ? 'Finish job' : 'Start job')),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -426,11 +428,11 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
   String _getJobTypeString(int? type) {
     switch (type) {
       case 1:
-        return 'Line Interruption';
+        return 'Line interruption';
       case 2:
         return 'Reconnection';
       case 3:
-        return 'Short Circuit';
+        return 'Short circuit';
       case 4:
         return 'Disconnection';
       default:
@@ -507,9 +509,9 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       if (context.mounted) {
         Navigator.of(context).pop(); // close loading
         final isSuccess = response.success == true;
-        final message =
-            response.message ??
-            (isSuccess ? 'Success Driver Get The Job' : 'Failed to start job');
+        final message = isSuccess
+            ? 'Job started.'
+            : userMessage(Exception(response.message ?? "Couldn't start the job. Try again."));
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -528,16 +530,9 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         log('Failed to start job: ${e.toString()}');
         Navigator.of(context).pop(); // close loading
 
-        // Extract error message from exception
-        String errorMessage = 'Failed to start job';
-        final exceptionMessage = e.toString();
-        if (exceptionMessage.startsWith('Exception: ')) {
-          errorMessage = exceptionMessage.substring('Exception: '.length);
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage, style: TextStyle(color: Colors.white)),
+            content: Text(userMessage(e), style: TextStyle(color: Colors.white)),
             backgroundColor: Colors.red,
           ),
         );
@@ -710,7 +705,7 @@ Future<void> _finishJob(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          response.message ?? 'Success Finish The Job',
+          'Job finished.',
           style: const TextStyle(color: Colors.white),
         ),
         backgroundColor: Colors.green,
@@ -773,18 +768,7 @@ Future<void> _finishJob(BuildContext context) async {
       Navigator.of(context, rootNavigator: true).pop();
     }
 
-    String errorMessage = 'Failed to finish job';
-
-    if (e is Exception) {
-      final exceptionStr = e.toString();
-      if (exceptionStr.startsWith('Exception: ')) {
-        errorMessage = exceptionStr.substring('Exception: '.length);
-      } else {
-        errorMessage = exceptionStr;
-      }
-    } else {
-      errorMessage = e.toString();
-    }
+    final errorMessage = userMessage(e);
 
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
@@ -1082,7 +1066,7 @@ Future<void> _finishJob(BuildContext context) async {
             onPressed: () => Navigator.of(dialogContext).pop(''),
           ),
           AppDialogButton(
-            label: 'Submit',
+            label: 'Finish job',
             filled: true,
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
           ),
@@ -1157,7 +1141,7 @@ Future<void> _finishJob(BuildContext context) async {
               onPressed: () => Navigator.of(dialogContext).pop(null),
             ),
             AppDialogButton(
-              label: 'Submit',
+              label: 'Cancel job',
               filled: true,
               color: DispatchColors.danger,
               onPressed: () {
@@ -1211,6 +1195,7 @@ Future<void> _finishJob(BuildContext context) async {
     TimeOfDay selectedTime = TimeOfDay(hour: _manilaTime.hour, minute: _manilaTime.minute);
     final notesController = _rescheduleNotesController;
     notesController.clear();
+    String? rescheduleError;
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -1220,7 +1205,7 @@ Future<void> _finishJob(BuildContext context) async {
           return AppDialog(
             icon: Icons.event_repeat,
             accent: amber,
-            title: 'Reschedule Job',
+            title: 'Reschedule job',
             message: 'Pick a new date and time and tell the dispatcher why. '
                 'This needs admin approval before it takes effect.',
             content: Column(
@@ -1337,7 +1322,7 @@ Future<void> _finishJob(BuildContext context) async {
                     controller: notesController,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'Leave notes here (Required)',
+                      hintText: 'Reason for rescheduling (required)',
                       hintStyle: textTheme.bodyMedium?.copyWith(
                         color: palette.subtle,
                       ),
@@ -1349,6 +1334,10 @@ Future<void> _finishJob(BuildContext context) async {
                     ),
                   ),
                 ),
+                if (rescheduleError != null) ...[
+                  const SizedBox(height: 12),
+                  DispatchErrorText(rescheduleError!),
+                ],
               ],
             ),
             actions: [
@@ -1365,15 +1354,8 @@ Future<void> _finishJob(BuildContext context) async {
                   // Validate notes field is not empty
                   final notes = notesController.text.trim();
                   if (notes.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Please provide notes for rescheduling',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    setState(() => rescheduleError =
+                        'Add a reason for rescheduling.');
                     return;
                   }
 
@@ -1386,15 +1368,8 @@ Future<void> _finishJob(BuildContext context) async {
                   );
 
                   if (scheduledDateTime.isBefore(ManilaTimezone.now())) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Time cannot be in the past',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    setState(() => rescheduleError =
+                        'Pick a time that is later than now.');
                     return;
                   }
 
@@ -1437,14 +1412,16 @@ Future<void> _finishJob(BuildContext context) async {
 
       final success = response.success == true;
       final isOfflineSave = response.message?.contains('locally') ?? false;
-      final message =
-          response.message ??
-          (success ? 'Job rescheduled successfully' : response.message);
+      final message = success
+          ? (isOfflineSave
+              ? response.message!
+              : 'Reschedule sent. It takes effect once an admin approves it.')
+          : userMessage(Exception(response.message ?? "Couldn't reschedule the job. Try again."));
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            message.toString(),
+            message,
             style: const TextStyle(color: Colors.white),
           ),
           backgroundColor: success
@@ -1469,15 +1446,8 @@ Future<void> _finishJob(BuildContext context) async {
       log('Failed to reschedule job: ${e.toString()}');
       Navigator.of(context).pop(); // Close loading
 
-      // Extract error message
-      String errorMessage = 'Failed to reschedule job';
-      final exceptionMessage = e.toString();
-      if (exceptionMessage.startsWith('Exception: ')) {
-        errorMessage = exceptionMessage.substring('Exception: '.length);
-      }
-
       SnackbarUtils(
-        text: errorMessage,
+        text: userMessage(e),
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
       return false;
@@ -1531,7 +1501,7 @@ Future<void> _finishJob(BuildContext context) async {
     if (!mounted) return;
     if (reason == null || reason.trim().isEmpty) {
       SnackbarUtils(
-        text: 'Please provide a reason',
+        text: 'Add a reason to cancel the job.',
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
       return;
@@ -1555,9 +1525,9 @@ Future<void> _finishJob(BuildContext context) async {
 
       final success = response.success == true;
       final isOfflineSave = response.message?.contains('locally') ?? false;
-      final message =
-          response.message ??
-          (success ? 'Success Cancel Job' : 'Failed to cancel job');
+      final message = success
+          ? (isOfflineSave ? response.message! : 'Job cancelled.')
+          : userMessage(Exception(response.message ?? "Couldn't cancel the job. Try again."));
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1576,7 +1546,7 @@ Future<void> _finishJob(BuildContext context) async {
       log('Failed to cancel job: ${e.toString()}');
       Navigator.of(context).pop();
       SnackbarUtils(
-        text: 'Failed to cancel job',
+        text: userMessage(e),
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
     }
@@ -1647,7 +1617,7 @@ Future<void> _finishJob(BuildContext context) async {
       log('Failed to open navigation: ${e.toString()}');
       Navigator.of(context).pop();
       SnackbarUtils(
-        text: 'Failed to open navigation',
+        text: "Couldn't open directions. Try again.",
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
     }
@@ -1662,7 +1632,7 @@ Future<void> _finishJob(BuildContext context) async {
       () => JobNavigationPage(
         latitude: coordinate.lat,
         longitude: coordinate.lng,
-        jobName: widget.job.jobName ?? 'Job Destination',
+        jobName: widget.job.jobName ?? 'Job destination',
         address: widget.job.address,
       ),
     );
@@ -1688,7 +1658,7 @@ Future<void> _finishJob(BuildContext context) async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Unable to open Google Maps: ${e.toString()}'),
+            content: Text("Couldn't open Google Maps. Try again."),
           ),
         );
       }

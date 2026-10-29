@@ -27,7 +27,7 @@ Future<bool> launchMapsDirections(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to open maps: $e')),
+        const SnackBar(content: Text("Couldn't open maps. Try again.")),
       );
     }
     return false;

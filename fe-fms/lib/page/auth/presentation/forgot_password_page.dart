@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
+import 'package:fms/core/utils/user_message.dart';
 import '../../dispatch/widget/dispatch_auth_widgets.dart';
 import '../../../data/datasource/auth_remote_datasource.dart';
 
@@ -49,13 +50,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      final error = e.toString();
-      var message = error.startsWith('Exception: ')
-          ? error.substring('Exception: '.length)
-          : error;
-      if (message.trim().isEmpty) {
-        message = 'Failed to send reset password';
-      }
+      final message = userMessage(e);
       setState(() {
         _isLoading = false;
         _error = message;
@@ -74,7 +69,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           children: [
             DispatchBrandHeader(
               icon: Icons.lock_reset,
-              title: 'Forgot Password',
+              title: 'Forgot password',
               subtitle: 'We\'ll email you a reset link',
               // Pop back to the login page, reversing the slide transition.
               onBack: () => Get.back(),
@@ -127,7 +122,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           ],
           const SizedBox(height: 24),
           DispatchPrimaryButton(
-            label: 'Send Reset Link',
+            label: 'Send reset link',
             loading: _isLoading,
             onPressed: _handleResetPassword,
           ),

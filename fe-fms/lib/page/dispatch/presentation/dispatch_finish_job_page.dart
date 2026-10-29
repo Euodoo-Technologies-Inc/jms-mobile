@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -83,7 +84,11 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
       }
       if (mounted) setState(() {});
     } catch (e) {
-      _notices.error('Image picker failed: $e');
+      // Usually a denied camera or photos permission.
+      _notices.error(
+        "Couldn't open the camera or gallery. "
+        'Allow camera and photo access in Settings and try again.',
+      );
     }
   }
 
@@ -102,12 +107,12 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
   Future<void> _submit() async {
     if (!_hasEnoughPhotos) {
       _notices.info(
-        'Please add at least ${DispatchConstants.minPhotos} photos.',
+        'Add at least ${DispatchConstants.minPhotos} photos.',
       );
       return;
     }
     if (!_hasMeter) {
-      _notices.info('Please enter the meter number.');
+      _notices.info('Enter the meter number.');
       return;
     }
     setState(() => _submitting = true);
@@ -129,13 +134,13 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
     } on DispatchApiException catch (e) {
       if (!mounted) return;
       if (e.isConflict) {
-        _notices.info(e.message);
+        _notices.info(userMessage(e));
       } else {
-        _notices.error(e.message);
+        _notices.error(userMessage(e));
       }
     } catch (e) {
       if (!mounted) return;
-      _notices.error(e.toString());
+      _notices.error(userMessage(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -250,7 +255,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
                           ),
                         )
                       : const Icon(Icons.check, size: 20),
-                  label: const Text('Submit'),
+                  label: const Text('Finish job'),
                 ),
               ),
               if (!_hasEnoughPhotos || !_hasMeter) ...[
