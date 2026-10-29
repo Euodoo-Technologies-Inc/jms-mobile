@@ -121,11 +121,14 @@ class DispatchQueueRepository {
   }
 
   /// Enqueues a start operation. Idempotency key is already persisted by
-  /// the controller via [DispatchIdempotencyStore].
+  /// the controller via [DispatchIdempotencyStore]. A job already queued for
+  /// this action keeps its first entry — a second tap queues nothing.
   Future<DispatchQueueEntry> enqueueStart(
     int jobId, {
     DateTime? startedAt,
   }) async {
+    final queued = await _queued(DispatchQueueOpType.start, jobId);
+    if (queued != null) return queued;
     final entry = DispatchQueueEntry(
       id: _nextId(),
       type: DispatchQueueOpType.start,
@@ -139,8 +142,16 @@ class DispatchQueueRepository {
     return entry;
   }
 
+  Future<DispatchQueueEntry?> _queued(DispatchQueueOpType type, int jobId) async {
+    for (final e in await readAll()) {
+      if (e.type == type && e.jobId == jobId) return e;
+    }
+    return null;
+  }
+
   /// Enqueues a finish operation. Photos are copied into the queue's
   /// persistent directory so picker temp-files cleanup doesn't drop them.
+  /// De-duplicated per job like [enqueueStart].
   Future<DispatchQueueEntry> enqueueFinish(
     int jobId, {
     String? notes,
@@ -148,6 +159,8 @@ class DispatchQueueRepository {
     List<File> photos = const [],
     DateTime? finishedAt,
   }) async {
+    final queued = await _queued(DispatchQueueOpType.finish, jobId);
+    if (queued != null) return queued;
     final dir = await _photoDir();
     final copies = <String>[];
     final stamp = DateTime.now().microsecondsSinceEpoch;

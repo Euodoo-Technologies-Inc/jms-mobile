@@ -38,7 +38,10 @@ class DispatchQueuedException implements Exception {
 /// one logical action = one Idempotency-Key, persisted across retries,
 /// cleared on terminal response.
 class DispatchJobsController extends GetxController with WidgetsBindingObserver {
-  final DispatchJobsDatasource _ds = DispatchJobsDatasource();
+  DispatchJobsController({DispatchJobsDatasource? datasource})
+      : _ds = datasource ?? DispatchJobsDatasource();
+
+  final DispatchJobsDatasource _ds;
   final DispatchOsrmDatasource _osrm = DispatchOsrmDatasource();
 
   // ---- Jobs list state ------------------------------------------------------
@@ -635,11 +638,8 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       if (raw == null || raw.isEmpty) return;
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
-      final cached = decoded
-          .whereType<Map<String, dynamic>>()
-          .map(DispatchJob.fromJson)
-          .toList(growable: false);
-      jobs.assignAll(cached);
+      _todayJson = decoded.whereType<Map<String, dynamic>>().toList();
+      jobs.assignAll(_todayJson.map(DispatchJob.fromJson));
       final stamp = prefs.getString(DispatchConstants.prefJobsTodayCachedAt);
       if (stamp != null) lastFetchedAt.value = DateTime.tryParse(stamp);
       isStale.value = true; // mark stale until next successful refresh
@@ -652,32 +652,16 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     }
   }
 
-  Future<void> _writeCache(List<DispatchJob> fresh) async {
+  /// Today's jobs exactly as the API sent them — what the cache stores, so
+  /// a cold start or offline session renders the same cards as online.
+  List<Map<String, dynamic>> _todayJson = [];
+
+  Future<void> _writeCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Serialize via the parts the model already understands.
-      final payload = fresh.map((j) => {
-            'id': j.id,
-            'job_name': j.jobName,
-            'status': j.status,
-            'job_date': j.jobDate,
-            'address': j.address,
-            'lat': j.lat,
-            'lng': j.lng,
-            'route_id': j.routeId,
-            'route_order': j.routeOrder,
-            'scheduled_arrival': j.scheduledArrival,
-            'actual_arrival': j.actualArrival,
-            'finish_when': j.finishWhen,
-            'notes': j.notes,
-            'meter_number': j.meterNumber,
-            'photos': j.photos
-                ?.map((p) => {'id': p.id, 'photo': p.filename})
-                .toList(),
-          }).toList();
       await prefs.setString(
         DispatchConstants.prefJobsTodayCache,
-        jsonEncode(payload),
+        jsonEncode(_todayJson),
       );
       await prefs.setString(
         DispatchConstants.prefJobsTodayCachedAt,
@@ -696,11 +680,11 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
     isLoading.value = true;
     error.value = null;
     try {
-      final result = await _ds.jobsToday();
-      jobs.assignAll(result);
+      _todayJson = [...await _ds.jobsTodayJson()];
+      jobs.assignAll(_todayJson.map(DispatchJob.fromJson));
       isStale.value = false;
       lastFetchedAt.value = DateTime.now();
-      await _writeCache(result);
+      await _writeCache();
     } on DispatchApiException catch (e) {
       if (await _handleTerminalAuth(e)) return;
       // Keep any cached jobs visible; surface a friendly error.
@@ -756,6 +740,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
           Get.isRegistered<DispatchSyncService>()) {
         await Get.find<DispatchSyncService>()
             .enqueueStart(jobId, startedAt: startedAt);
+        await _showQueued(jobId, {'status': 1});
         throw DispatchQueuedException(_startAction, jobId);
       }
       if (e.statusCode >= 400 && e.statusCode < 500 && e.statusCode != 409) {
@@ -811,6 +796,7 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
           photos: photos,
           finishedAt: finishedAt,
         );
+        await _showQueued(jobId, {'status': 2});
         throw DispatchQueuedException(_finishAction, jobId);
       }
       if (e.statusCode >= 400 && e.statusCode < 500 && e.statusCode != 409) {
@@ -824,6 +810,17 @@ class DispatchJobsController extends GetxController with WidgetsBindingObserver 
       }
       rethrow;
     }
+  }
+
+  /// Shows a queued Start/Finish on the job (and in the cache) before it
+  /// syncs, so the panel stops offering the same action again. The
+  /// pending-sync badge covers it until the queue drains.
+  Future<void> _showQueued(int jobId, Map<String, dynamic> changes) async {
+    final i = _todayJson.indexWhere((j) => j['id'] == jobId);
+    if (i < 0) return;
+    _todayJson[i] = {..._todayJson[i], ...changes};
+    _patch(DispatchJob.fromJson(_todayJson[i]));
+    await _writeCache();
   }
 
   void _patch(DispatchJob fresh) {
