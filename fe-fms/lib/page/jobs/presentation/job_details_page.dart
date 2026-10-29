@@ -46,6 +46,32 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     _jobsController = Get.find<JobsController>();
   }
 
+  /// Photos and notes from a Finish that didn't go through, so the retry
+  /// starts at the review step instead of the camera.
+  List<XFile> _unsentPhotos = [];
+  String? _unsentNotes;
+
+  /// Shows a spinner that Back can't dismiss and returns its closer, which
+  /// pops the spinner exactly once however many paths call it — a second pop
+  /// would close this page (and the rider's photos) instead.
+  VoidCallback _showBlockingProgress(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    var open = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+    return () {
+      if (!open) return;
+      open = false;
+      navigator.pop();
+    };
+  }
+
   @override
   void dispose() {
     _cancelReasonController.dispose();
@@ -494,18 +520,13 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
       return;
     }
 
-    // Tampilkan loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator()),
-    );
+    final closeProgress = _showBlockingProgress(context);
 
     try {
       final response = await _jobsController.startJob(jobId);
 
       if (context.mounted) {
-        Navigator.of(context).pop(); // close loading
+        closeProgress();
         final isSuccess = response.success == true;
         final message =
             response.message ??
@@ -526,7 +547,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     } catch (e) {
       if (context.mounted) {
         log('Failed to start job: ${e.toString()}');
-        Navigator.of(context).pop(); // close loading
+        closeProgress();
 
         // Extract error message from exception
         String errorMessage = 'Failed to start job';
@@ -542,6 +563,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
           ),
         );
       }
+    } finally {
+      closeProgress();
     }
   }
 
@@ -561,35 +584,43 @@ Future<void> _finishJob(BuildContext context) async {
 
   // --- Permissions & Source ---
   final granted = await AppPermission.ensurePhotosPermission(context);
-  if (!granted || !mounted) return;
-
-  final source = await _showImageSourceSheet(context);
-  if (!mounted || source == null) return;
-
-  // --- Image Picking ---
-  final picker = ImagePicker();
-  final images = await _pickImages(context, picker, source);
-
-  if (images.isEmpty || images.length < 2) {
-    if (!mounted) return;
+  if (!mounted) return;
+  if (!granted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Select minimum 2 photos'))
+      const SnackBar(
+        content: Text(
+          'Photo access is needed to attach proof of work. '
+          'Allow it, then tap Finish again.',
+        ),
+      ),
     );
     return;
   }
 
-  // --- Preview ---
-  final approved = await _showImagePreview(context, images);
-  if (!approved) {
+  // --- Image Picking + Preview ---
+  // A failed attempt's photos go straight to review; "Retake" picks again.
+  var images = _unsentPhotos;
+  while (true) {
+    if (images.isEmpty) {
+      final source = await _showImageSourceSheet(context);
+      if (!mounted || source == null) return;
+      images = await _pickImages(context, ImagePicker(), source);
+      if (!mounted) return;
+      if (images.length < 2) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select minimum 2 photos'))
+        );
+        return;
+      }
+    }
+    if (await _showImagePreview(context, images)) break;
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Upload canceled'))
-    );
-    return;
+    images = [];
   }
+  _unsentPhotos = images;
 
   // --- Notes Input ---
-  final notesResult = await _askForNotes(context);
+  final notesResult = await _askForNotes(context, initial: _unsentNotes);
   if (!mounted) return;
   
   if (notesResult == null) {
@@ -600,6 +631,7 @@ Future<void> _finishJob(BuildContext context) async {
   }
 
   final trimmedNotes = notesResult.trim();
+  _unsentNotes = trimmedNotes;
 
   // Dismiss keyboard explicitly
   FocusScope.of(context).unfocus();
@@ -608,15 +640,7 @@ Future<void> _finishJob(BuildContext context) async {
   await Future.delayed(const Duration(milliseconds: 400));
   if (!mounted) return;
 
-  // Show loading dialog
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => WillPopScope(
-      onWillPop: () async => false,
-      child: const Center(child: CircularProgressIndicator()),
-    ),
-  );
+  final closeProgress = _showBlockingProgress(context);
 
   try {
     // Check connectivity to decide online/offline path
@@ -634,7 +658,7 @@ Future<void> _finishJob(BuildContext context) async {
       );
 
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
+      closeProgress();
 
       if (response.success != true) {
         throw Exception(response.message ?? 'Failed to save job offline');
@@ -698,7 +722,7 @@ Future<void> _finishJob(BuildContext context) async {
 
     if (!mounted) return;
 
-    Navigator.of(context, rootNavigator: true).pop();
+    closeProgress();
 
     if (response.success != true) {
       throw Exception(response.message ?? 'Server returned failure status');
@@ -744,7 +768,7 @@ Future<void> _finishJob(BuildContext context) async {
         );
 
         if (!mounted) return;
-        Navigator.of(context, rootNavigator: true).pop();
+        closeProgress();
 
         if (offlineResponse.success == true) {
           await Future.delayed(const Duration(milliseconds: 100));
@@ -768,10 +792,7 @@ Future<void> _finishJob(BuildContext context) async {
       }
     }
 
-    // Close loading dialog
-    if (mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
+    closeProgress();
 
     String errorMessage = 'Failed to finish job';
 
@@ -796,6 +817,8 @@ Future<void> _finishJob(BuildContext context) async {
         duration: const Duration(seconds: 5),
       ),
     );
+  } finally {
+    closeProgress();
   }
 }
   Future<ImageSource?> _showImageSourceSheet(BuildContext context) async {
@@ -1006,6 +1029,7 @@ Future<void> _finishJob(BuildContext context) async {
 
     return (await showDialog<bool>(
           context: context,
+          barrierDismissible: false,
           builder: (dialogContext) => AppDialog(
             icon: Icons.photo_library_outlined,
             accent: DispatchColors.brand,
@@ -1053,12 +1077,13 @@ Future<void> _finishJob(BuildContext context) async {
         false;
   }
 
-  Future<String?> _askForNotes(BuildContext context) async {
-  final controller = TextEditingController();
+  Future<String?> _askForNotes(BuildContext context, {String? initial}) async {
+  final controller = TextEditingController(text: initial);
   
   try {
     final result = await showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AppDialog(
         icon: Icons.sticky_note_2_outlined,
         accent: DispatchColors.brand,
@@ -1111,6 +1136,7 @@ Future<void> _finishJob(BuildContext context) async {
     final controller = _cancelReasonController;
     controller.clear();
     int selectedIndex = -1;
+    bool missingReason = false;
 
     final result = await showDialog<String>(
       context: context,
@@ -1136,7 +1162,10 @@ Future<void> _finishJob(BuildContext context) async {
                       selectedColor:
                           DispatchColors.danger.withValues(alpha: 0.14),
                       onSelected: (val) {
-                        setState(() => selectedIndex = val ? i : -1);
+                        setState(() {
+                          selectedIndex = val ? i : -1;
+                          missingReason = false;
+                        });
                       },
                     ),
                 ],
@@ -1145,8 +1174,11 @@ Future<void> _finishJob(BuildContext context) async {
               TextField(
                 controller: controller,
                 maxLines: 3,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Type additional details (optional)',
+                  errorText: missingReason
+                      ? 'Pick a reason above or type one'
+                      : null,
                 ),
               ),
             ],
@@ -1170,6 +1202,7 @@ Future<void> _finishJob(BuildContext context) async {
                   reason = reason.isEmpty ? note : '$reason — $note';
                 }
                 if (reason.trim().isEmpty) {
+                  setState(() => missingReason = true);
                   return;
                 }
                 Navigator.of(dialogContext).pop(reason.trim());
@@ -1418,11 +1451,7 @@ Future<void> _finishJob(BuildContext context) async {
     final scheduledDate = result['date'] as DateTime;
     final notes = result['notes'] as String?;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    final closeProgress = _showBlockingProgress(context);
 
     try {
       final response = await _jobsController.rescheduleJob(
@@ -1433,7 +1462,7 @@ Future<void> _finishJob(BuildContext context) async {
 
       if (!mounted) return null;
 
-      Navigator.of(context).pop(); // Close loading
+      closeProgress();
 
       final success = response.success == true;
       final isOfflineSave = response.message?.contains('locally') ?? false;
@@ -1467,7 +1496,7 @@ Future<void> _finishJob(BuildContext context) async {
     } catch (e) {
       if (!mounted) return null;
       log('Failed to reschedule job: ${e.toString()}');
-      Navigator.of(context).pop(); // Close loading
+      closeProgress();
 
       // Extract error message
       String errorMessage = 'Failed to reschedule job';
@@ -1481,6 +1510,8 @@ Future<void> _finishJob(BuildContext context) async {
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
       return false;
+    } finally {
+      closeProgress();
     }
   }
 
@@ -1537,11 +1568,7 @@ Future<void> _finishJob(BuildContext context) async {
       return;
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    final closeProgress = _showBlockingProgress(context);
 
     try {
       final response = await _jobsController.cancelJob(
@@ -1551,7 +1578,7 @@ Future<void> _finishJob(BuildContext context) async {
 
       if (!mounted) return;
 
-      Navigator.of(context).pop();
+      closeProgress();
 
       final success = response.success == true;
       final isOfflineSave = response.message?.contains('locally') ?? false;
@@ -1574,11 +1601,13 @@ Future<void> _finishJob(BuildContext context) async {
     } catch (e) {
       if (!mounted) return;
       log('Failed to cancel job: ${e.toString()}');
-      Navigator.of(context).pop();
+      closeProgress();
       SnackbarUtils(
         text: 'Failed to cancel job',
         backgroundColor: Colors.red,
       ).showErrorSnackBar(context);
+    } finally {
+      closeProgress();
     }
   }
 
@@ -1597,60 +1626,11 @@ Future<void> _finishJob(BuildContext context) async {
       return;
     }
 
-    await _fallbackNavigateUsingDatasource(context);
-  }
-
-  Future<void> _fallbackNavigateUsingDatasource(BuildContext context) async {
-    final objectId = _extractJobId();
-    if (objectId == null) {
-      if (!mounted) return;
-      SnackbarUtils(
-        text: 'Job ID not found',
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final status = await _jobsController.getObjectStatusForJob(objectId);
-      final entry = _extractCoordinateEntry(status);
-
-      if (entry == null) {
-        throw Exception('Destination coordinate not found');
-      }
-
-      final coordinate = _parseCoordinateEntry(entry);
-
-      if (coordinate == null) {
-        throw Exception('Invalid coordinate format');
-      }
-
-      if (!mounted) return;
-      Navigator.of(context).pop();
-
-      if (widget.isOngoing) {
-        final launched = await _launchExternalNavigation(context, coordinate);
-        if (!launched && mounted) {
-          await _openInternalMap(context, coordinate);
-        }
-      } else {
-        await _openInternalMap(context, coordinate);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      log('Failed to open navigation: ${e.toString()}');
-      Navigator.of(context).pop();
-      SnackbarUtils(
-        text: 'Failed to open navigation',
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
-    }
+    if (!mounted) return;
+    SnackbarUtils(
+      text: 'No location for this job',
+      backgroundColor: Colors.red,
+    ).showErrorSnackBar(context);
   }
 
   Future<void> _openInternalMap(
@@ -1696,80 +1676,20 @@ Future<void> _finishJob(BuildContext context) async {
     }
   }
 
+  /// Every 2W job model names its coordinates `latitude`/`longitude`; a model
+  /// without them (NoSuchMethodError on `dynamic`) just has no location.
   GeoPoint? _extractJobCoordinates(dynamic job) {
-    final latitude = _parseCoordinate(job?.latitude ?? job?.lat);
-    final longitude = _parseCoordinate(job?.longitude ?? job?.lng ?? job?.lon);
+    double? latitude, longitude;
+    try {
+      latitude = _parseCoordinate(job?.latitude);
+      longitude = _parseCoordinate(job?.longitude);
+    } on NoSuchMethodError {
+      return null;
+    }
     if (latitude == null || longitude == null) {
       return null;
     }
     return GeoPoint(latitude, longitude);
-  }
-
-  int? _extractJobId() {
-    final id = widget.job.jobId;
-    if (id is int) return id;
-    if (id is String) return int.tryParse(id);
-    return null;
-  }
-
-  GeoPoint? _parseCoordinateEntry(Map<String, dynamic> entry) {
-    final latitude = _parseCoordinate(
-      entry['Latitude'] ?? entry['latitude'] ?? entry['Lat'] ?? entry['lat'],
-    );
-    final longitude = _parseCoordinate(
-      entry['Longitude'] ??
-          entry['longitude'] ??
-          entry['Lon'] ??
-          entry['lon'] ??
-          entry['Lng'] ??
-          entry['lng'],
-    );
-    if (latitude == null || longitude == null) {
-      return null;
-    }
-    return GeoPoint(latitude, longitude);
-  }
-
-  Map<String, dynamic>? _extractCoordinateEntry(dynamic payload) {
-    if (payload is Map<String, dynamic>) {
-      if (_hasCoordinateKeys(payload)) {
-        return payload;
-      }
-
-      final data = payload['Data'] ?? payload['data'];
-      if (data is List) {
-        for (final item in data) {
-          final extracted = _extractCoordinateEntry(item);
-          if (extracted != null) {
-            return extracted;
-          }
-        }
-      }
-
-      final result = payload['Result'] ?? payload['result'];
-      if (result is List) {
-        for (final item in result) {
-          final extracted = _extractCoordinateEntry(item);
-          if (extracted != null) {
-            return extracted;
-          }
-        }
-      }
-    } else if (payload is List) {
-      for (final item in payload) {
-        final extracted = _extractCoordinateEntry(item);
-        if (extracted != null) {
-          return extracted;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  bool _hasCoordinateKeys(Map<String, dynamic> payload) {
-    final lowerKeys = payload.keys.map((k) => k.toLowerCase()).toSet();
-    return lowerKeys.contains('latitude') || lowerKeys.contains('lat');
   }
 
   double? _parseCoordinate(dynamic value) {

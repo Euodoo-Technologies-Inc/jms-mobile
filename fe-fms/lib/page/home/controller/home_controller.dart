@@ -805,8 +805,9 @@ class HomeController extends GetxController {
       final navController = Get.find<NavigationController>();
 
       if (uri.host == 'job') {
-        // Navigate to Jobs tab (Index 2)
-        navController.changeTab(2);
+        // The Jobs tab's index depends on the role's tab set.
+        final idx = navController.titles.indexOf('Jobs');
+        if (idx >= 0) navController.changeTab(idx);
       } else if (uri.host == 'map') {
         // Navigate to Home/Map tab (Index 0)
         navController.changeTab(0);
