@@ -35,6 +35,13 @@ void main() {
     await tester.pump();
   }
 
+  /// Unmounts the map and lets its in-flight tile requests (Dio, zero-length
+  /// timers) finish, so flutter_test doesn't report them as pending.
+  Future<void> unmountMap(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  }
+
   group('DispatchJobsPage (4W map)', () {
     testWidgets('Back with a job panel open closes the panel', (tester) async {
       jobs.jobs.assignAll([
@@ -49,6 +56,7 @@ void main() {
 
       expect(jobs.selectedJobId.value, isNull);
       expect(find.text('Exit App'), findsNothing);
+      await unmountMap(tester);
     });
 
     testWidgets('Back with nothing open asks before exiting', (tester) async {
@@ -73,6 +81,7 @@ void main() {
       expect(find.text('Retry'), findsOneWidget);
       expect(find.byTooltip('Job list'), findsOneWidget);
       expect(find.byIcon(Icons.person), findsOneWidget);
+      await unmountMap(tester);
     });
 
     testWidgets('spinner on first load only, not on a zero-job poll',
@@ -85,6 +94,7 @@ void main() {
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('No pending jobs'), findsOneWidget);
+      await unmountMap(tester);
     });
   });
 
