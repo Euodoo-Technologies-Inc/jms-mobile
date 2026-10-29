@@ -75,12 +75,24 @@ class SecureStorage {
     }
   }
 
+  /// SharedPreferences keys that outlive a two-wheels logout: the
+  /// four-wheels (dispatch) session and app-wide settings share the store.
+  static const List<String> keptPrefixes = ['dispatch.', 'app.'];
+
+  /// `prefs.clear()` minus [keptPrefixes]. Every two-wheels wipe goes
+  /// through here, so signing out of 2W never signs the rider out of 4W.
+  static Future<void> clearTwoWheelsPrefs(SharedPreferences prefs) async {
+    for (final key in prefs.getKeys().toList()) {
+      if (!keptPrefixes.any(key.startsWith)) await prefs.remove(key);
+    }
+  }
+
   /// Clears all data from storage.
   Future<void> deleteAll() async {
     if (kDebugMode) {
       // Debug mode: gunakan SharedPreferences
       await _initPrefs();
-      await _prefs!.clear();
+      await clearTwoWheelsPrefs(_prefs!);
       debugPrint('🔓 [DEBUG] Cleared all SharedPreferences');
     } else {
       // Release mode: gunakan FlutterSecureStorage
