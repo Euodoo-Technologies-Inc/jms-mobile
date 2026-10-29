@@ -26,6 +26,7 @@ import 'package:fms/data/models/response/reschedule_status_response_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/data/repository/job_cache_repository.dart';
 import 'package:fms/data/repository/offline_queue_repository.dart';
+import 'package:fms/page/home/controller/home_controller.dart';
 import 'package:fms/page/jobs/controller/history_filter_mixin.dart';
 
 /// Controller for managing job lists (all, ongoing, history) and job actions.
@@ -208,6 +209,20 @@ class JobsController extends GetxController
   Future<void> refresh() async {
     await Future.wait([fetchAllJobs(), fetchOngoingJobs(), fetchHistoryJobs()]);
     await _refreshPendingQueue();
+    _syncHomeOverview();
+  }
+
+  /// Pushes the freshly-fetched job lists into the dashboard overview so its
+  /// Open / Ongoing / Complete counts update the moment a job is accepted,
+  /// finished, or cancelled — no manual dashboard refresh needed. Safe no-op
+  /// when the home tab (and its controller) isn't registered.
+  void _syncHomeOverview() {
+    if (!Get.isRegistered<HomeController>()) return;
+    Get.find<HomeController>().syncOverviewFromJobs(
+      allJobs: allJobsResponse.value,
+      ongoingJobs: ongoingJobsResponse.value,
+      completedJobs: historyJobsResponse.value,
+    );
   }
 
   /// Marks a job as rescheduled locally.

@@ -220,7 +220,11 @@ class DispatchAuthController extends GetxController {
   /// becomes a pure Obx binding — no awaits, no spinners, no blank polyline.
   void _ensureJobsController() {
     if (Get.isRegistered<DispatchJobsController>()) return;
-    Get.put(DispatchJobsController());
+    // Permanent so GetX's SmartManagement never disposes it mid-session as
+    // routes are pushed/popped — the finish-job page calls Get.find on submit
+    // and would otherwise hit "DispatchJobsController not found". Dropped
+    // explicitly on logout in _wipe().
+    Get.put(DispatchJobsController(), permanent: true);
   }
 
   Future<void> _wipe() async {
@@ -237,7 +241,8 @@ class DispatchAuthController extends GetxController {
     isAuthenticated.value = false;
     // Drop the jobs controller so the next session starts clean.
     if (Get.isRegistered<DispatchJobsController>()) {
-      Get.delete<DispatchJobsController>();
+      // force: it was registered permanent — see _ensureJobsController().
+      Get.delete<DispatchJobsController>(force: true);
     }
   }
 

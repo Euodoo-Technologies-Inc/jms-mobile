@@ -3,18 +3,22 @@ import 'package:intl/intl.dart';
 import 'package:fms/core/utils/timezone_util.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
 /// A page displaying a summary report of a completed job.
+///
+/// Shares the dispatch detail design language (flat surface, neutral cards,
+/// brand-green accents) so it matches the newer side of the app and respects
+/// dark mode.
 class JobReportPage extends StatelessWidget {
   final Data job;
   const JobReportPage({super.key, required this.job});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final palette = context.dispatch;
 
     void shareReport() {
       final buffer = StringBuffer()
@@ -42,373 +46,74 @@ class JobReportPage extends StatelessWidget {
       );
     }
 
-    Widget buildSectionHeader(IconData icon, String title) {
-      return Row(
+    return DetailScaffold(
+      title: 'Job Report',
+      actions: [
+        IconButton(
+          tooltip: 'Share',
+          icon: const Icon(Icons.share_outlined),
+          onPressed: shareReport,
+        ),
+      ],
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF4C8DFF), Color(0xFF1E58FF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x2200185C),
-                  blurRadius: 12,
-                  offset: Offset(0, 6),
+          DetailHeader(
+            title: job.jobName ?? 'Job',
+            pill: const DetailStatusPill(
+              label: 'Completed',
+              color: DispatchColors.brand,
+              icon: Icons.verified_outlined,
+            ),
+          ),
+          const SizedBox(height: 22),
+
+          const DetailSectionLabel('Overview'),
+          DetailCard(
+            child: Column(
+              children: [
+                DetailKvRow(
+                  label: 'Job type',
+                  value: _getJobTypeString(job.typeJob),
                 ),
+                DetailKvRow(
+                  label: 'Created by',
+                  value: job.createdBy?.toString(),
+                ),
+                DetailKvRow(label: 'Created at', value: _formatDate(job.createdAt)),
+                DetailKvRow(label: 'Assigned at', value: _formatDate(job.assignWhen)),
+                DetailKvRow(label: 'Completed at', value: _formatDate(job.jobDate)),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
-      );
-    }
 
-    Widget buildInfoRow(String label, String value) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
+          const SizedBox(height: 22),
+          const DetailSectionLabel('Customer & Contact'),
+          DetailCard(
+            child: Column(
+              children: [
+                DetailKvRow(label: 'Customer', value: job.customerName),
+                DetailKvRow(label: 'Phone', value: job.phoneNumber),
+                DetailKvRow(label: 'Address', value: job.address),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 22),
+          const DetailSectionLabel('Completion Notes'),
+          DetailCard(
+            child: Text(
+              'Job completed successfully. All electrical connections have been '
+              'restored and tested. Ensure follow-up inspection is scheduled '
+              'within 7 days.',
+              style: TextStyle(
+                color: palette.ink,
+                fontSize: 13.5,
+                height: 1.5,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: Text(
-                value,
-                style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.end,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    Widget buildHighlightChip(String label, IconData icon, Color background) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          color: background,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Job Report'),
-        actions: [
-          IconButton(
-            tooltip: 'Share',
-            icon: const Icon(Icons.share_outlined),
-            onPressed: shareReport,
           ),
         ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                elevation: 0,
-                color: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF7BD6FF),
-                        Color(0xFF5AB6FF),
-                        Color(0xFF3E8BFF),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(
-                      color: const Color(0x59FFFFFF),
-                      width: 1.2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x332D6BFF),
-                        blurRadius: 32,
-                        offset: Offset(0, 18),
-                      ),
-                      BoxShadow(
-                        color: Color(0x1AFFFFFF),
-                        blurRadius: 12,
-                        offset: Offset(-6, -6),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 62,
-                              height: 62,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0x66FFFFFF),
-                                    Color(0x33FFFFFF),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                border: Border.all(
-                                  color: const Color(0x80FFFFFF),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.insert_chart_outlined,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    job.jobName ?? 'Job',
-                                    style: textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    _getJobTypeString(job.typeJob),
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.86,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            buildHighlightChip(
-                              'Status: Completed',
-                              Icons.verified,
-                              const Color(0xFF34C759).withValues(alpha: 0.3),
-                            ),
-                            if (job.jobDate != null)
-                              buildHighlightChip(
-                                'Completed: ${_formatDate(job.jobDate)}',
-                                Icons.calendar_today,
-                                Colors.white.withValues(alpha: 0.25),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              Card(
-                elevation: 0,
-                color: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFFFFF), Color(0xFFEFF3FF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: const Color(0x2132638F)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x1432638F),
-                        blurRadius: 24,
-                        offset: Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        buildSectionHeader(Icons.info_outline, 'Overview'),
-                        const SizedBox(height: 16),
-                        buildInfoRow(
-                          'Job Type',
-                          _getJobTypeString(job.typeJob),
-                        ),
-                        buildInfoRow(
-                          'Created By',
-                          job.createdBy?.toString() ?? 'N/A',
-                        ),
-                        buildInfoRow('Created At', _formatDate(job.createdAt)),
-                        buildInfoRow(
-                          'Assigned At',
-                          _formatDate(job.assignWhen),
-                        ),
-                        buildInfoRow('Completed At', _formatDate(job.jobDate)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              Card(
-                elevation: 0,
-                color: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: const Color(0x2132638F)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x1432638F),
-                        blurRadius: 24,
-                        offset: Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        buildSectionHeader(Icons.person, 'Customer & Contact'),
-                        const SizedBox(height: 16),
-                        buildInfoRow('Customer', job.customerName ?? 'N/A'),
-                        buildInfoRow('Phone', job.phoneNumber ?? 'N/A'),
-                        buildInfoRow('Address', job.address ?? 'N/A'),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              Card(
-                elevation: 0,
-                color: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ).borderRadius,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFFFFF), Color(0xFFF6F8FF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: const Color(0x2132638F)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x1432638F),
-                        blurRadius: 24,
-                        offset: Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        buildSectionHeader(
-                          Icons.assignment_outlined,
-                          'Completion Notes',
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Job completed successfully. All electrical connections have been restored and tested. Ensure follow-up inspection is scheduled within 7 days.',
-                          style: textTheme.bodyMedium?.copyWith(height: 1.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 120),
-            ],
-          ),
-        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -419,36 +124,31 @@ class JobReportPage extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back_ios_new),
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 16),
                   label: const Text('Back'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    side: BorderSide(
-                      color: colorScheme.primary.withValues(alpha: 0.4),
-                    ),
-                    foregroundColor: colorScheme.primary,
-                    overlayColor: colorScheme.primary.withValues(alpha: 0.08),
+                    side: BorderSide(color: palette.cardBorder),
+                    foregroundColor: palette.ink,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: shareReport,
                   icon: const Icon(Icons.share),
                   label: const Text('Share Report'),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    shadowColor: colorScheme.primary.withValues(alpha: 0.4),
-                    overlayColor: colorScheme.primary.withValues(alpha: 0.12),
+                    backgroundColor: DispatchColors.brand,
+                    foregroundColor: DispatchColors.onBrand,
                   ),
                 ),
               ),

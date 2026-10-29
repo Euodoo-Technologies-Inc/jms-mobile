@@ -83,7 +83,12 @@ class _DispatchJobDetailPageState extends State<DispatchJobDetailPage> {
   }
 
   void _openFinish(DispatchJob job) {
-    Get.to(() => DispatchFinishJobPage(jobId: job.id));
+    Get.to(
+      () => DispatchFinishJobPage(jobId: job.id),
+      transition: Transition.rightToLeft,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override

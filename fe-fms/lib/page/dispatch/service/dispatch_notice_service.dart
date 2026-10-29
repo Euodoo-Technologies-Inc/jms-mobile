@@ -168,7 +168,14 @@ class _NoticeBanner extends StatelessWidget {
           const Color(0xFFf59e0b),
         ),
     };
-    return GestureDetector(
+    // Material ancestor: the banner is mounted in GetMaterialApp.builder,
+    // outside any Scaffold/Material, so without this its Text inherits
+    // Flutter's fallback style (serif font + yellow underline). Material
+    // supplies the theme's DefaultTextStyle so the banner font matches the
+    // rest of the app. Transparency keeps the rounded card decoration ours.
+    return Material(
+      type: MaterialType.transparency,
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       // Swipe up to dismiss.
       onVerticalDragEnd: (d) {
@@ -222,6 +229,7 @@ class _NoticeBanner extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

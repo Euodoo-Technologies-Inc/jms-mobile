@@ -22,10 +22,16 @@ class ThemeController extends GetxController {
   }
 
   /// Applies a new theme mode immediately and persists it.
+  ///
+  /// The app applies the resolved [ThemeData] via a plain [Theme] in the
+  /// `GetMaterialApp.builder` (driven by [themeMode]) rather than through
+  /// `MaterialApp.themeMode`. That swaps the theme in a single frame instead of
+  /// running MaterialApp's 200ms `AnimatedTheme` cross-fade, which janks badly
+  /// on heavy screens (e.g. the legacy map). So we deliberately do NOT call
+  /// `Get.changeThemeMode` here.
   Future<void> setThemeMode(ThemeMode mode) async {
     if (mode == themeMode.value) return;
     themeMode.value = mode;
-    Get.changeThemeMode(mode);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKey, mode.name);
   }

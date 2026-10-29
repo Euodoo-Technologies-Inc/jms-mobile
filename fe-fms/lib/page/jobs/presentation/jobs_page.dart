@@ -7,6 +7,7 @@ import 'package:fms/page/jobs/presentation/job_details_page.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
 import 'package:fms/core/widgets/skeleton_loading.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 import '../widget/job_summary_card.dart';
 import '../widget/history_filter_bar.dart';
 import 'job_history_detail_page.dart';
@@ -19,16 +20,28 @@ class JobsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(JobsController());
+    final palette = context.dispatch;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: palette.pageSurface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: palette.pageSurface,
+        surfaceTintColor: palette.pageSurface,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        // No title here — the outer app bar carries it. Collapse the toolbar so
+        // the tabs sit directly under the main top bar instead of leaving a gap.
+        toolbarHeight: 0,
         bottom: TabBar(
           controller: controller.tabController,
-          labelColor: Colors.black,
-          unselectedLabelColor: Colors.grey,
+          labelColor: palette.ink,
+          unselectedLabelColor: palette.subtle,
+          indicatorColor: DispatchColors.brand,
+          indicatorWeight: 3,
+          dividerColor: palette.cardBorder,
+          // Drop the blue ripple/splash flash when a tab is tapped.
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
           tabs: const [
             Tab(text: 'All Job'),
             Tab(text: 'Ongoing'),

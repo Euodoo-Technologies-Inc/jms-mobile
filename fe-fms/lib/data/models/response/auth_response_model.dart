@@ -32,6 +32,8 @@ class Data {
   final int? companyType;
   final String? companyLabel;
   final bool? hasTraxroot;
+  final String? fullname;
+  final String? email;
 
   Data({
     this.userId,
@@ -41,6 +43,8 @@ class Data {
     this.companyType,
     this.companyLabel,
     this.hasTraxroot,
+    this.fullname,
+    this.email,
   });
 
   factory Data.fromJson(String str) => Data.fromMap(json.decode(str));
@@ -55,6 +59,8 @@ class Data {
     companyType: json["CompanyType"] ?? json["companyType"] ?? json["company_type"],
     companyLabel: json["CompanyLabel"] ?? json["companyLabel"] ?? json["company_label"],
     hasTraxroot: _parseBool(json["HasTraxroot"] ?? json["hasTraxroot"] ?? json["has_traxroot"]),
+    fullname: json["Fullname"] ?? json["fullname"] ?? json["FullName"] ?? json["full_name"],
+    email: json["Email"] ?? json["email"],
   );
 
   /// Parses a value to bool, handling bool, int (1/0), and string ("true"/"1").
@@ -77,5 +83,7 @@ class Data {
     "CompanyType": companyType,
     "CompanyLabel": companyLabel,
     "HasTraxroot": hasTraxroot,
+    "Fullname": fullname,
+    "Email": email,
   };
 }
