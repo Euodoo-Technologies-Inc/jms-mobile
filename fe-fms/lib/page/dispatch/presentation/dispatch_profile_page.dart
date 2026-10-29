@@ -48,6 +48,14 @@ class DispatchProfilePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 22),
                     ],
+                    if (rider != null) ...[
+                      const _SectionLabel('Vehicle'),
+                      _InfoRow(
+                        icon: Icons.local_shipping_outlined,
+                        title: rider.vehicleName ?? 'No vehicle assigned',
+                      ),
+                      const SizedBox(height: 22),
+                    ],
                     const _SectionLabel('Activity'),
                     _ActionRow(
                       icon: Icons.history,

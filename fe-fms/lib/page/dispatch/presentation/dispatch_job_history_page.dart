@@ -352,6 +352,18 @@ class _DispatchJobHistoryDetailPageState
             ],
           ),
         ),
+        for (final section in job.externalDetails) ...[
+          const SizedBox(height: 22),
+          _SectionLabel(section.heading),
+          _DetailCard(
+            child: Column(
+              children: [
+                for (final f in section.fields)
+                  _KvRow(label: f.label, value: f.value),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 22),
         const _SectionLabel('Timeline'),
         _DetailCard(child: _Timeline(job: job)),

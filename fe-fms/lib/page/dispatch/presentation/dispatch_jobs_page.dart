@@ -1562,6 +1562,8 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 label: 'Notes',
                                 value: job.notes!,
                               ),
+                            for (final section in job.externalDetails)
+                              _DetailSection(section: section),
                             const SizedBox(height: 16),
                             _PanelActions(
                               job: job,
@@ -1713,13 +1715,43 @@ class _PanelActions extends StatelessWidget {
   }
 }
 
+/// One ORMECO details section, collapsed so the panel stays map-sized.
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({required this.section});
+  final DispatchJobDetailSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      // ExpansionTile draws theme dividers above and below; the panel has none.
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        iconColor: Colors.white,
+        collapsedIconColor: Colors.white,
+        title: Text(
+          section.heading,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        children: [
+          for (final f in section.fields) _InfoRow(label: f.label, value: f.value),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.value,
   });
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final String value;
 
@@ -1731,8 +1763,10 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: muted),
-          const SizedBox(width: 10),
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: muted),
+            const SizedBox(width: 10),
+          ],
           SizedBox(
             width: 86,
             child: Text(label,
