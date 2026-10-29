@@ -2,7 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/data/datasource/profile_remote_datasource.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
@@ -96,11 +96,7 @@ class ProfileController extends GetxController {
       } catch (_) {}
 
       if (mounted) {
-        SnackbarUtils(
-          text: 'Logout successful',
-          backgroundColor: Colors.green,
-          icon: Icons.logout,
-        ).showSuccessSnackBar(context);
+        AppFeedback.success('Logout successful');
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -113,19 +109,11 @@ class ProfileController extends GetxController {
           Get.delete<ProfileController>();
         } catch (_) {}
       } else {
-        SnackbarUtils(
-          text: 'Logout failed',
-          backgroundColor: Colors.red,
-          icon: Icons.logout,
-        ).showErrorSnackBar(context);
+        AppFeedback.error('Logout failed');
       }
     } catch (_) {
       if (mounted) {
-        SnackbarUtils(
-          text: 'Logout failed',
-          backgroundColor: Colors.red,
-          icon: Icons.logout,
-        ).showErrorSnackBar(context);
+        AppFeedback.error('Logout failed');
       }
     }
   }

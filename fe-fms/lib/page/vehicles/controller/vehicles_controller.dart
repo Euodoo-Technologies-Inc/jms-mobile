@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/data/datasource/traxroot_datasource.dart';
 import 'package:fms/data/models/traxroot_icon_model.dart';
 import 'package:fms/data/models/traxroot_object_model.dart';
@@ -173,14 +174,7 @@ class VehiclesController extends GetxController {
 
       _precacheIcons(iconMap);
     } catch (e) {
-      Get.snackbar(
-        colorText: Colors.white,
-        backgroundColor: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.white),
-        'Error',
-        'Failed to load vehicles. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppFeedback.error('Failed to load vehicles. Please try again.');
     } finally {
       isLoading.value = false;
     }
@@ -212,14 +206,7 @@ class VehiclesController extends GetxController {
     final objectId = vehicle.id;
 
     if (objectId == null) {
-      Get.snackbar(
-        colorText: Colors.white,
-        backgroundColor: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.white),
-        'Error',
-        'Vehicle ID is unavailable.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppFeedback.error('Vehicle ID is unavailable.');
       return null;
     }
 
@@ -232,14 +219,7 @@ class VehiclesController extends GetxController {
       // Fallback to regular status if sensor fetch fails
       status ??= await _objectsDatasource.getLatestPoint(objectId: objectId);
     } catch (e) {
-      Get.snackbar(
-        colorText: Colors.white,
-        backgroundColor: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.white),
-        'Error',
-        'Failed to load vehicle details.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppFeedback.error('Failed to load vehicle details.');
     }
 
     if (status != null) {

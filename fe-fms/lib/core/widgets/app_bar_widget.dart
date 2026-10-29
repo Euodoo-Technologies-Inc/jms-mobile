@@ -94,7 +94,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
       ),
       actions: [
         IconButton(
-          visualDensity: VisualDensity.compact,
+          tooltip: 'Profile',
           iconSize: 22,
           icon: const Icon(Icons.person_outline),
           onPressed: () {

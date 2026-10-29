@@ -26,8 +26,8 @@ class DispatchNotice {
 ///
 /// Any dispatch screen calls [show] / [success] / [error] / [info];
 /// [DispatchNoticeHost] (mounted once via `GetMaterialApp.builder`) renders
-/// the banner over whatever screen is showing. Legacy screens simply never
-/// call it, so the banner never appears there.
+/// the banner over whatever screen is showing. 2W screens reach it through
+/// `AppFeedback` (core/widgets/app_feedback.dart).
 class DispatchNoticeController extends GetxController {
   /// The notice currently on screen, or `null`.
   final Rxn<DispatchNotice> current = Rxn<DispatchNotice>();
@@ -173,7 +173,11 @@ class _NoticeBanner extends StatelessWidget {
     // Flutter's fallback style (serif font + yellow underline). Material
     // supplies the theme's DefaultTextStyle so the banner font matches the
     // rest of the app. Transparency keeps the rounded card decoration ours.
-    return Material(
+    // Live region: TalkBack/VoiceOver announce each notice as it appears.
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Material(
       type: MaterialType.transparency,
       child: GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -198,14 +202,16 @@ class _NoticeBanner extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          // Right inset is smaller: the close button's 48dp target pads it.
+          padding: const EdgeInsets.fromLTRB(14, 0, 2, 0),
           child: Row(
             children: [
               Icon(icon, color: accent, size: 20),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
                   notice.message,
                   style: TextStyle(
                     color: palette.ink,
@@ -213,22 +219,31 @@ class _NoticeBanner extends StatelessWidget {
                     height: 1.3,
                   ),
                 ),
+                ),
               ),
-              const SizedBox(width: 8),
-              // Material/InkResponse for a proper ripple on the close icon —
-              // the parent container has no ink surface of its own.
-              Material(
-                color: Colors.transparent,
-                child: InkResponse(
-                  onTap: onDismiss,
-                  radius: 18,
-                  child:
-                      Icon(Icons.close, size: 18, color: palette.subtle),
+              // 48dp labelled target around the 18px glyph. Not an IconButton:
+              // its Tooltip needs an Overlay, and this host sits above the
+              // Navigator. Material/InkResponse give the ripple instead.
+              Semantics(
+                button: true,
+                label: 'Dismiss',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkResponse(
+                    onTap: onDismiss,
+                    radius: 24,
+                    child: SizedBox.square(
+                      dimension: 48,
+                      child: Icon(Icons.close,
+                          size: 18, color: palette.subtle),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
       ),
       ),
     );

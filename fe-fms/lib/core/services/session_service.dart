@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fms/page/auth/presentation/login_page.dart';
 import 'package:fms/core/storage/secure_storage.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 
 /// Service for managing user sessions and handling unauthorized responses.
 class SessionService {
@@ -58,17 +58,7 @@ class SessionService {
       // Clear all data from SecureStorage
       await _storage.deleteAll();
 
-      // Show snackbar
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Session expired. Please login again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      AppFeedback.error('Session expired. Please login again.');
 
       // Redirect to login page using GetX
       Get.offAll(() => const LoginPage());

@@ -7,7 +7,7 @@ import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/core/widgets/app_dialog.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
-import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/core/utils/user_message.dart';
 import 'package:fms/page/dispatch/widget/dispatch_auth_widgets.dart';
 import 'package:image_picker/image_picker.dart';
@@ -451,9 +451,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final uri = Uri(scheme: 'tel', path: sanitized);
     final launched = await launchUrl(uri);
     if (!launched && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cannot open phone dialer')));
+      AppFeedback.error('Cannot open phone dialer');
     }
   }
 
@@ -475,33 +473,18 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final hasOngoing =
         _jobsController.ongoingJobsResponse.value?.data?.isNotEmpty ?? false;
     if (hasOngoing) {
-      SnackbarUtils(
-        text: 'Finish your ongoing job before accepting another.',
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error('Finish your ongoing job before accepting another.');
       return;
     }
 
     final jobId = widget.job.jobId as int?;
     if (jobId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Job ID not found',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppFeedback.error('Job ID not found');
       return;
     }
 
     // Tampilkan loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator()),
-    );
+    AppDialog.showLoading(context);
 
     try {
       final response = await _jobsController.startJob(jobId);
@@ -513,12 +496,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
             ? 'Job started.'
             : userMessage(Exception(response.message ?? "Couldn't start the job. Try again."));
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: isSuccess ? Colors.green : Colors.red,
-            content: Text(message, style: const TextStyle(color: Colors.white)),
-          ),
-        );
+        isSuccess ? AppFeedback.success(message) : AppFeedback.error(message);
 
         if (isSuccess) {
           // Return with special flag to navigate to ongoing tab
@@ -530,12 +508,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         log('Failed to start job: ${e.toString()}');
         Navigator.of(context).pop(); // close loading
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(userMessage(e), style: TextStyle(color: Colors.white)),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppFeedback.error(userMessage(e));
       }
     }
   }
@@ -548,9 +521,7 @@ Future<void> _finishJob(BuildContext context) async {
   // --- Validation Checks ---
   if (jobId == null) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Job ID not found'))
-    );
+    AppFeedback.error('Job ID not found');
     return;
   }
 
@@ -567,9 +538,7 @@ Future<void> _finishJob(BuildContext context) async {
 
   if (images.isEmpty || images.length < 2) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Select minimum 2 photos'))
-    );
+    AppFeedback.info('Select minimum 2 photos');
     return;
   }
 
@@ -577,9 +546,7 @@ Future<void> _finishJob(BuildContext context) async {
   final approved = await _showImagePreview(context, images);
   if (!approved) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Upload canceled'))
-    );
+    AppFeedback.info('Upload canceled');
     return;
   }
 
@@ -588,9 +555,7 @@ Future<void> _finishJob(BuildContext context) async {
   if (!mounted) return;
   
   if (notesResult == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Finish job canceled'))
-    );
+    AppFeedback.info('Finish job canceled');
     return;
   }
 
@@ -604,14 +569,7 @@ Future<void> _finishJob(BuildContext context) async {
   if (!mounted) return;
 
   // Show loading dialog
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => WillPopScope(
-      onWillPop: () async => false,
-      child: const Center(child: CircularProgressIndicator()),
-    ),
-  );
+  AppDialog.showLoading(context);
 
   try {
     // Check connectivity to decide online/offline path
@@ -638,15 +596,7 @@ Future<void> _finishJob(BuildContext context) async {
       await Future.delayed(const Duration(milliseconds: 100));
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            response.message ?? 'Job saved locally. Will sync when online.',
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      AppFeedback.info(response.message ?? 'Job saved locally. Will sync when online.');
 
       Navigator.pop(context, true);
       return;
@@ -702,15 +652,7 @@ Future<void> _finishJob(BuildContext context) async {
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Job finished.',
-          style: const TextStyle(color: Colors.white),
-        ),
-        backgroundColor: Colors.green,
-      ),
-    );
+    AppFeedback.success('Job finished.');
 
     Navigator.pop(context, true);
 
@@ -745,15 +687,7 @@ Future<void> _finishJob(BuildContext context) async {
           await Future.delayed(const Duration(milliseconds: 100));
           if (!mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                offlineResponse.message ?? 'Job saved locally. Will sync when online.',
-                style: const TextStyle(color: Colors.white),
-              ),
-              backgroundColor: Colors.orange,
-            ),
-          );
+          AppFeedback.info(offlineResponse.message ?? 'Job saved locally. Will sync when online.');
 
           Navigator.pop(context, true);
           return;
@@ -773,13 +707,7 @@ Future<void> _finishJob(BuildContext context) async {
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorMessage),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5),
-      ),
-    );
+    AppFeedback.error(errorMessage);
   }
 }
   Future<ImageSource?> _showImageSourceSheet(BuildContext context) async {
@@ -1174,15 +1102,7 @@ Future<void> _finishJob(BuildContext context) async {
   Future<bool?> _showRescheduleDialog(BuildContext context) async {
     final jobId = widget.job.jobId as int?;
     if (jobId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Job ID not found',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppFeedback.error('Job ID not found');
       return null;
     }
 
@@ -1393,11 +1313,7 @@ Future<void> _finishJob(BuildContext context) async {
     final scheduledDate = result['date'] as DateTime;
     final notes = result['notes'] as String?;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    AppDialog.showLoading(context);
 
     try {
       final response = await _jobsController.rescheduleJob(
@@ -1418,17 +1334,13 @@ Future<void> _finishJob(BuildContext context) async {
               : 'Reschedule sent. It takes effect once an admin approves it.')
           : userMessage(Exception(response.message ?? "Couldn't reschedule the job. Try again."));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: success
-              ? (isOfflineSave ? Colors.orange : Colors.green)
-              : Colors.red,
-        ),
-      );
+      if (!success) {
+        AppFeedback.error(message);
+      } else if (isOfflineSave) {
+        AppFeedback.info(message);
+      } else {
+        AppFeedback.success(message);
+      }
 
       if (success) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1446,10 +1358,7 @@ Future<void> _finishJob(BuildContext context) async {
       log('Failed to reschedule job: ${e.toString()}');
       Navigator.of(context).pop(); // Close loading
 
-      SnackbarUtils(
-        text: userMessage(e),
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error(userMessage(e));
       return false;
     }
   }
@@ -1459,10 +1368,7 @@ Future<void> _finishJob(BuildContext context) async {
     final jobId = widget.job.jobId as int?;
 
     if (jobId == null) {
-      SnackbarUtils(
-        text: 'Job ID not found',
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error('Job ID not found');
       return;
     }
 
@@ -1500,18 +1406,11 @@ Future<void> _finishJob(BuildContext context) async {
     final reason = await _askCancelReason(context);
     if (!mounted) return;
     if (reason == null || reason.trim().isEmpty) {
-      SnackbarUtils(
-        text: 'Add a reason to cancel the job.',
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error('Add a reason to cancel the job.');
       return;
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    AppDialog.showLoading(context);
 
     try {
       final response = await _jobsController.cancelJob(
@@ -1529,14 +1428,13 @@ Future<void> _finishJob(BuildContext context) async {
           ? (isOfflineSave ? response.message! : 'Job cancelled.')
           : userMessage(Exception(response.message ?? "Couldn't cancel the job. Try again."));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message, style: const TextStyle(color: Colors.white)),
-          backgroundColor: success
-              ? (isOfflineSave ? Colors.orange : Colors.green)
-              : Colors.red,
-        ),
-      );
+      if (!success) {
+        AppFeedback.error(message);
+      } else if (isOfflineSave) {
+        AppFeedback.info(message);
+      } else {
+        AppFeedback.success(message);
+      }
 
       if (success) {
         Navigator.pop(context, true);
@@ -1545,10 +1443,7 @@ Future<void> _finishJob(BuildContext context) async {
       if (!mounted) return;
       log('Failed to cancel job: ${e.toString()}');
       Navigator.of(context).pop();
-      SnackbarUtils(
-        text: userMessage(e),
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error(userMessage(e));
     }
   }
 
@@ -1574,18 +1469,11 @@ Future<void> _finishJob(BuildContext context) async {
     final objectId = _extractJobId();
     if (objectId == null) {
       if (!mounted) return;
-      SnackbarUtils(
-        text: 'Job ID not found',
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error('Job ID not found');
       return;
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    AppDialog.showLoading(context);
 
     try {
       final status = await _jobsController.getObjectStatusForJob(objectId);
@@ -1616,10 +1504,7 @@ Future<void> _finishJob(BuildContext context) async {
       if (!mounted) return;
       log('Failed to open navigation: ${e.toString()}');
       Navigator.of(context).pop();
-      SnackbarUtils(
-        text: "Couldn't open directions. Try again.",
-        backgroundColor: Colors.red,
-      ).showErrorSnackBar(context);
+      AppFeedback.error("Couldn't open directions. Try again.");
     }
   }
 
@@ -1656,11 +1541,7 @@ Future<void> _finishJob(BuildContext context) async {
       return true;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Couldn't open Google Maps. Try again."),
-          ),
-        );
+        AppFeedback.error("Couldn't open Google Maps. Try again.");
       }
       return false;
     }

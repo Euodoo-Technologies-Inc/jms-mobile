@@ -136,6 +136,7 @@ class _DispatchActivatePageState extends State<DispatchActivatePage> {
                       obscureText: _obscure,
                       prefixIcon: Icons.lock_outline,
                       suffixIcon: IconButton(
+                        tooltip: _obscure ? 'Show password' : 'Hide password',
                         icon: Icon(
                           _obscure
                               ? Icons.visibility_outlined

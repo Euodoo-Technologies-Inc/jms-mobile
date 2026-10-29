@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/page/auth/presentation/login_page.dart';
 
 /// Service for verifying if the user's company subscription type matches the local data.
@@ -95,19 +95,7 @@ class CompanyTypeCheckService {
       // Clear all data
       await AuthRemoteDataSource().logout();
 
-      // Show message and redirect to login
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        Get.snackbar(
-          colorText: Colors.white,
-          backgroundColor: Colors.red,
-          icon: const Icon(Icons.error, color: Colors.white),
-          'Subscription Mismatch',
-          'Your subscription type has changed. Please login again.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 3),
-        );
-      }
+      AppFeedback.error('Your subscription type has changed. Please login again.');
 
       // Redirect to login page
       Get.offAll(() => const LoginPage());
