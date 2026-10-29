@@ -146,10 +146,10 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFdc2626).withValues(alpha: 0.10),
+                      color: DispatchColors.danger.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFFdc2626).withValues(alpha: 0.4),
+                        color: DispatchColors.danger.withValues(alpha: 0.4),
                       ),
                     ),
                     child: Row(
@@ -157,14 +157,14 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
                         const Icon(
                           Icons.error_outline,
                           size: 16,
-                          color: Color(0xFFdc2626),
+                          color: DispatchColors.danger,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             error,
                             style: const TextStyle(
-                              color: Color(0xFFdc2626),
+                              color: DispatchColors.danger,
                               fontSize: 12.5,
                             ),
                           ),

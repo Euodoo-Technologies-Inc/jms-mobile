@@ -9,6 +9,7 @@ import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/core/constants/variables.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/page/home/controller/home_controller.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for managing vehicle data and tracking operations.
 ///
@@ -175,7 +176,7 @@ class VehiclesController extends GetxController {
     } catch (e) {
       Get.snackbar(
         colorText: Colors.white,
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
         icon: const Icon(Icons.error, color: Colors.white),
         'Error',
         'Failed to load vehicles. Please try again.',
@@ -214,7 +215,7 @@ class VehiclesController extends GetxController {
     if (objectId == null) {
       Get.snackbar(
         colorText: Colors.white,
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
         icon: const Icon(Icons.error, color: Colors.white),
         'Error',
         'Vehicle ID is unavailable.',
@@ -234,7 +235,7 @@ class VehiclesController extends GetxController {
     } catch (e) {
       Get.snackbar(
         colorText: Colors.white,
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
         icon: const Icon(Icons.error, color: Colors.white),
         'Error',
         'Failed to load vehicle details.',

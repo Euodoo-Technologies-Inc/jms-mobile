@@ -155,14 +155,18 @@ class _NavBarState extends State<NavBar> {
                     return TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
-                      color: selected ? DispatchColors.brand : palette.subtle,
+                      color: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : palette.subtle,
                     );
                   }),
                   iconTheme: WidgetStateProperty.resolveWith((states) {
                     final selected = states.contains(WidgetState.selected);
                     return IconThemeData(
                       size: 22,
-                      color: selected ? DispatchColors.brand : palette.subtle,
+                      color: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : palette.subtle,
                     );
                   }),
                 ),

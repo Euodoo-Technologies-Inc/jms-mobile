@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:get/get.dart';
 
 import '../controller/jobs_controller.dart';
+import '../widget/job_status.dart';
 
 import '../../../core/permissions/permission_helper.dart';
 import '../../../core/models/geo.dart';
@@ -84,7 +85,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     final job = widget.job;
     final buffer = StringBuffer()
       ..writeln('Job: ${job.jobName ?? 'N/A'}')
-      ..writeln('Status: ${widget.isOngoing ? 'Ongoing' : 'Open'}')
+      ..writeln(
+        'Status: '
+        '${(widget.isOngoing ? JobStatus.inProgress : JobStatus.open).label}',
+      )
       ..writeln('Job Type: ${_getJobTypeString(job.typeJob)}');
 
     if (job.jobDate != null) {
@@ -172,19 +176,12 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
               children: [
                 DetailHeader(
                   title: job.jobName ?? 'Job',
-                  pill: DetailStatusPill(
-                    label: isOngoing
-                        ? (isRescheduledStatus ? 'Rescheduled' : 'Ongoing')
-                        : 'Open',
-                    color: isOngoing
-                        ? const Color(0xFFB45309)
-                        : DispatchColors.brand,
-                    icon: isOngoing
-                        ? (isRescheduledStatus
-                            ? Icons.event_repeat
-                            : Icons.timelapse)
-                        : Icons.event_available,
-                  ),
+                  pill: (isOngoing
+                          ? (isRescheduledStatus
+                              ? JobStatus.rescheduled
+                              : JobStatus.inProgress)
+                          : JobStatus.open)
+                      .pill(context),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -207,7 +204,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         label: serverCanFinish == true
                             ? 'Rescheduled — Ready'
                             : 'Rescheduled to ${rescheduledDateJob ?? ''}',
-                        color: DispatchColors.brand,
+                        color: Theme.of(context).colorScheme.primary,
                         icon: serverCanFinish == true
                             ? Icons.check_circle_outline
                             : Icons.event_repeat,
@@ -223,7 +220,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                     message:
                         'You already have a job in progress. Complete or '
                         'cancel it before accepting a new one.',
-                    color: Color(0xFFB45309),
+                    color: DispatchColors.warning,
                   ),
                 ],
 
@@ -238,7 +235,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                         DetailKvRow(
                           label: 'Phone',
                           value: job.phoneNumber,
-                          valueColor: DispatchColors.brand,
+                          valueColor: Theme.of(context).colorScheme.primary,
                           trailingIcon: Icons.phone,
                           onTap: () => _callPhone(job.phoneNumber!),
                         ),
@@ -268,7 +265,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                           onPressed: () => _navigateToJob(context),
                           icon: const Icon(Icons.map_outlined, size: 18),
                           style: TextButton.styleFrom(
-                            foregroundColor: DispatchColors.brand,
+                            foregroundColor:
+                                Theme.of(context).colorScheme.primary,
                             padding: EdgeInsets.zero,
                             overlayColor:
                                 DispatchColors.brand.withValues(alpha: 0.08),
@@ -323,7 +321,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                     title: 'Reschedule Pending',
                     message:
                         'Your reschedule request is awaiting admin approval.',
-                    color: Color(0xFFB45309),
+                    color: DispatchColors.warning,
                   ),
                 ],
 
@@ -352,8 +350,10 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      side: const BorderSide(color: DispatchColors.brand),
-                      foregroundColor: DispatchColors.brand,
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       overlayColor: DispatchColors.brand.withValues(
                         alpha: 0.08,
                       ),
@@ -401,8 +401,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          side: const BorderSide(color: Color(0xFFFF9800)),
-                          foregroundColor: const Color(0xFFFF9800),
+                          side: const BorderSide(color: DispatchColors.warning),
+                          foregroundColor: DispatchColors.warning,
                           overlayColor: const Color(
                             0xFFFF9800,
                           ).withValues(alpha: 0.08),
@@ -501,7 +501,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
     if (hasOngoing) {
       SnackbarUtils(
         text: 'Finish your ongoing job before accepting another.',
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
       ).showErrorSnackBar(context);
       return;
     }
@@ -514,7 +514,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
             'Job ID not found',
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
         ),
       );
       return;
@@ -534,7 +534,8 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: isSuccess ? Colors.green : Colors.red,
+            backgroundColor:
+                isSuccess ? DispatchColors.brand : DispatchColors.danger,
             content: Text(message, style: const TextStyle(color: Colors.white)),
           ),
         );
@@ -559,7 +560,7 @@ class _JobDetailsPageState extends State<JobDetailsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage, style: TextStyle(color: Colors.white)),
-            backgroundColor: Colors.red,
+            backgroundColor: DispatchColors.danger,
           ),
         );
       }
@@ -673,7 +674,7 @@ Future<void> _finishJob(BuildContext context) async {
             response.message ?? 'Job saved locally. Will sync when online.',
             style: const TextStyle(color: Colors.white),
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: DispatchColors.warning,
         ),
       );
 
@@ -737,7 +738,7 @@ Future<void> _finishJob(BuildContext context) async {
           response.message ?? 'Success Finish The Job',
           style: const TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: DispatchColors.brand,
       ),
     );
 
@@ -780,7 +781,7 @@ Future<void> _finishJob(BuildContext context) async {
                 offlineResponse.message ?? 'Job saved locally. Will sync when online.',
                 style: const TextStyle(color: Colors.white),
               ),
-              backgroundColor: Colors.orange,
+              backgroundColor: DispatchColors.warning,
             ),
           );
 
@@ -813,7 +814,7 @@ Future<void> _finishJob(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(errorMessage),
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
         duration: const Duration(seconds: 5),
       ),
     );
@@ -1229,7 +1230,7 @@ Future<void> _finishJob(BuildContext context) async {
             'Job ID not found',
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
         ),
       );
       return null;
@@ -1249,7 +1250,7 @@ Future<void> _finishJob(BuildContext context) async {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (ctx, setState) {
-          const amber = Color(0xFFFF9800);
+          const amber = DispatchColors.warning;
           return AppDialog(
             icon: Icons.event_repeat,
             accent: amber,
@@ -1404,7 +1405,7 @@ Future<void> _finishJob(BuildContext context) async {
                           'Please provide notes for rescheduling',
                           style: TextStyle(color: Colors.white),
                         ),
-                        backgroundColor: Colors.red,
+                        backgroundColor: DispatchColors.danger,
                       ),
                     );
                     return;
@@ -1425,7 +1426,7 @@ Future<void> _finishJob(BuildContext context) async {
                           'Time cannot be in the past',
                           style: TextStyle(color: Colors.white),
                         ),
-                        backgroundColor: Colors.red,
+                        backgroundColor: DispatchColors.danger,
                       ),
                     );
                     return;
@@ -1477,8 +1478,8 @@ Future<void> _finishJob(BuildContext context) async {
             style: const TextStyle(color: Colors.white),
           ),
           backgroundColor: success
-              ? (isOfflineSave ? Colors.orange : Colors.green)
-              : Colors.red,
+              ? (isOfflineSave ? DispatchColors.warning : DispatchColors.brand)
+              : DispatchColors.danger,
         ),
       );
 
@@ -1507,7 +1508,7 @@ Future<void> _finishJob(BuildContext context) async {
 
       SnackbarUtils(
         text: errorMessage,
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
       ).showErrorSnackBar(context);
       return false;
     } finally {
@@ -1522,7 +1523,7 @@ Future<void> _finishJob(BuildContext context) async {
     if (jobId == null) {
       SnackbarUtils(
         text: 'Job ID not found',
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
       ).showErrorSnackBar(context);
       return;
     }
@@ -1563,7 +1564,7 @@ Future<void> _finishJob(BuildContext context) async {
     if (reason == null || reason.trim().isEmpty) {
       SnackbarUtils(
         text: 'Please provide a reason',
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
       ).showErrorSnackBar(context);
       return;
     }
@@ -1590,8 +1591,8 @@ Future<void> _finishJob(BuildContext context) async {
         SnackBar(
           content: Text(message, style: const TextStyle(color: Colors.white)),
           backgroundColor: success
-              ? (isOfflineSave ? Colors.orange : Colors.green)
-              : Colors.red,
+              ? (isOfflineSave ? DispatchColors.warning : DispatchColors.brand)
+              : DispatchColors.danger,
         ),
       );
 
@@ -1604,7 +1605,7 @@ Future<void> _finishJob(BuildContext context) async {
       closeProgress();
       SnackbarUtils(
         text: 'Failed to cancel job',
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
       ).showErrorSnackBar(context);
     } finally {
       closeProgress();
@@ -1629,7 +1630,7 @@ Future<void> _finishJob(BuildContext context) async {
     if (!mounted) return;
     SnackbarUtils(
       text: 'No location for this job',
-      backgroundColor: Colors.red,
+      backgroundColor: DispatchColors.danger,
     ).showErrorSnackBar(context);
   }
 

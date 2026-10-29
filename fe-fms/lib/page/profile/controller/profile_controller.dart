@@ -7,6 +7,7 @@ import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/data/datasource/profile_remote_datasource.dart';
 import 'package:fms/data/models/response/profile_response_model.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for managing user profile data and authentication state.
 class ProfileController extends GetxController {
@@ -76,7 +77,7 @@ class ProfileController extends GetxController {
       if (ctx != null && ctx.mounted) {
         SnackbarUtils(
           text: 'Logout successful',
-          backgroundColor: Colors.green,
+          backgroundColor: DispatchColors.brand,
           icon: Icons.logout,
         ).showSuccessSnackBar(ctx);
       }
@@ -84,7 +85,7 @@ class ProfileController extends GetxController {
       if (mounted && context.mounted) {
         SnackbarUtils(
           text: 'Logout failed',
-          backgroundColor: Colors.red,
+          backgroundColor: DispatchColors.danger,
           icon: Icons.logout,
         ).showErrorSnackBar(context);
       }

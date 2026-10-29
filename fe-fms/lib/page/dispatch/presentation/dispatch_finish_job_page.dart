@@ -349,13 +349,13 @@ class _PhotoCounter extends StatelessWidget {
         Icon(
           met ? Icons.check_circle : Icons.info_outline,
           size: 14,
-          color: met ? DispatchColors.brand : palette.subtle,
+          color: met ? Theme.of(context).colorScheme.primary : palette.subtle,
         ),
         const SizedBox(width: 6),
         Text(
           '$count/$max photos',
           style: TextStyle(
-            color: met ? DispatchColors.brand : palette.subtle,
+            color: met ? Theme.of(context).colorScheme.primary : palette.subtle,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),

@@ -135,10 +135,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           Center(
             child: TextButton(
               onPressed: _isLoading ? null : () => Get.back(),
-              child: const Text(
+              child: Text(
                 'Back to login',
                 style: TextStyle(
-                  color: DispatchColors.brand,
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),

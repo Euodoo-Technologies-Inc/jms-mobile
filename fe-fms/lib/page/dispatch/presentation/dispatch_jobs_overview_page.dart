@@ -100,7 +100,7 @@ class DispatchJobsOverviewPage extends StatelessWidget {
     return (accent: DispatchColors.accent, label: 'On the way');
   }
   if (job.isReschedulePending) {
-    return (accent: const Color(0xFFf59e0b), label: 'Reschedule');
+    return (accent: DispatchColors.warning, label: 'Reschedule');
   }
   return (accent: const Color(0xFF9aa4b2), label: 'Not started');
 }
@@ -145,8 +145,8 @@ class _OverviewJobRow extends StatelessWidget {
                     children: [
                       Text(
                         'STOP $stopNumber',
-                        style: const TextStyle(
-                          color: DispatchColors.brand,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,

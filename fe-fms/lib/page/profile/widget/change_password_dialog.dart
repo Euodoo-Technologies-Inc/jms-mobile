@@ -80,7 +80,7 @@ class _ChangePasswordDialogContentState
 
       SnackbarUtils(
         text: message,
-        backgroundColor: Colors.green,
+        backgroundColor: DispatchColors.brand,
         icon: Icons.check_circle,
       ).showSuccessSnackBar(context);
     } catch (e) {
@@ -90,7 +90,7 @@ class _ChangePasswordDialogContentState
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
       SnackbarUtils(
         text: errorMsg,
-        backgroundColor: Colors.red,
+        backgroundColor: DispatchColors.danger,
         icon: Icons.error,
       ).showErrorSnackBar(context);
     }
