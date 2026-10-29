@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/profile_widgets.dart';
+import '../../../data/dispatch/offline/dispatch_queue_repository.dart';
 import '../../auth/presentation/login_chooser_page.dart';
 import '../controller/dispatch_auth_controller.dart';
 import 'dispatch_job_history_page.dart';
@@ -91,9 +92,18 @@ class DispatchProfilePage extends StatelessWidget {
     BuildContext context,
     DispatchAuthController auth,
   ) async {
+    // Logging out wipes the offline queue, so warn about unsynced work.
+    final unsynced = (await DispatchQueueRepository().readAll())
+        .where((e) => e.type != DispatchQueueOpType.fcm)
+        .length;
+    if (!context.mounted) return;
     final ok = await showProfileLogoutDialog(
       context,
-      message: 'You will need to sign in again to receive jobs.',
+      message: unsynced == 0
+          ? 'You will need to sign in again to receive jobs.'
+          : '$unsynced job update${unsynced == 1 ? '' : 's'} not synced yet. '
+                'Logging out now deletes ${unsynced == 1 ? 'it' : 'them'} — '
+                'go online first to keep ${unsynced == 1 ? 'it' : 'them'}.',
     );
     if (!ok) return;
     await auth.logout();
