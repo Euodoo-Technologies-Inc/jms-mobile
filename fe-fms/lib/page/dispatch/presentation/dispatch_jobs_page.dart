@@ -42,6 +42,17 @@ const double _kPanelMidFrac = 0.4;
 /// wrapping to three lines still fits the card without overflowing.
 const double _kCarouselHeight = 240;
 
+/// The part of [_kCarouselHeight] that doesn't grow with text size: the
+/// card's outer and inner padding, the divider and the fixed gaps.
+const double _kCarouselChrome = 64;
+
+/// [_kCarouselHeight] at the device's font size. Only the text share grows,
+/// so a 3-line name and 2-line address still fit at 1.3× and 2×.
+double _carouselHeight(BuildContext context) =>
+    _kCarouselChrome +
+    MediaQuery.textScalerOf(context)
+        .scale(_kCarouselHeight - _kCarouselChrome);
+
 /// Gap (logical px) between the status bar and the floating top island, and
 /// the island's own fixed height.
 const double _kTopBarTop = 8;
@@ -240,7 +251,8 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                     MediaQuery.of(context).size.height;
                 final hasFocus = _jobsCtrl.selectedJobId.value != null &&
                     !_jobsCtrl.routePreview.value;
-                final bottomGap = (hasFocus ? panelH : _kCarouselHeight) + 12;
+                final bottomGap =
+                    (hasFocus ? panelH : _carouselHeight(context)) + 12;
                 return Padding(
                   padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
                   child: _StaleBanner(
@@ -330,7 +342,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             final screenH = mq.size.height;
             final bottomInset = isFocused
                 ? screenH * _panelFrac.value
-                : (jobs.isEmpty ? 0.0 : _kCarouselHeight) + bottomSafe;
+                : (jobs.isEmpty ? 0.0 : _carouselHeight(context)) + bottomSafe;
 
             return AdaptiveMap(
               key: const ValueKey('dispatchmap'),
@@ -521,7 +533,9 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
             final dragging = _panelDragging.value;
             final bottomOffset = focused
                 ? screenH * frac + 12
-                : (hasCarousel ? _kCarouselHeight : 0) + bottomSafe + 12;
+                : (hasCarousel ? _carouselHeight(context) : 0) +
+                    bottomSafe +
+                    12;
             // No usable map left to recenter once the panel is dragged up to
             // (nearly) fill the screen — fade the button away.
             final hidden = focused && frac > 0.8;
@@ -634,7 +648,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                     key: const ValueKey('carousel'),
                     top: false,
                     child: SizedBox(
-                      height: _kCarouselHeight,
+                      height: _carouselHeight(context),
                       child: _JobCarousel(
                         jobs: jobs,
                         etaMeters: _jobsCtrl.etaMeters.value,
@@ -986,7 +1000,12 @@ class _DispatchJobCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _JobStatusPill(job: job),
+                  // Capped so large text wraps the pill instead of pushing
+                  // the row past the card edge.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: _JobStatusPill(job: job),
+                  ),
                 ],
               ),
               // Destination address.
@@ -1136,6 +1155,9 @@ class _JobStatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
         style: TextStyle(
           color: fg,
           fontSize: 11.5,
@@ -1381,7 +1403,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       // the content has laid out — expand to exactly fit it next frame, so the
       // panel reads as the tapped card swelling open to its full detail.
       _entered = true;
-      _frac = (_kCarouselHeight / screenH).clamp(_minFrac, _maxFrac);
+      _frac = (_carouselHeight(context) / screenH).clamp(_minFrac, _maxFrac);
       WidgetsBinding.instance.addPostFrameCallback((_) => _openToFitContent());
     }
 
@@ -1502,36 +1524,50 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                               color: Colors.white.withValues(alpha: 0.22),
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                _JobStatusPill(job: job),
-                                const Spacer(),
-                                if (widget.etaMeters != null) ...[
-                                  const Icon(Icons.near_me_outlined,
-                                      size: 15, color: Colors.white),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    formatTravelDistance(widget.etaMeters!),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: [
-                                        FontFeature.tabularFigures(),
+                            // Pill left, distance right; the distance drops
+                            // to its own line when large text won't fit both.
+                            SizedBox(
+                              // Full width, or spaceBetween has no room.
+                              width: double.infinity,
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  _JobStatusPill(job: job),
+                                  if (widget.etaMeters != null)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.near_me_outlined,
+                                            size: 15, color: Colors.white),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          formatTravelDistance(
+                                              widget.etaMeters!),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'away',
+                                          style: TextStyle(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.75),
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'away',
-                                    style: TextStyle(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.75),
-                                      fontSize: 12,
-                                    ),
-                                  ),
                                 ],
-                              ],
+                              ),
                             ),
                             const SizedBox(height: 6),
                             if (job.scheduledArrival != null)
@@ -1714,6 +1750,35 @@ class _PanelActions extends StatelessWidget {
     );
   }
 }
+
+/// The bottom carousel at its live height, and the focused job panel, for
+/// widget tests that pump them without the map page around them.
+@visibleForTesting
+Widget debugJobCarousel(List<DispatchJob> jobs, {double? etaMeters}) =>
+    Builder(
+      builder: (context) => SizedBox(
+        height: _carouselHeight(context),
+        child: _JobCarousel(
+            jobs: jobs, etaMeters: etaMeters, onSelect: (_) {}),
+      ),
+    );
+
+@visibleForTesting
+Widget debugFocusedJobPanel(DispatchJob job, {double? etaMeters}) =>
+    _FocusedJobPanel(
+      job: job,
+      stopNumber: 1,
+      etaMeters: etaMeters,
+      starting: false.obs,
+      hasOtherActive: false,
+      isNextInQueue: true,
+      onClose: () {},
+      onStart: () {},
+      onFinish: () {},
+      onFracChanged: (_) {},
+      onFracLive: (_) {},
+      panelDragging: false.obs,
+    );
 
 /// One ORMECO details section, collapsed so the panel stays map-sized. Public
 /// only so a widget test can pump it without the map page around it.
