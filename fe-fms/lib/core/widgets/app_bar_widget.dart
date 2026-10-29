@@ -49,14 +49,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
       scrolledUnderElevation: 0,
       centerTitle: true,
       shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-      title: Text(
-        widget.title,
-        style: TextStyle(
-          color: palette.ink,
-          fontWeight: FontWeight.w700,
-          fontSize: 18,
-        ),
-      ),
+      title: Text(widget.title),
       leadingWidth: 52,
       leading: Padding(
         padding: const EdgeInsets.only(left: 12, top: 12, bottom: 12),

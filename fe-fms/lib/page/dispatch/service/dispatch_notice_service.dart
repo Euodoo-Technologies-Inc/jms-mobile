@@ -215,9 +215,8 @@ class _NoticeBanner extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
                   notice.message,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: palette.ink,
-                    fontSize: 13.5,
                     height: 1.3,
                   ),
                 ),

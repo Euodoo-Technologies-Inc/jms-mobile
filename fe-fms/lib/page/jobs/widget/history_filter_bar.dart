@@ -66,10 +66,8 @@ class HistoryFilterBar extends StatelessWidget {
                       ],
                     ],
                   ),
-                  labelStyle: TextStyle(
+                  labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: hasFilters ? primary : palette.subtle,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                   backgroundColor: hasFilters
                       ? primary.withValues(alpha: 0.1)
@@ -90,10 +88,8 @@ class HistoryFilterBar extends StatelessWidget {
                   },
                   avatar: Icon(Icons.swap_vert, size: 18, color: primary),
                   label: Text(isNewest ? 'Newest' : 'Oldest'),
-                  labelStyle: TextStyle(
+                  labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: primary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                   backgroundColor: Colors.transparent,
                   side: BorderSide.none,
@@ -293,9 +289,8 @@ class _FilterChip extends StatelessWidget {
       backgroundColor: palette.card,
       side: BorderSide(color: selected ? primary : borderColor),
       shape: const StadiumBorder(),
-      labelStyle: TextStyle(
+      labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
         color: selected ? Colors.white : palette.subtle,
-        fontSize: 13,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
       ),
     );

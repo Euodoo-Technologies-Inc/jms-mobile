@@ -101,7 +101,7 @@ class _MovingVehicleBanner extends StatelessWidget {
             '$name $message',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: palette.ink, fontSize: 14),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.ink),
           ),
           onTap: () {
             Get.to(() => VehicleTrackingPage(vehicle: status, iconUrl: iconUrl));
@@ -421,15 +421,20 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: palette.subtle, fontSize: 13)),
+          Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: palette.subtle),
+          ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(
-              color: palette.ink,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context)
+                .textTheme
+                .headlineMedium
+                ?.copyWith(color: palette.ink),
           ),
         ],
       ),
@@ -457,9 +462,8 @@ class _MoreVehiclesChip extends StatelessWidget {
         ),
         child: Text(
           '+$count more',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: palette.ink,
-            fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -485,7 +489,7 @@ class _OverviewError extends StatelessWidget {
           Expanded(
             child: Text(
               "Couldn't load job counts.",
-              style: TextStyle(color: palette.ink, fontSize: 14),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.ink),
             ),
           ),
           TextButton(onPressed: onRetry, child: const Text('Retry')),

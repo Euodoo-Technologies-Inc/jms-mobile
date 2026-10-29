@@ -177,7 +177,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                   : Center(
                       child: Text(
                         'Vehicle location is unavailable',
-                        style: TextStyle(color: palette.subtle, fontSize: 14),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.subtle),
                       ),
                     ),
             ),
@@ -191,17 +191,15 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DefaultTextStyle.merge(
-                      style: TextStyle(color: palette.subtle, fontSize: 13),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.subtle),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             vehicle?.name ?? 'Vehicle',
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               color: palette.ink,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -216,14 +214,15 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                           if (vehicle?.updatedAt != null)
                             Text(
                               'Updated: ${ManilaTimezone.convert(vehicle!.updatedAt!)}',
-                              style: const TextStyle(fontSize: 12),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: palette.subtle,
+                              ),
                             ),
                           if (_error != null)
                             Text(
                               _error!,
-                              style: const TextStyle(
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: DispatchColors.danger,
-                                fontSize: 12,
                               ),
                             ),
                         ],

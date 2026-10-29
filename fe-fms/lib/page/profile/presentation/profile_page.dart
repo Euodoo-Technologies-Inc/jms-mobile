@@ -105,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Text(
                       '${_company ?? "The company"} is subscribed to the '
                       '${isPro ? "Pro" : "Basic"} plan.',
-                      style: TextStyle(color: palette.subtle, fontSize: 12.5),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 22),
@@ -135,7 +135,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Center(
                     child: Text(
                       '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
-                      style: TextStyle(color: palette.subtle, fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                 ],
@@ -165,10 +165,8 @@ class _PlanBadge extends StatelessWidget {
       ),
       child: Text(
         isPro ? 'PRO' : 'BASIC',
-        style: TextStyle(
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
           letterSpacing: 0.5,
         ),
       ),

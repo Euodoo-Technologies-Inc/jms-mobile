@@ -62,9 +62,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                             const Text('All'),
                             Text(
                               '${controller.totalVehicleCount}',
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.grey[600],
-                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -85,9 +84,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                               ),
                               Text(
                                 '$count',
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: Colors.grey[600],
-                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -176,18 +174,15 @@ class _VehiclesPageState extends State<VehiclesPage> {
                       leading: _VehicleIcon(url: iconUrl),
                       title: Text(
                         vehicle.name ?? 'Object ${vehicle.id ?? index + 1}',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: palette.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       subtitle: subtitle != null && subtitle.isNotEmpty
                           ? Text(
                               subtitle,
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: palette.subtle,
-                                fontSize: 13,
                               ),
                             )
                           : null,
@@ -410,7 +405,7 @@ class _VehiclesMessage extends StatelessWidget {
         Text(
           message,
           textAlign: TextAlign.center,
-          style: TextStyle(color: palette.subtle, fontSize: 15),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: palette.subtle),
         ),
         if (onRetry != null) ...[
           const SizedBox(height: 16),

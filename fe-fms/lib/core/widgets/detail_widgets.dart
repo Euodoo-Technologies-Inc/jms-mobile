@@ -41,10 +41,7 @@ class DetailScaffold extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
+        title: Text(title),
         actions: actions,
       ),
       body: SafeArea(child: body),
@@ -62,19 +59,15 @@ class DetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Text(
             title,
-            style: TextStyle(
-              color: palette.ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              height: 1.25,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(height: 1.25),
           ),
         ),
         if (pill != null) ...[const SizedBox(width: 12), pill!],
@@ -95,12 +88,9 @@ class DetailSectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: TextStyle(
-          color: context.dispatch.subtle,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.6,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(letterSpacing: 0.6),
       ),
     );
   }
@@ -148,6 +138,7 @@ class DetailKvRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
+    final textTheme = Theme.of(context).textTheme;
     final shown = (value == null || value!.isEmpty) ? '—' : value!;
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -156,17 +147,13 @@ class DetailKvRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 108,
-            child: Text(
-              label,
-              style: TextStyle(color: palette.subtle, fontSize: 13),
-            ),
+            child: Text(label, style: textTheme.bodyMedium),
           ),
           Expanded(
             child: Text(
               shown,
-              style: TextStyle(
+              style: textTheme.bodyMedium?.copyWith(
                 color: valueColor ?? palette.ink,
-                fontSize: 13.5,
                 fontWeight:
                     onTap != null ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -217,9 +204,8 @@ class DetailStatusPill extends StatelessWidget {
           ],
           Text(
             label,
-            style: TextStyle(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: color,
-              fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -239,14 +225,11 @@ class DetailTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
+    final textTheme = Theme.of(context).textTheme;
     final shown =
         entries.where((e) => e.$2 != null && e.$2!.isNotEmpty).toList();
     if (shown.isEmpty) {
-      return Text(
-        'No timeline data available.',
-        style: TextStyle(color: palette.subtle, fontSize: 13),
-      );
+      return Text('No timeline data available.', style: textTheme.bodyMedium);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,19 +254,9 @@ class DetailTimeline extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        shown[i].$1,
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Text(shown[i].$1, style: textTheme.titleSmall),
                       const SizedBox(height: 2),
-                      Text(
-                        shown[i].$2!,
-                        style: TextStyle(color: palette.subtle, fontSize: 12.5),
-                      ),
+                      Text(shown[i].$2!, style: textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -316,6 +289,7 @@ class DetailNoticeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -332,9 +306,8 @@ class DetailNoticeCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(
+                style: textTheme.titleSmall?.copyWith(
                   color: color,
-                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -343,15 +316,17 @@ class DetailNoticeCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             message,
-            style: TextStyle(color: palette.ink, fontSize: 13, height: 1.45),
+            style: textTheme.bodyMedium?.copyWith(
+              color: palette.ink,
+              height: 1.45,
+            ),
           ),
           if (footnote != null) ...[
             const SizedBox(height: 6),
             Text(
               footnote!,
-              style: TextStyle(
+              style: textTheme.bodySmall?.copyWith(
                 color: color,
-                fontSize: 12.5,
                 fontWeight: FontWeight.w600,
               ),
             ),

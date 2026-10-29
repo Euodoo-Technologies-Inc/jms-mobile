@@ -65,10 +65,7 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text(
-          'Job navigation',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
+        title: const Text('Job navigation'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -113,23 +110,14 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
                         children: [
                           Text(
                             widget.jobName,
-                            style: TextStyle(
-                              color: palette.ink,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(height: 1.2),
                           ),
                           if (widget.address != null &&
                               widget.address!.isNotEmpty) ...[
                             const SizedBox(height: 3),
                             Text(
                               widget.address!,
-                              style: TextStyle(
-                                color: palette.subtle,
-                                fontSize: 13,
-                                height: 1.3,
-                              ),
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.3),
                             ),
                           ],
                         ],
@@ -162,9 +150,8 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
                         Expanded(
                           child: Text(
                             error,
-                            style: const TextStyle(
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: DispatchColors.danger,
-                              fontSize: 12.5,
                             ),
                           ),
                         ),
@@ -221,11 +208,11 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
                   children: [
                     Text(
                       'Markers: ${markers.length}',
-                      style: TextStyle(color: palette.subtle, fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     Text(
                       'Geozones: ${zones.length}',
-                      style: TextStyle(color: palette.subtle, fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),

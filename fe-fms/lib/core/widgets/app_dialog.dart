@@ -89,23 +89,18 @@ class AppDialog extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: palette.ink,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(height: 1.3),
               ),
               if (message != null) ...[
                 const SizedBox(height: 8),
                 Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: palette.subtle,
-                    fontSize: 13.5,
-                    height: 1.45,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.45),
                 ),
               ],
               if (content != null) ...[
@@ -161,6 +156,8 @@ class AppDialogButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
     );
     const padding = EdgeInsets.symmetric(vertical: 14);
+    // Buttons recolour textStyle with their foreground colour.
+    final textStyle = Theme.of(context).textTheme.titleMedium;
     final Widget text = busy
         ? SizedBox.square(
             dimension: 20,
@@ -170,10 +167,7 @@ class AppDialogButton extends StatelessWidget {
               semanticsLabel: label,
             ),
           )
-        : Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-          );
+        : Text(label);
 
     if (filled) {
       final bg = color ?? DispatchColors.brand;
@@ -184,6 +178,7 @@ class AppDialogButton extends StatelessWidget {
         disabledBackgroundColor: busy ? bg : null,
         padding: padding,
         shape: shape,
+        textStyle: textStyle,
         elevation: 0,
       );
       return icon == null
@@ -204,6 +199,7 @@ class AppDialogButton extends StatelessWidget {
       ),
       padding: padding,
       shape: shape,
+      textStyle: textStyle,
       overlayColor: fg.withValues(alpha: 0.08),
     );
     return icon == null
