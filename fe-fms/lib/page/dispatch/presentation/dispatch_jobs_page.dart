@@ -655,10 +655,7 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                   onClose: _jobsCtrl.clearSelection,
                   onStart: () => _startJob(selected.id),
                   onFinish: () => Get.to(
-                      () => DispatchFinishJobPage(jobId: selected.id),
-                      transition: Transition.rightToLeft,
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOutCubic),
+                      () => DispatchFinishJobPage(jobId: selected.id)),
                   onFracChanged: (f) => _panelFrac.value = f,
                   onFracLive: (f) => _panelFracLive.value = f,
                   panelDragging: _panelDragging,
@@ -1911,12 +1908,8 @@ class _MapTopBar extends StatelessWidget {
                     child: Tooltip(
                       message: 'Profile',
                       child: InkWell(
-                        onTap: () => Get.to(
-                          () => const DispatchProfilePage(),
-                          transition: Transition.rightToLeft,
-                          duration: const Duration(milliseconds: 280),
-                          curve: Curves.easeOutCubic,
-                        ),
+                        onTap: () =>
+                            Get.to(() => const DispatchProfilePage()),
                         // 48dp square (was 40) for the tap-target minimum.
                         child: const Padding(
                           padding: EdgeInsets.all(13),
