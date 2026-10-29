@@ -90,7 +90,7 @@ class DispatchQueueRepository {
   Future<List<DispatchQueueEntry>> readAll() async {
     final prefs = await _prefs();
     final raw = prefs.getString(_prefsKey);
-    if (raw == null || raw.isEmpty) return const [];
+    if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw);
       if (list is List) {
@@ -100,7 +100,7 @@ class DispatchQueueRepository {
             .toList();
       }
     } catch (_) {}
-    return const [];
+    return [];
   }
 
   Future<void> _writeAll(List<DispatchQueueEntry> entries) async {
