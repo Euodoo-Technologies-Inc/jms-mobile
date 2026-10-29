@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/theme/motion.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/jobs/controller/history_filter_mixin.dart';
 
@@ -105,17 +106,17 @@ class HistoryFilterBar extends StatelessWidget {
           }),
         ),
 
-        // Collapsible filter section
-        Obx(() {
-          if (!controller.isHistoryFilterVisible.value) {
-            return const SizedBox.shrink();
-          }
-          return _FilterBody(
-            controller: controller,
-            primary: primary,
-            borderColor: borderColor,
-          );
-        }),
+        // Collapsible filter section — grows open and shut.
+        Obx(() => MotionSize(
+              alignment: Alignment.topCenter,
+              child: controller.isHistoryFilterVisible.value
+                  ? _FilterBody(
+                      controller: controller,
+                      primary: primary,
+                      borderColor: borderColor,
+                    )
+                  : const SizedBox(width: double.infinity),
+            )),
 
         const Divider(height: 1),
       ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
+import '../../../core/theme/motion.dart';
 
 /// Severity of a [DispatchNotice].
 enum DispatchNoticeKind { success, error, info }
@@ -93,7 +94,7 @@ class DispatchNoticeHost extends StatelessWidget {
               final notice = ctrl.current.value;
               return Padding(
                 padding: EdgeInsets.fromLTRB(12, 8 + extraTop, 12, 0),
-                child: _animatedBanner(notice, ctrl.dismiss),
+                child: _animatedBanner(context, notice, ctrl.dismiss),
               );
             }),
           ),
@@ -102,14 +103,15 @@ class DispatchNoticeHost extends StatelessWidget {
     );
   }
 
-  Widget _animatedBanner(DispatchNotice? notice, VoidCallback onDismiss) {
+  Widget _animatedBanner(
+      BuildContext context, DispatchNotice? notice, VoidCallback onDismiss) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 360),
-      reverseDuration: const Duration(milliseconds: 220),
-      // Soft, slightly springy entrance — the card eases down + scales up,
-      // a gentler motion than the prior slide-and-clip.
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
+      duration: Motion.of(context, Motion.medium),
+      reverseDuration: Motion.of(context, Motion.short),
+      // Soft entrance — the card eases down + scales up, no overshoot.
+      // Instant under reduce motion.
+      switchInCurve: Motion.emphasized,
+      switchOutCurve: Motion.standard,
       transitionBuilder: (child, anim) {
         final slide = Tween<Offset>(
           begin: const Offset(0, -0.35),

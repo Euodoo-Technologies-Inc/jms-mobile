@@ -218,10 +218,7 @@ class AuthController extends GetxController {
 
       AppFeedback.success('Logged in.');
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const NavBar()),
-        (route) => false,
-      );
+      Get.offAll(() => const NavBar());
     } catch (e) {
       // Surface the failure to the caller (the login page) so it can show an
       // inline error message — mirroring the four-wheels dispatch login —
@@ -314,7 +311,8 @@ class AuthController extends GetxController {
     // Redirect to the welcome chooser (not straight to a login page) so the
     // chooser always sits beneath the login pages — that lets their back
     // action simply pop and reverse the slide transition.
-    Get.offAll(() => const LoginChooserPage());
+    // Fade, not the forward slide: signing out is going back.
+    Get.offAll(() => const LoginChooserPage(), transition: Transition.fade);
   }
 
   void _initializeFcm() {

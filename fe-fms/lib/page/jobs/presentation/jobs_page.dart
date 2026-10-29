@@ -8,6 +8,7 @@ import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
 import 'package:fms/core/widgets/skeleton_loading.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/theme/motion.dart';
 import '../widget/job_summary_card.dart';
 import '../widget/history_filter_bar.dart';
 import '../widget/job_status.dart';
@@ -90,11 +91,12 @@ class JobsPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
 
-    return Obx(() {
+    Widget body() {
       // Skeletons only on first load; a pull-to-refresh keeps the list.
       if (controller.isLoadingAllJobs.value &&
           controller.allJobsResponse.value == null) {
         return ShimmerProvider(
+          key: const ValueKey('skeleton'),
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: const [
@@ -164,7 +166,13 @@ class JobsPage extends StatelessWidget {
           },
         ),
       );
-    });
+    }
+
+    // Cross-fade skeleton → content; instant under reduce motion.
+    return Obx(() => AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          child: body(),
+        ));
   }
 
   /// Builds the list of ongoing jobs that are currently being processed
@@ -173,11 +181,12 @@ class JobsPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
 
-    return Obx(() {
+    Widget body() {
       // Skeletons only on first load; a pull-to-refresh keeps the list.
       if (controller.isLoadingOngoingJobs.value &&
           controller.ongoingJobsResponse.value == null) {
         return ShimmerProvider(
+          key: const ValueKey('skeleton'),
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: const [
@@ -249,7 +258,13 @@ class JobsPage extends StatelessWidget {
           },
         ),
       );
-    });
+    }
+
+    // Cross-fade skeleton → content; instant under reduce motion.
+    return Obx(() => AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          child: body(),
+        ));
   }
 
   /// Builds the list of completed jobs (history tab) with search, filter,
@@ -258,11 +273,12 @@ class JobsPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
 
-    return Obx(() {
+    Widget body() {
       // Skeletons only on first load; a pull-to-refresh keeps the list.
       if (controller.isLoadingHistoryJobs.value &&
           controller.historyJobsResponse.value == null) {
         return ShimmerProvider(
+          key: const ValueKey('skeleton'),
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: const [
@@ -344,7 +360,13 @@ class JobsPage extends StatelessWidget {
           ),
         ],
       );
-    });
+    }
+
+    // Cross-fade skeleton → content; instant under reduce motion.
+    return Obx(() => AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          child: body(),
+        ));
   }
 
   /// Empty state shown when filters match no jobs.

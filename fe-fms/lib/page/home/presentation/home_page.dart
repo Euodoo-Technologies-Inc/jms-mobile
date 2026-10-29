@@ -11,6 +11,7 @@ import 'package:fms/page/auth/controller/auth_controller.dart';
 import 'package:fms/core/widgets/skeleton_loading.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/theme/motion.dart';
 
 import '../../../core/models/geo.dart';
 
@@ -241,8 +242,11 @@ class _HomeTabState extends State<HomeTab> {
               // on isOverviewLoading (job stats) — so they reveal independently.
               Expanded(
                 child: showMap
-                    ? (controller.isLoading.value
-                        ? ShimmerProvider(child: const SkeletonMapPlaceholder())
+                    // Cross-fade skeleton → map; instant under reduce motion.
+                    ? AnimatedSwitcher(
+                        duration: Motion.of(context, Motion.short),
+                        child: controller.isLoading.value
+                        ? ShimmerProvider(key: const ValueKey('skeleton'), child: const SkeletonMapPlaceholder())
                         : Stack(
                             children: [
                               AdaptiveMap(
@@ -254,9 +258,6 @@ class _HomeTabState extends State<HomeTab> {
                               ),
                               Obx(() {
                                 final movingList = controller.movingObjects;
-                                if (movingList.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
                                 // Two banners at most, so the map stays
                                 // visible; the rest are counted.
                                 final shown = movingList.take(2);
@@ -268,7 +269,11 @@ class _HomeTabState extends State<HomeTab> {
                                   bottom: 16,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                                    child: Column(
+                                    // Banners grow in and out from the bottom
+                                    // edge instead of popping.
+                                    child: MotionSize(
+                                      alignment: Alignment.bottomCenter,
+                                      child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         for (final moving in shown)
@@ -286,6 +291,7 @@ class _HomeTabState extends State<HomeTab> {
                                         if (more > 0)
                                           _MoreVehiclesChip(count: more),
                                       ],
+                                    ),
                                     ),
                                   ),
                                 );
@@ -313,9 +319,12 @@ class _HomeTabState extends State<HomeTab> {
                                 const SizedBox(height: 8),
                                 Text('Overview', style: Theme.of(context).textTheme.titleMedium),
                                 const SizedBox(height: 8),
-                                controller.isOverviewLoading.value
-                                    ? ShimmerProvider(child: const SkeletonStatCards())
-                                    : _overviewCards(controller),
+                                AnimatedSwitcher(
+                                  duration: Motion.of(context, Motion.short),
+                                  child: controller.isOverviewLoading.value
+                                      ? ShimmerProvider(key: const ValueKey('skeleton'), child: const SkeletonStatCards())
+                                      : _overviewCards(controller),
+                                ),
                               ],
                             ),
                           )
@@ -344,9 +353,12 @@ class _HomeTabState extends State<HomeTab> {
               if (showOverview && showMap) ...[
                 Text('Overview', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                controller.isOverviewLoading.value
-                    ? ShimmerProvider(child: const SkeletonStatCards())
-                    : _overviewCards(controller),
+                AnimatedSwitcher(
+                  duration: Motion.of(context, Motion.short),
+                  child: controller.isOverviewLoading.value
+                      ? ShimmerProvider(key: const ValueKey('skeleton'), child: const SkeletonStatCards())
+                      : _overviewCards(controller),
+                ),
               ],
 
               // if (!isPro) ...[
