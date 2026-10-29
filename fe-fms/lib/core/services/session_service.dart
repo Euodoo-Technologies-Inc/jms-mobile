@@ -72,7 +72,7 @@ class SessionService {
       }
 
       // Redirect to login page using GetX
-      Get.offAll(() => const LoginPage());
+      Get.offAll(() => const LoginPage(), transition: Transition.fade);
     } finally {
       _isRedirecting = false;
     }

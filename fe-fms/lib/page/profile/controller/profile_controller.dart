@@ -102,11 +102,8 @@ class ProfileController extends GetxController {
           backgroundColor: DispatchColors.brand,
           icon: Icons.logout,
         ).showSuccessSnackBar(context);
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-          (route) => false,
-        );
+        // Fade, not the forward slide: signing out is going back.
+        Get.offAll(() => const LoginPage(), transition: Transition.fade);
 
         // Drop the cached profile so a re-login (same app session) fetches
         // fresh data instead of showing the previous user's profile.

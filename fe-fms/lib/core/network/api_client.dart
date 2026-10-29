@@ -112,7 +112,7 @@ class ApiClient {
       }
 
       // Redirect to login page
-      Get.offAll(() => const LoginPage());
+      Get.offAll(() => const LoginPage(), transition: Transition.fade);
     } catch (e) {
       log('Error during logout: $e', name: 'ApiClient', level: 1000);
     }

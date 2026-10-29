@@ -98,12 +98,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
           iconSize: 22,
           icon: const Icon(Icons.person_outline),
           onPressed: () {
-            Get.to(
-              () => const ProfilePage(),
-              transition: Transition.rightToLeft,
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-            );
+            Get.to(() => const ProfilePage());
           },
         ),
         const SizedBox(width: 4),

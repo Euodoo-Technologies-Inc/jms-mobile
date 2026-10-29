@@ -5,6 +5,7 @@ import 'package:fms/core/database/offline_database.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/theme/app_theme.dart';
+import 'package:fms/core/theme/motion.dart';
 import 'package:fms/core/theme/theme_controller.dart';
 import 'package:fms/page/auth/presentation/login_chooser_page.dart';
 import 'package:fms/nav_bar.dart';
@@ -88,8 +89,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       // Every route slides in from the right (the same card-swipe used by the
       // profile page) so navigation feels seamless and consistent app-wide.
+      // Its curve and duration come from [Motion] in [builder].
       defaultTransition: Transition.rightToLeft,
-      transitionDuration: const Duration(milliseconds: 280),
       // MaterialApp's theme is pinned so its built-in AnimatedTheme never
       // animates (the 200ms cross-fade janks on heavy screens). The real,
       // user-selected theme is applied instantly in [builder] via a plain
@@ -97,6 +98,7 @@ class MyApp extends StatelessWidget {
       theme: _lightTheme,
       themeMode: ThemeMode.light,
       builder: (context, child) {
+        Motion.applyRouteDefaults(context);
         final content =
             DispatchNoticeHost(child: child ?? const SizedBox.shrink());
         return Obx(() {

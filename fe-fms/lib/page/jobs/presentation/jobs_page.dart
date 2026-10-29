@@ -8,6 +8,7 @@ import 'package:fms/data/models/response/get_job_history__response_model.dart'
     as history;
 import 'package:fms/core/widgets/skeleton_loading.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/theme/motion.dart';
 import '../widget/job_summary_card.dart';
 import '../widget/history_filter_bar.dart';
 import '../widget/job_status.dart';
@@ -90,7 +91,7 @@ class JobsPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
 
-    return Obx(() {
+    Widget body() {
       if (controller.isLoadingAllJobs.value) {
         return ShimmerProvider(
           child: ListView(
@@ -162,7 +163,13 @@ class JobsPage extends StatelessWidget {
           },
         ),
       );
-    });
+    }
+
+    // Cross-fade skeleton → content; instant under reduce motion.
+    return Obx(() => AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          child: body(),
+        ));
   }
 
   /// Builds the list of ongoing jobs that are currently being processed
@@ -171,7 +178,7 @@ class JobsPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
 
-    return Obx(() {
+    Widget body() {
       if (controller.isLoadingOngoingJobs.value) {
         return ShimmerProvider(
           child: ListView(
@@ -245,7 +252,13 @@ class JobsPage extends StatelessWidget {
           },
         ),
       );
-    });
+    }
+
+    // Cross-fade skeleton → content; instant under reduce motion.
+    return Obx(() => AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          child: body(),
+        ));
   }
 
   /// Builds the list of completed jobs (history tab) with search, filter,
@@ -254,7 +267,7 @@ class JobsPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = colorScheme.primary;
 
-    return Obx(() {
+    Widget body() {
       if (controller.isLoadingHistoryJobs.value) {
         return ShimmerProvider(
           child: ListView(
@@ -338,7 +351,13 @@ class JobsPage extends StatelessWidget {
           ),
         ],
       );
-    });
+    }
+
+    // Cross-fade skeleton → content; instant under reduce motion.
+    return Obx(() => AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          child: body(),
+        ));
   }
 
   /// Empty state shown when filters match no jobs.

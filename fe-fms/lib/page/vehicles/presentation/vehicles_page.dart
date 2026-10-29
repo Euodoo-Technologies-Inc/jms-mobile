@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fms/core/widgets/object_status_bottom_sheet.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:fms/core/widgets/skeleton_loading.dart';
+import 'package:fms/core/theme/motion.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
 
 /// A page that displays a list of vehicles with filtering and search capabilities.
@@ -104,7 +105,10 @@ class _VehiclesPageState extends State<VehiclesPage> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: controller.loadData,
-            child: Obx(() {
+            // Cross-fade skeleton → list; instant under reduce motion.
+            child: Obx(() => AnimatedSwitcher(
+                duration: Motion.of(context, Motion.short),
+                child: () {
               if (controller.isLoading.value && controller.objects.isEmpty) {
                 return ShimmerProvider(
                   child: ListView(
@@ -212,7 +216,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                   );
                 },
               );
-            }),
+            }())),
           ),
         ),
       ],

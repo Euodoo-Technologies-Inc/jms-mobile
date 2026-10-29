@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
+import '../../../core/theme/motion.dart';
 import '../../dispatch/widget/dispatch_auth_widgets.dart';
 import '../../../data/datasource/auth_remote_datasource.dart';
 
@@ -81,7 +82,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
-              child: _resetSent ? _buildSuccessView(palette) : _buildFormView(palette),
+              child: AnimatedSwitcher(
+                duration: Motion.of(context, Motion.medium),
+                switchInCurve: Motion.emphasized,
+                switchOutCurve: Motion.standard,
+                child: _resetSent ? _buildSuccessView(palette) : _buildFormView(palette),
+              ),
             ),
           ],
         ),
