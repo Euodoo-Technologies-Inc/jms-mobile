@@ -96,10 +96,7 @@ class DispatchProfilePage extends StatelessWidget {
                       Center(
                         child: Text(
                           '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
-                          style: TextStyle(
-                            color: palette.subtle,
-                            fontSize: 12,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
                     ],

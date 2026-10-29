@@ -36,9 +36,8 @@ class DispatchExternalStatusPill extends StatelessWidget {
                 label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: _fg,
-                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                 ),
