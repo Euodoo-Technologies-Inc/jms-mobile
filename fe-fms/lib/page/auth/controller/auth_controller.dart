@@ -7,7 +7,7 @@ import 'package:fms/core/network/api_client.dart';
 import 'package:fms/core/services/subscription.dart';
 import 'package:fms/core/services/sync_service.dart';
 import 'package:fms/core/storage/secure_storage.dart';
-import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/data/datasource/firebase_messanging_remote_datasource.dart';
@@ -28,7 +28,6 @@ import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/profile/controller/profile_controller.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for handling authentication logic.
 ///
@@ -217,10 +216,7 @@ class AuthController extends GetxController {
 
       _preloadTraxrootData();
 
-      SnackbarUtils(
-        text: 'Logged in.',
-        backgroundColor: DispatchColors.brand,
-      ).showSuccessSnackBar(context);
+      AppFeedback.success('Logged in.');
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const NavBar()),

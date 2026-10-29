@@ -561,16 +561,23 @@ class _PhotoGrid extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               child: Image.file(f, fit: BoxFit.cover),
             ),
+            // 48dp target in the corner; the 22px badge keeps its 4px inset.
             Positioned(
-              top: 4,
-              right: 4,
-              child: Material(
-                color: Colors.black54,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => onRemove(f),
-                  child: const Padding(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                tooltip: 'Remove photo',
+                onPressed: () => onRemove(f),
+                alignment: Alignment.topRight,
+                padding: const EdgeInsets.all(4),
+                constraints:
+                    const BoxConstraints.tightFor(width: 48, height: 48),
+                icon: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(Icons.close, size: 14, color: Colors.white),
                   ),

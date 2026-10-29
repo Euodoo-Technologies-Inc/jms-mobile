@@ -8,6 +8,7 @@ import 'package:fms/core/utils/timezone_util.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/adaptive_map.dart';
+import '../../../core/widgets/app_feedback.dart';
 import '../../../core/widgets/detail_widgets.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
 import '../../../data/models/traxroot_object_status_model.dart';
@@ -132,9 +133,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
         _loading = false;
         _error = userMessage(e);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text("Couldn't update the vehicle location.")),
-      );
+      AppFeedback.error("Couldn't update the vehicle location.");
     }
   }
 

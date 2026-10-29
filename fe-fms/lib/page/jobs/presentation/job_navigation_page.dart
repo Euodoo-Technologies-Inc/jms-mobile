@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/adaptive_map.dart';
+import '../../../core/widgets/app_feedback.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
 import '../../../data/models/traxroot_object_status_model.dart';
 import '../../vehicles/presentation/vehicle_tracking_page.dart';
@@ -48,9 +49,7 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
       address: widget.address,
     );
     if (warnings.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(warnings.join('\n'))));
+      AppFeedback.info(warnings.join('\n'));
     }
   }
 

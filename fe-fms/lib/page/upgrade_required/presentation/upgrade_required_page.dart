@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// A page displayed when the user attempts to access a feature that requires a higher subscription plan.
 ///
-/// This page informs the user that they do not have access and provides a button to upgrade their plan.
+/// There is no in-app upgrade flow, so the page names who can change the plan.
 class UpgradeRequiredPage extends StatelessWidget {
   const UpgradeRequiredPage({super.key});
 
@@ -17,12 +17,10 @@ class UpgradeRequiredPage extends StatelessWidget {
             const Icon(Icons.lock_outline, size: 70, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              "You don't have access to this page. Please upgrade your package to continue.",
+              "Your plan doesn't include Jobs. Ask your administrator to upgrade it.",
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: () {}, child: const Text('Upgrade Plan')),
           ],
         ),
       ),

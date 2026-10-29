@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:fms/core/utils/timezone_util.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
@@ -229,9 +230,7 @@ class _MapButton extends StatelessWidget {
         onPressed: enabled
             ? onOpen
             : () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("This job has no saved location.")),
-                );
+                AppFeedback.info("This job has no saved location.");
               },
         icon: const Icon(Icons.map_outlined),
         label: const Text('Open in map'),
