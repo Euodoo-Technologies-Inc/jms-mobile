@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:fms/core/utils/user_message.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -61,7 +62,7 @@ double _carouselHeight(BuildContext context) =>
 const double _kTopBarTop = 8;
 const double _kTopBarHeight = 56;
 
-/// Compact "HH:mm" for the carousel card's scheduled metric. Today's jobs
+/// Compact "h:mm a" for the carousel card's scheduled metric. Today's jobs
 /// carry a same-day time, so the date portion would just be noise. Falls back
 /// to an em dash when the timestamp is missing or unparseable.
 String _compactTime(String? raw) {
@@ -69,7 +70,7 @@ String _compactTime(String? raw) {
   final dt = DateTime.tryParse(raw);
   if (dt == null) return raw;
   final local = dt.isUtc ? dt.toLocal() : dt;
-  return DateFormat('HH:mm').format(local);
+  return DateFormat('h:mm a').format(local);
 }
 
 /// Map of today's jobs with a horizontal carousel at the bottom. All the
@@ -246,13 +247,13 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     } on DispatchApiException catch (e) {
       if (!mounted) return;
       if (e.isConflict) {
-        _notices.info(e.message);
+        _notices.info(userMessage(e));
       } else {
-        _notices.error(e.message);
+        _notices.error(userMessage(e));
       }
     } catch (e) {
       if (!mounted) return;
-      _notices.error(e.toString());
+      _notices.error(userMessage(e));
     } finally {
       _starting.value = false;
     }
