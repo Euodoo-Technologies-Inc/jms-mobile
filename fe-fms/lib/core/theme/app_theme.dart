@@ -71,10 +71,53 @@ class AppTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
         ),
       ),
+      // The type scale. Call sites use these roles (with `copyWith` for a
+      // one-off weight or colour), never raw font sizes.
       textTheme: typography.copyWith(
-        bodyMedium: TextStyle(color: palette.subtle, height: 1.25),
-        bodyLarge: TextStyle(color: palette.ink, height: 1.3),
-        titleMedium: TextStyle(color: palette.ink, fontWeight: FontWeight.w600),
+        // Screen headline: sign-in screens, dashboard figures.
+        headlineMedium: TextStyle(
+          color: palette.ink,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+        ),
+        // Hero title at the top of a page or sheet.
+        headlineSmall: TextStyle(
+          color: palette.ink,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+        // App bar, dialog and card titles.
+        titleLarge: TextStyle(
+          color: palette.ink,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        // Section titles.
+        titleMedium: TextStyle(
+          color: palette.ink,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        // List-item and row titles.
+        titleSmall: TextStyle(
+          color: palette.ink,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: TextStyle(color: palette.ink, fontSize: 16, height: 1.3),
+        bodyMedium: TextStyle(
+          color: palette.subtle,
+          fontSize: 14,
+          height: 1.25,
+        ),
+        // Secondary lines: meta, captions, row labels.
+        bodySmall: TextStyle(color: palette.subtle, fontSize: 12),
+        // Overlines, pills, badges.
+        labelSmall: TextStyle(
+          color: palette.subtle,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       extensions: <ThemeExtension<dynamic>>[palette],
       useMaterial3: true,

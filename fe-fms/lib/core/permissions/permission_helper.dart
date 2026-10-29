@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../theme/dispatch_palette.dart';
+import '../widgets/app_dialog.dart';
+
 /// Helper class for managing application permissions.
 class AppPermission {
   /// Ensures that the application has permission to access photos/storage.
@@ -54,17 +57,20 @@ class AppPermission {
   ) async {
     return await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Permission Required'),
-            content: Text(message),
+          builder: (ctx) => AppDialog(
+            icon: Icons.photo_library_outlined,
+            accent: DispatchColors.brand,
+            title: 'Permission Required',
+            message: message,
             actions: [
-              TextButton(
+              AppDialogButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
               ),
-              TextButton(
+              AppDialogButton(
+                label: 'Open Settings',
+                filled: true,
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Open Settings'),
               ),
             ],
           ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/motion.dart';
+
 /// Provides a shared [AnimationController] to all descendant [ShimmerBox]
 /// widgets so they pulse in sync.
 class ShimmerProvider extends StatefulWidget {
@@ -19,13 +21,22 @@ class _ShimmerProviderState extends State<ShimmerProvider>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    _controller = AnimationController(vsync: this, duration: Motion.long * 2);
     _animation = Tween<double>(begin: 0.3, end: 0.7).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _controller, curve: Motion.standard),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Under reduce motion the placeholder holds still instead of pulsing
+    // forever; setting the value also stops a running pulse.
+    if (Motion.reduced(context)) {
+      _controller.value = 0.5;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override

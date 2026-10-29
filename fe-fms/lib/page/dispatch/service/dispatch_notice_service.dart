@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
+import '../../../core/theme/motion.dart';
 
 /// Severity of a [DispatchNotice].
 enum DispatchNoticeKind { success, error, info }
@@ -26,8 +27,8 @@ class DispatchNotice {
 ///
 /// Any dispatch screen calls [show] / [success] / [error] / [info];
 /// [DispatchNoticeHost] (mounted once via `GetMaterialApp.builder`) renders
-/// the banner over whatever screen is showing. Legacy screens simply never
-/// call it, so the banner never appears there.
+/// the banner over whatever screen is showing. 2W screens reach it through
+/// `AppFeedback` (core/widgets/app_feedback.dart).
 class DispatchNoticeController extends GetxController {
   /// The notice currently on screen, or `null`.
   final Rxn<DispatchNotice> current = Rxn<DispatchNotice>();
@@ -93,7 +94,7 @@ class DispatchNoticeHost extends StatelessWidget {
               final notice = ctrl.current.value;
               return Padding(
                 padding: EdgeInsets.fromLTRB(12, 8 + extraTop, 12, 0),
-                child: _animatedBanner(notice, ctrl.dismiss),
+                child: _animatedBanner(context, notice, ctrl.dismiss),
               );
             }),
           ),
@@ -102,14 +103,15 @@ class DispatchNoticeHost extends StatelessWidget {
     );
   }
 
-  Widget _animatedBanner(DispatchNotice? notice, VoidCallback onDismiss) {
+  Widget _animatedBanner(
+      BuildContext context, DispatchNotice? notice, VoidCallback onDismiss) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 360),
-      reverseDuration: const Duration(milliseconds: 220),
-      // Soft, slightly springy entrance — the card eases down + scales up,
-      // a gentler motion than the prior slide-and-clip.
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
+      duration: Motion.of(context, Motion.medium),
+      reverseDuration: Motion.of(context, Motion.short),
+      // Soft entrance — the card eases down + scales up, no overshoot.
+      // Instant under reduce motion.
+      switchInCurve: Motion.emphasized,
+      switchOutCurve: Motion.standard,
       transitionBuilder: (child, anim) {
         final slide = Tween<Offset>(
           begin: const Offset(0, -0.35),
@@ -173,7 +175,11 @@ class _NoticeBanner extends StatelessWidget {
     // Flutter's fallback style (serif font + yellow underline). Material
     // supplies the theme's DefaultTextStyle so the banner font matches the
     // rest of the app. Transparency keeps the rounded card decoration ours.
-    return Material(
+    // Live region: TalkBack/VoiceOver announce each notice as it appears.
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Material(
       type: MaterialType.transparency,
       child: GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -198,37 +204,47 @@ class _NoticeBanner extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          // Right inset is smaller: the close button's 48dp target pads it.
+          padding: const EdgeInsets.fromLTRB(14, 0, 2, 0),
           child: Row(
             children: [
               Icon(icon, color: accent, size: 20),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
                   notice.message,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: palette.ink,
-                    fontSize: 13.5,
                     height: 1.3,
                   ),
                 ),
+                ),
               ),
-              const SizedBox(width: 8),
-              // Material/InkResponse for a proper ripple on the close icon —
-              // the parent container has no ink surface of its own.
-              Material(
-                color: Colors.transparent,
-                child: InkResponse(
-                  onTap: onDismiss,
-                  radius: 18,
-                  child:
-                      Icon(Icons.close, size: 18, color: palette.subtle),
+              // 48dp labelled target around the 18px glyph. Not an IconButton:
+              // its Tooltip needs an Overlay, and this host sits above the
+              // Navigator. Material/InkResponse give the ripple instead.
+              Semantics(
+                button: true,
+                label: 'Dismiss',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkResponse(
+                    onTap: onDismiss,
+                    radius: 24,
+                    child: SizedBox.square(
+                      dimension: 48,
+                      child: Icon(Icons.close,
+                          size: 18, color: palette.subtle),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
       ),
       ),
     );

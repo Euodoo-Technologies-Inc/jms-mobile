@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/theme/motion.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/jobs/controller/history_filter_mixin.dart';
 
@@ -23,8 +24,9 @@ class HistoryFilterBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Header row: result count + filter toggle + sort
+        // Tighter than before: the chips' 48dp targets carry their own inset.
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
           child: Obx(() {
             final isNewest =
                 controller.historySortOrder.value == HistorySortOrder.newestFirst;
@@ -37,74 +39,62 @@ class HistoryFilterBar extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const Spacer(),
-                // Filter toggle button
-                GestureDetector(
-                  onTap: () => controller.isHistoryFilterVisible.value =
-                      !isVisible,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: hasFilters
-                          ? primary.withValues(alpha: 0.1)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.filter_list,
-                          size: 18,
-                          color: hasFilters ? primary : palette.subtle,
-                        ),
+                // Filter toggle — Material chip for the 48dp target + ripple.
+                ActionChip(
+                  tooltip: isVisible ? 'Hide filters' : 'Show filters',
+                  onPressed: () =>
+                      controller.isHistoryFilterVisible.value = !isVisible,
+                  avatar: Icon(
+                    Icons.filter_list,
+                    size: 18,
+                    color: hasFilters ? primary : palette.subtle,
+                  ),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Filter'),
+                      if (hasFilters) ...[
                         const SizedBox(width: 4),
-                        Text(
-                          'Filter',
-                          style: TextStyle(
-                            color:
-                                hasFilters ? primary : palette.subtle,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: primary,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        if (hasFilters) ...[
-                          const SizedBox(width: 2),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
+                  ),
+                  labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: hasFilters ? primary : palette.subtle,
+                  ),
+                  backgroundColor: hasFilters
+                      ? primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  side: BorderSide.none,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 4),
                 // Sort toggle
-                GestureDetector(
-                  onTap: () {
+                ActionChip(
+                  tooltip: isNewest ? 'Sort oldest first' : 'Sort newest first',
+                  onPressed: () {
                     controller.historySortOrder.value = isNewest
                         ? HistorySortOrder.oldestFirst
                         : HistorySortOrder.newestFirst;
                   },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.swap_vert, size: 18, color: primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        isNewest ? 'Newest' : 'Oldest',
-                        style: TextStyle(
-                          color: primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  avatar: Icon(Icons.swap_vert, size: 18, color: primary),
+                  label: Text(isNewest ? 'Newest' : 'Oldest'),
+                  labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: primary,
+                  ),
+                  backgroundColor: Colors.transparent,
+                  side: BorderSide.none,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ],
@@ -112,17 +102,17 @@ class HistoryFilterBar extends StatelessWidget {
           }),
         ),
 
-        // Collapsible filter section
-        Obx(() {
-          if (!controller.isHistoryFilterVisible.value) {
-            return const SizedBox.shrink();
-          }
-          return _FilterBody(
-            controller: controller,
-            primary: primary,
-            borderColor: borderColor,
-          );
-        }),
+        // Collapsible filter section — grows open and shut.
+        Obx(() => MotionSize(
+              alignment: Alignment.topCenter,
+              child: controller.isHistoryFilterVisible.value
+                  ? _FilterBody(
+                      controller: controller,
+                      primary: primary,
+                      borderColor: borderColor,
+                    )
+                  : const SizedBox(width: double.infinity),
+            )),
 
         const Divider(height: 1),
       ],
@@ -168,6 +158,7 @@ class _FilterBody extends StatelessWidget {
                   return const SizedBox.shrink();
                 }
                 return IconButton(
+                  tooltip: 'Clear search',
                   icon: const Icon(Icons.clear, size: 18),
                   onPressed: () {
                     controller.historySearchController.clear();
@@ -188,7 +179,7 @@ class _FilterBody extends StatelessWidget {
         // Date range chips. The row grows with text size so the chips
         // don't clip.
         SizedBox(
-          height: MediaQuery.textScalerOf(context).scale(38),
+          height: MediaQuery.textScalerOf(context).scale(48),
           child: Obx(() {
             return ListView(
               scrollDirection: Axis.horizontal,
@@ -214,7 +205,7 @@ class _FilterBody extends StatelessWidget {
 
         // Job type chips
         SizedBox(
-          height: MediaQuery.textScalerOf(context).scale(38),
+          height: MediaQuery.textScalerOf(context).scale(48),
           child: Obx(() {
             return ListView(
               scrollDirection: Axis.horizontal,
@@ -289,28 +280,18 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? primary : palette.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? primary : borderColor,
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? Colors.white : palette.subtle,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            height: 1.0,
-          ),
-        ),
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      showCheckmark: false,
+      selectedColor: primary,
+      backgroundColor: palette.card,
+      side: BorderSide(color: selected ? primary : borderColor),
+      shape: const StadiumBorder(),
+      labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: selected ? Colors.white : palette.subtle,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
       ),
     );
   }

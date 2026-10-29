@@ -110,6 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                       obscureText: _obscure,
                       prefixIcon: Icons.lock_outline,
                       suffixIcon: IconButton(
+                        tooltip: _obscure ? 'Show password' : 'Hide password',
                         icon: Icon(
                           _obscure
                               ? Icons.visibility_outlined

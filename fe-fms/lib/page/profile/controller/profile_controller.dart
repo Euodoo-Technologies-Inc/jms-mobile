@@ -2,12 +2,11 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:fms/core/widgets/snackbar_utils.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/data/datasource/auth_remote_datasource.dart';
 import 'package:fms/data/datasource/profile_remote_datasource.dart';
 import 'package:fms/data/models/response/profile_response_model.dart';
 import 'package:fms/page/auth/controller/auth_controller.dart';
-import 'package:fms/core/theme/dispatch_palette.dart';
 
 /// Controller for managing user profile data and authentication state.
 class ProfileController extends GetxController {
@@ -72,22 +71,10 @@ class ProfileController extends GetxController {
   }) async {
     try {
       await Get.find<AuthController>().logout();
-      // The profile page is gone now; show the toast on the root navigator.
-      final ctx = Get.context;
-      if (ctx != null && ctx.mounted) {
-        SnackbarUtils(
-          text: 'Logout successful',
-          backgroundColor: DispatchColors.brand,
-          icon: Icons.logout,
-        ).showSuccessSnackBar(ctx);
-      }
+      AppFeedback.success('Logout successful');
     } catch (_) {
-      if (mounted && context.mounted) {
-        SnackbarUtils(
-          text: 'Logout failed',
-          backgroundColor: DispatchColors.danger,
-          icon: Icons.logout,
-        ).showErrorSnackBar(context);
+      if (mounted) {
+        AppFeedback.error('Logout failed');
       }
     }
   }

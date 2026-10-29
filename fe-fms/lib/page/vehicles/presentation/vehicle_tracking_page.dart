@@ -8,6 +8,7 @@ import 'package:fms/core/utils/timezone_util.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/adaptive_map.dart';
+import '../../../core/widgets/app_feedback.dart';
 import '../../../core/widgets/detail_widgets.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
 import '../../../data/models/traxroot_object_status_model.dart';
@@ -132,9 +133,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
         _loading = false;
         _error = userMessage(e);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text("Couldn't update the vehicle location.")),
-      );
+      AppFeedback.error("Couldn't update the vehicle location.");
     }
   }
 
@@ -178,7 +177,7 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                   : Center(
                       child: Text(
                         'Vehicle location is unavailable',
-                        style: TextStyle(color: palette.subtle, fontSize: 14),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.subtle),
                       ),
                     ),
             ),
@@ -192,17 +191,15 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DefaultTextStyle.merge(
-                      style: TextStyle(color: palette.subtle, fontSize: 13),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.subtle),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             vehicle?.name ?? 'Vehicle',
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               color: palette.ink,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -217,14 +214,15 @@ class _VehicleTrackingPageState extends State<VehicleTrackingPage> {
                           if (vehicle?.updatedAt != null)
                             Text(
                               'Updated: ${ManilaTimezone.convert(vehicle!.updatedAt!)}',
-                              style: const TextStyle(fontSize: 12),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: palette.subtle,
+                              ),
                             ),
                           if (_error != null)
                             Text(
                               _error!,
-                              style: const TextStyle(
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: DispatchColors.danger,
-                                fontSize: 12,
                               ),
                             ),
                         ],

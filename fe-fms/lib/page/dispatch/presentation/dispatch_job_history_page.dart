@@ -60,10 +60,7 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text(
-          'Job history',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
+        title: const Text('Job history'),
       ),
       body: RefreshIndicator(
         color: DispatchColors.brand,
@@ -110,7 +107,9 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
           Center(
             child: Text(
               'No completed jobs yet.',
-              style: TextStyle(color: palette.subtle, fontSize: 15),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: palette.subtle,
+              ),
             ),
           ),
         ],
@@ -140,7 +139,6 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
     final address = job.address;
     return InkWell(
       onTap: () => Get.to(() => DispatchJobHistoryDetailPage(jobId: job.id)),
@@ -163,12 +161,10 @@ class _HistoryRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'COMPLETED',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: DispatchColors.brand,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -176,9 +172,7 @@ class _HistoryRow extends StatelessWidget {
                       if (job.finishWhen != null)
                         Text(
                           formatDispatchTimestamp(job.finishWhen),
-                          style: TextStyle(
-                            color: palette.subtle,
-                            fontSize: 11.5,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -187,10 +181,7 @@ class _HistoryRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     job.customer ?? job.jobName,
-                    style: TextStyle(
-                      color: palette.ink,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       height: 1.25,
                     ),
                   ),
@@ -198,9 +189,7 @@ class _HistoryRow extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       address,
-                      style: TextStyle(
-                        color: palette.subtle,
-                        fontSize: 12.5,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         height: 1.3,
                       ),
                     ),
@@ -269,10 +258,7 @@ class _DispatchJobHistoryDetailPageState
         elevation: 0,
         scrolledUnderElevation: 0,
         shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text(
-          'Job detail',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
+        title: const Text('Job detail'),
       ),
       body: RefreshIndicator(
         color: DispatchColors.brand,
@@ -378,17 +364,13 @@ class _DetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Text(
             job.customer ?? job.jobName,
-            style: TextStyle(
-              color: palette.ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               height: 1.25,
             ),
           ),
@@ -435,9 +417,8 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: color,
-          fontSize: 11.5,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -456,10 +437,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: TextStyle(
-          color: context.dispatch.subtle,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           letterSpacing: 0.6,
         ),
       ),
@@ -505,13 +483,15 @@ class _KvRow extends StatelessWidget {
             width: 108,
             child: Text(
               label,
-              style: TextStyle(color: palette.subtle, fontSize: 13),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
           Expanded(
             child: Text(
               shown,
-              style: TextStyle(color: palette.ink, fontSize: 13.5),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: palette.ink,
+              ),
             ),
           ),
         ],
@@ -526,7 +506,6 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.dispatch;
     final entries = <(String, String?)>[
       ('Created', job.createdAt),
       ('Started', job.actualArrival),
@@ -535,7 +514,7 @@ class _Timeline extends StatelessWidget {
     if (entries.isEmpty) {
       return Text(
         'No timeline data available.',
-        style: TextStyle(color: palette.subtle, fontSize: 13),
+        style: Theme.of(context).textTheme.bodyMedium,
       );
     }
     return Column(
@@ -564,19 +543,12 @@ class _Timeline extends StatelessWidget {
                     children: [
                       Text(
                         entries[i].$1,
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         formatDispatchTimestamp(entries[i].$2),
-                        style: TextStyle(
-                          color: palette.subtle,
-                          fontSize: 12.5,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
@@ -623,14 +595,18 @@ class _PhotoTile extends StatelessWidget {
                 url,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) =>
-                    _placeholder(palette, photo.filename),
+                    _placeholder(context, palette, photo.filename),
               )
-            : _placeholder(palette, photo.filename),
+            : _placeholder(context, palette, photo.filename),
       ),
     );
   }
 
-  Widget _placeholder(DispatchPalette palette, String filename) {
+  Widget _placeholder(
+    BuildContext context,
+    DispatchPalette palette,
+    String filename,
+  ) {
     return Container(
       color: palette.cardBorder,
       alignment: Alignment.center,
@@ -645,7 +621,7 @@ class _PhotoTile extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: palette.subtle),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),

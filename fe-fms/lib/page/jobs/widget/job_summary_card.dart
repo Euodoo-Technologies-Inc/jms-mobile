@@ -58,7 +58,9 @@ class JobSummaryCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap ?? onDetails,
-        child: Container(
+        // Ink, not Container: the card fill must sit on the Material so the
+        // InkWell ripple paints above it instead of hidden underneath.
+        child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             color: context.dispatch.card,

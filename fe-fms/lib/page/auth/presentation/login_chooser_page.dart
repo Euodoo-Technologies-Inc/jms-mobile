@@ -49,17 +49,13 @@ class LoginChooserPage extends StatelessWidget {
               Text(
                 'Welcome',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: palette.ink,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 6),
               Text(
                 'How are you signing in today?',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: palette.subtle, fontSize: 14),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 40),
               _ChoiceCard(
@@ -129,19 +125,14 @@ class _ChoiceCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: palette.ink,
-                      fontSize: 16,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      color: palette.subtle,
-                      fontSize: 12.5,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
