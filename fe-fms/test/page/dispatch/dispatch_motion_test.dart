@@ -48,6 +48,13 @@ void main() {
     await tester.pump();
   }
 
+  /// Unmounts the map and lets its in-flight tile requests (Dio, zero-length
+  /// timers) finish, so flutter_test doesn't report them as pending.
+  Future<void> unmountMap(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  }
+
   /// Whether the offline banner area has reached its content's full height.
   bool bannerSettled(WidgetTester tester) {
     final area = find.ancestor(
@@ -69,6 +76,7 @@ void main() {
       jobs.error.value = 'No internet connection.';
       await settle(tester);
       expect(bannerSettled(tester), reduce);
+      await unmountMap(tester);
     });
 
     testWidgets('first-load spinner ${reduce ? 'goes instantly' : 'fades'} '
@@ -80,6 +88,7 @@ void main() {
       await settle(tester);
       expect(find.byType(CircularProgressIndicator),
           reduce ? findsNothing : findsOneWidget);
+      await unmountMap(tester);
     });
   }
 }

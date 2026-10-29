@@ -43,8 +43,9 @@ const double _kPanelMidFrac = 0.4;
 /// Height (logical px) of the bottom job carousel. The map insets its camera
 /// by this much so framed content clears the carousel, and the recenter /
 /// route-preview FABs are stacked above it. Tall enough that a job name
-/// wrapping to three lines still fits the card without overflowing.
-const double _kCarouselHeight = 240;
+/// wrapping to three lines still fits the card without overflowing, at the
+/// type-scale role sizes (titleLarge name, labelSmall captions).
+const double _kCarouselHeight = 245;
 
 /// The part of [_kCarouselHeight] that doesn't grow with text size: the
 /// card's outer and inner padding, the divider and the fixed gaps.
