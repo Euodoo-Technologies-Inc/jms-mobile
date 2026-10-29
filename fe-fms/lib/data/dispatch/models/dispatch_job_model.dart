@@ -33,6 +33,8 @@ class DispatchJob {
     required this.id,
     required this.jobName,
     this.status,
+    this.externalStatus,
+    this.externalStatusLabel,
     this.jobDate,
     this.address,
     this.lat,
@@ -53,6 +55,11 @@ class DispatchJob {
   final int id;
   final String jobName;
   final int? status;
+
+  /// ORMECO's own status (e.g. `has_problem`) and its display label (e.g.
+  /// "Has problem"). Null for our own jobs and on older backends.
+  final String? externalStatus;
+  final String? externalStatusLabel;
   final String? jobDate;
   final String? address;
   final double? lat;
@@ -89,6 +96,8 @@ class DispatchJob {
       id: (json['id'] as num).toInt(),
       jobName: json['job_name']?.toString() ?? 'Untitled job',
       status: (json['status'] as num?)?.toInt(),
+      externalStatus: json['external_status']?.toString(),
+      externalStatusLabel: json['external_status_label']?.toString(),
       jobDate: json['job_date']?.toString(),
       address: json['address']?.toString(),
       lat: (json['lat'] as num?)?.toDouble(),

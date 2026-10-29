@@ -14,6 +14,7 @@ import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
 import '../service/dispatch_notice_service.dart';
 import '../service/dispatch_sync_service.dart';
+import '../widget/dispatch_external_status_pill.dart';
 import 'dispatch_finish_job_page.dart';
 import 'dispatch_jobs_overview_page.dart';
 import 'dispatch_profile_page.dart';
@@ -986,7 +987,16 @@ class _DispatchJobCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _JobStatusPill(job: job),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _JobStatusPill(job: job),
+                      if (job.externalStatusLabel != null) ...[
+                        const SizedBox(height: 4),
+                        DispatchExternalStatusPill(job: job),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               // Destination address.
@@ -1505,6 +1515,10 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                             Row(
                               children: [
                                 _JobStatusPill(job: job),
+                                if (job.externalStatusLabel != null) ...[
+                                  const SizedBox(width: 6),
+                                  DispatchExternalStatusPill(job: job),
+                                ],
                                 const Spacer(),
                                 if (widget.etaMeters != null) ...[
                                   const Icon(Icons.near_me_outlined,

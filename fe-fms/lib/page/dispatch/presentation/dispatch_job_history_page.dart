@@ -6,6 +6,7 @@ import '../../../core/dispatch/dispatch_format.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../data/dispatch/datasource/dispatch_jobs_datasource.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
+import '../widget/dispatch_external_status_pill.dart';
 
 /// Read-only list of the rider's recently completed jobs (server-capped at
 /// 50). Pulled on open + pull-to-refresh; no caching since it's not a
@@ -387,7 +388,16 @@ class _DetailHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        _StatusPill(job: job),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _StatusPill(job: job),
+            if (job.externalStatusLabel != null) ...[
+              const SizedBox(height: 6),
+              DispatchExternalStatusPill(job: job),
+            ],
+          ],
+        ),
       ],
     );
   }
