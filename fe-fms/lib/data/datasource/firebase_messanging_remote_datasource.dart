@@ -205,10 +205,18 @@ class FirebaseMessangingRemoteDatasource {
 
   /// Navigate to job details if a valid job_id is provided, otherwise just
   /// switch to the Jobs tab and refresh.
-  void _handleNotificationNavigation({String? jobId, String? type}) {
-    // Refresh job lists first.
+  Future<void> _handleNotificationNavigation({
+    String? jobId,
+    String? type,
+  }) async {
+    // Refresh job lists first — a just-assigned job is only in the lists
+    // once this lands, so the search below must wait for it.
     if (Get.isRegistered<JobsController>()) {
-      Get.find<JobsController>().refresh();
+      try {
+        await Get.find<JobsController>().refresh();
+      } catch (_) {
+        // Offline / failed refresh: search whatever is already loaded.
+      }
     }
 
     final parsedId = int.tryParse(jobId ?? '');
