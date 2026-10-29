@@ -1,587 +1,169 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:fms/core/utils/timezone_util.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/models/response/get_job_history__response_model.dart';
 
 import 'job_navigation_page.dart';
 import 'job_report_page.dart';
 
 /// A page displaying details of a completed job from history.
+///
+/// Mirrors the dispatch "Job detail" design (flat page surface, neutral cards,
+/// brand-green accents) so it reads consistently with the newer side of the
+/// app and renders correctly in dark mode.
 class JobHistoryDetailPage extends StatelessWidget {
   final Data job;
   const JobHistoryDetailPage({super.key, required this.job});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final palette = context.dispatch;
     final latitude = job.latitude;
     final longitude = job.longitude;
-    Widget buildPill(
-      String label, {
-      IconData? icon,
-      Color? background,
-      Color? foreground,
-      Color? borderColor,
-    }) {
-      final pillForeground = foreground ?? colorScheme.primary;
-      final pillBackground =
-          background ??
-          colorScheme.primaryContainer.withValues(
-            alpha: foreground == null ? 0.18 : 0.22,
-          );
+    final photos =
+        job.details?.where((d) => d.photoUrl != null).toList() ?? const [];
 
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          color: pillBackground,
-          border: Border.all(
-            color: (borderColor ?? pillForeground).withValues(alpha: 0.24),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: pillForeground),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: pillForeground,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget buildSectionHeader({required IconData icon, required String title}) {
-      return Row(
+    return DetailScaffold(
+      title: job.jobName ?? 'Job History Details',
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF4C8DFF), Color(0xFF1E58FF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x2200185C),
-                  blurRadius: 12,
-                  offset: Offset(0, 6),
-                ),
-              ],
+          DetailHeader(
+            title: job.jobName ?? 'Job',
+            pill: const DetailStatusPill(
+              label: 'Completed',
+              color: DispatchColors.brand,
+              icon: Icons.verified_outlined,
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
-      );
-    }
+          const SizedBox(height: 22),
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(job.jobName ?? 'Job History Details'),
-        // actions: [
-        //   IconButton(
-        //     tooltip: 'More',
-        //     icon: const Icon(Icons.more_vert),
-        //     onPressed: () {},
-        //   ),
-        // ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
+          const DetailSectionLabel('Details'),
+          DetailCard(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF7BD6FF),
-                          Color(0xFF5AB6FF),
-                          Color(0xFF3E8BFF),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(
-                        color: const Color(0x59FFFFFF),
-                        width: 1.2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x332D6BFF),
-                          blurRadius: 32,
-                          offset: Offset(0, 18),
-                        ),
-                        BoxShadow(
-                          color: Color(0x1AFFFFFF),
-                          blurRadius: 12,
-                          offset: Offset(-6, -6),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 62,
-                                height: 62,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0x66FFFFFF),
-                                      Color(0x33FFFFFF),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  border: Border.all(
-                                    color: const Color(0x80FFFFFF),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.history,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      job.jobName ?? 'Job',
-                                      style: textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Completed job record',
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.86,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              buildPill(
-                                'Status: Completed',
-                                icon: Icons.verified_outlined,
-                                foreground: Colors.white,
-                                background: const Color(
-                                  0xFF34C759,
-                                ).withValues(alpha: 0.25),
-                                borderColor: Colors.white,
-                              ),
-                              if (job.jobDate != null)
-                                buildPill(
-                                  'Date: ${_formatDate(job.jobDate)}',
-                                  icon: Icons.calendar_today_outlined,
-                                  foreground: Colors.white,
-                                  background: Colors.white.withValues(
-                                    alpha: 0.22,
-                                  ),
-                                  borderColor: Colors.white,
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                DetailKvRow(label: 'Customer', value: job.customerName),
+                if (job.phoneNumber != null && job.phoneNumber!.isNotEmpty)
+                  DetailKvRow(label: 'Phone', value: job.phoneNumber),
+                DetailKvRow(
+                  label: 'Service type',
+                  value: _getJobTypeString(job.typeJob),
                 ),
-
-                const SizedBox(height: 12),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: const Color(0x2132638F)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.person,
-                            title: 'Customer',
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            job.customerName ?? 'N/A',
-                            style: textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (job.phoneNumber != null) ...[
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.phone,
-                                  color: Color(0xFF1E58FF),
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    job.phoneNumber!,
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFF2F6FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: const Color(0x2E3A4CFF)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.place,
-                            title: 'Address',
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            job.address ?? 'N/A',
-                            style: textTheme.bodyMedium?.copyWith(height: 1.5),
-                          ),
-                          const SizedBox(height: 16),
-                          TextButton.icon(
-                            onPressed: latitude != null && longitude != null
-                                ? () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => JobNavigationPage(
-                                          latitude: latitude,
-                                          longitude: longitude,
-                                          jobName:
-                                              job.jobName ?? 'Job Destination',
-                                          address: job.address,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                : () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Coordinates not available',
-                                        ),
-                                      ),
-                                    );
-                                  },
-                            icon: const Icon(Icons.map_outlined),
-                            style: TextButton.styleFrom(
-                              foregroundColor: colorScheme.primary,
-                              padding: EdgeInsets.zero,
-                              textStyle: textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overlayColor: colorScheme.primary.withValues(
-                                alpha: 0.08,
-                              ),
-                            ),
-                            label: const Text('Open in Map'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFFFFF), Color(0xFFEAF1FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: const Color(0x2132638F)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1432638F),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildSectionHeader(
-                            icon: Icons.info_outline,
-                            title: 'Job Information',
-                          ),
-                          const SizedBox(height: 16),
-                          _InfoRow(
-                            label: 'Job Type',
-                            value: _getJobTypeString(job.typeJob),
-                          ),
-                          const SizedBox(height: 12),
-                          _InfoRow(
-                            label: 'Created By',
-                            value: job.createdBy?.toString() ?? 'N/A',
-                          ),
-                          if (job.createdAt != null) ...[
-                            const SizedBox(height: 12),
-                            _InfoRow(
-                              label: 'Created At',
-                              value: _formatDate(job.createdAt),
-                            ),
-                          ],
-                          if (job.assignWhen != null) ...[
-                            const SizedBox(height: 12),
-                            _InfoRow(
-                              label: 'Assigned At',
-                              value: _formatDate(job.assignWhen),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Photos section — only show if details with photos exist
-                if (job.details != null &&
-                    job.details!.any((d) => d.photoUrl != null)) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    color: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFFFFF), Color(0xFFF6F8FF)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(color: const Color(0x2132638F)),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x1432638F),
-                            blurRadius: 24,
-                            offset: Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            buildSectionHeader(
-                              icon: Icons.photo_library_outlined,
-                              title: 'Photos',
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: job.details!
-                                  .where((d) => d.photoUrl != null)
-                                  .map(
-                                    (d) => ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(
-                                        d.photoUrl!,
-                                        width: 100,
-                                        height: 100,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            Container(
-                                          width: 100,
-                                          height: 100,
-                                          color: Colors.grey[200],
-                                          child: const Icon(
-                                              Icons.broken_image),
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 120),
+                DetailKvRow(label: 'Address', value: job.address),
+                if (job.jobDate != null)
+                  DetailKvRow(label: 'Completed', value: _formatDate(job.jobDate)),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 14),
+          _MapButton(
+            enabled: latitude != null && longitude != null,
+            onOpen: () {
+              Get.to(
+                () => JobNavigationPage(
+                  latitude: latitude!,
+                  longitude: longitude!,
+                  jobName: job.jobName ?? 'Job Destination',
+                  address: job.address,
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 22),
+          const DetailSectionLabel('Job Information'),
+          DetailCard(
+            child: Column(
+              children: [
+                DetailKvRow(
+                  label: 'Job type',
+                  value: _getJobTypeString(job.typeJob),
+                ),
+                DetailKvRow(
+                  label: 'Created by',
+                  value: job.createdBy?.toString(),
+                ),
+                if (job.createdAt != null)
+                  DetailKvRow(label: 'Created at', value: _formatDate(job.createdAt)),
+                if (job.assignWhen != null)
+                  DetailKvRow(label: 'Assigned at', value: _formatDate(job.assignWhen)),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 22),
+          const DetailSectionLabel('Timeline'),
+          DetailCard(
+            child: DetailTimeline(
+              entries: [
+                ('Created', _formatDateTime(job.createdAt)),
+                ('Assigned', _formatDateTime(job.assignWhen)),
+                ('Completed', _formatDateTime(job.jobDate)),
+              ],
+            ),
+          ),
+
+          if (photos.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            DetailSectionLabel('Photos (${photos.length})'),
+            DetailCard(
+              // Full-width 16:10 tiles stacked vertically — mirrors the
+              // dispatch history detail's proof-of-delivery display.
+              child: Column(
+                children: [
+                  for (var i = 0; i < photos.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 10,
+                        child: Image.network(
+                          photos[i].photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: palette.cardBorder,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              size: 36,
+                              color: palette.subtle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => JobReportPage(job: job),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.description_outlined),
-                  label: const Text('View Report'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    side: BorderSide(
-                      color: colorScheme.primary.withValues(alpha: 0.4),
-                    ),
-                    foregroundColor: colorScheme.primary,
-                    overlayColor: colorScheme.primary.withValues(alpha: 0.08),
-                  ),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Get.to(() => JobReportPage(job: job));
+              },
+              icon: const Icon(Icons.description_outlined),
+              label: const Text('View Report'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                side: const BorderSide(color: DispatchColors.brand),
+                foregroundColor: DispatchColors.brand,
+                overlayColor: DispatchColors.brand.withValues(alpha: 0.08),
               ),
-              const SizedBox(width: 12),
-
-              // Expanded(
-              //   child: ElevatedButton.icon(
-              //     onPressed: () {
-              //       ScaffoldMessenger.of(context).showSnackBar(
-              //         const SnackBar(content: Text('Similar job created')),
-              //       );
-              //     },
-              //     icon: const Icon(Icons.add),
-              //     label: const Text('Similar Job'),
-              //     style: ElevatedButton.styleFrom(
-              //       padding: const EdgeInsets.symmetric(vertical: 14),
-              //       shape: RoundedRectangleBorder(
-              //         borderRadius: BorderRadius.circular(16),
-              //       ),
-              //       backgroundColor: colorScheme.primary,
-              //       foregroundColor: colorScheme.onPrimary,
-              //       shadowColor: colorScheme.primary.withValues(alpha:0.4),
-              //       overlayColor: colorScheme.primary.withValues(alpha:0.12),
-              //     ),
-              //   ),
-              // ),
-            ],
+            ),
           ),
         ),
       ),
@@ -609,6 +191,15 @@ class JobHistoryDetailPage extends StatelessWidget {
     return DateFormat('EEE, dd MMM yyyy').format(ManilaTimezone.convert(dateTime));
   }
 
+  /// Date + time for the timeline rows; returns null on missing/invalid input
+  /// so [DetailTimeline] can skip the entry.
+  String? _formatDateTime(dynamic value) {
+    final dateTime = _parseDate(value);
+    if (dateTime == null) return null;
+    return DateFormat('dd MMM yyyy · h:mm a')
+        .format(ManilaTimezone.convert(dateTime));
+  }
+
   DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
@@ -622,41 +213,38 @@ class JobHistoryDetailPage extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
+/// "Open in Map" button styled to match the dispatch surface. Disabled state
+/// shows a snackbar explaining coordinates are unavailable.
+class _MapButton extends StatelessWidget {
+  const _MapButton({required this.enabled, required this.onOpen});
 
-  const _InfoRow({required this.label, required this.value});
+  final bool enabled;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: enabled
+            ? onOpen
+            : () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Coordinates not available')),
+                );
+              },
+        icon: const Icon(Icons.map_outlined),
+        label: const Text('Open in Map'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ),
-        ],
+          side: BorderSide(color: context.dispatch.cardBorder),
+          foregroundColor: enabled
+              ? DispatchColors.brand
+              : context.dispatch.subtle,
+        ),
       ),
     );
   }

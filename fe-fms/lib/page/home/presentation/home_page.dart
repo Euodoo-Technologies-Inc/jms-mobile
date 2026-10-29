@@ -219,34 +219,14 @@ class _HomeTabState extends State<HomeTab> {
                 ],
               ),
 
-              // Map area or Overview when map hidden for 'field'
+              // Primary area: the map for map-roles, otherwise the overview.
+              // The map is gated on isLoading (Traxroot pipeline); the overview
+              // on isOverviewLoading (job stats) — so they reveal independently.
               Expanded(
-                child: controller.isLoading.value
-                    ? ShimmerProvider(
-                        child: showMap && showOverview
-                            ? Column(
-                                children: const [
-                                  Expanded(child: SkeletonMapPlaceholder()),
-                                  SizedBox(height: 12),
-                                  SkeletonStatCards(),
-                                ],
-                              )
-                            : showMap
-                                ? const SkeletonMapPlaceholder()
-                                : showOverview
-                                    ? const SingleChildScrollView(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            SizedBox(height: 8),
-                                            SkeletonStatCards(),
-                                          ],
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(),
-                      )
-                    : showMap
-                        ? Stack(
+                child: showMap
+                    ? (controller.isLoading.value
+                        ? ShimmerProvider(child: const SkeletonMapPlaceholder())
+                        : Stack(
                             children: [
                               AdaptiveMap(
                                 center: controller.mapCenter,
@@ -299,49 +279,29 @@ class _HomeTabState extends State<HomeTab> {
                                   ),
                                 ),
                             ],
+                          ))
+                    : showOverview
+                        // Field users: the overview is the whole screen.
+                        ? SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: 8),
+                                Text('Overview', style: Theme.of(context).textTheme.titleMedium),
+                                const SizedBox(height: 8),
+                                controller.isOverviewLoading.value
+                                    ? ShimmerProvider(child: const SkeletonStatCards())
+                                    : _overviewCards(controller),
+                              ],
+                            ),
                           )
-                        : (showOverview
-                            ? SingleChildScrollView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    const SizedBox(height: 8),
-                                    Text('Overview', style: Theme.of(context).textTheme.titleMedium),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _StatCard(
-                                            title: 'Open',
-                                            value: controller.openJobsCount.toString(),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _StatCard(
-                                            title: 'Ongoing',
-                                            value: controller.ongoingJobsCount.toString(),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _StatCard(
-                                            title: 'Complete',
-                                            value: controller.completedJobsCount.toString(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : Center(
-                                child: Text(
-                                  'Overview not available',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                                ),
-                              ) ),
+                        : Center(
+                            child: Text(
+                              'Overview not available',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                            ),
+                          ),
               ),
 
               if (showMap && controller.error.value.isNotEmpty) ...[
@@ -355,43 +315,15 @@ class _HomeTabState extends State<HomeTab> {
               ],
               const SizedBox(height: 16),
 
-              // Show the detailed Overview below the map only when allowed
+              // Detailed overview below the map (Pro map-roles). Renders
+              // independently of the map's load state, so job counts appear in
+              // ~1s instead of waiting for the Traxroot pipeline.
               if (showOverview && showMap) ...[
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Overview',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
+                Text('Overview', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Open Jobs',
-                        value: controller.openJobsCount.toString(),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Ongoing',
-                        value: controller.ongoingJobsCount.toString(),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Complete',
-                        value: controller.completedJobsCount.toString(),
-                      ),
-                    ),
-                  ],
-                ),
+                controller.isOverviewLoading.value
+                    ? ShimmerProvider(child: const SkeletonStatCards())
+                    : _overviewCards(controller),
               ],
 
               // if (!isPro) ...[
@@ -408,6 +340,34 @@ class _HomeTabState extends State<HomeTab> {
       ),
     );
   }
+}
+
+/// The three job-overview stat cards (Open / Ongoing / Complete).
+Widget _overviewCards(HomeController controller) {
+  return Row(
+    children: [
+      Expanded(
+        child: _StatCard(
+          title: 'Open',
+          value: controller.openJobsCount.toString(),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: _StatCard(
+          title: 'Ongoing',
+          value: controller.ongoingJobsCount.toString(),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: _StatCard(
+          title: 'Complete',
+          value: controller.completedJobsCount.toString(),
+        ),
+      ),
+    ],
+  );
 }
 
 class _StatCard extends StatelessWidget {

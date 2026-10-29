@@ -74,6 +74,10 @@ void main() async {
   runApp(const MyApp());
 }
 
+// Built once and reused — avoids reallocating ThemeData on every theme swap.
+final ThemeData _lightTheme = AppTheme.light();
+final ThemeData _darkTheme = AppTheme.dark();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -82,14 +86,30 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'E-FMS',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      // Initial mode; runtime switches go through Get.changeThemeMode in
-      // ThemeController. Defaults to following the system setting.
-      themeMode: Get.find<ThemeController>().themeMode.value,
-      // Floats the dispatch notice banner above every screen.
-      builder: (context, child) =>
-          DispatchNoticeHost(child: child ?? const SizedBox.shrink()),
+      // Every route slides in from the right (the same card-swipe used by the
+      // profile page) so navigation feels seamless and consistent app-wide.
+      defaultTransition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 280),
+      // MaterialApp's theme is pinned so its built-in AnimatedTheme never
+      // animates (the 200ms cross-fade janks on heavy screens). The real,
+      // user-selected theme is applied instantly in [builder] via a plain
+      // Theme widget driven by ThemeController — a single-frame swap.
+      theme: _lightTheme,
+      themeMode: ThemeMode.light,
+      builder: (context, child) {
+        final content =
+            DispatchNoticeHost(child: child ?? const SizedBox.shrink());
+        return Obx(() {
+          final mode = Get.find<ThemeController>().themeMode.value;
+          final isDark = mode == ThemeMode.dark ||
+              (mode == ThemeMode.system &&
+                  MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+          return Theme(
+            data: isDark ? _darkTheme : _lightTheme,
+            child: content,
+          );
+        });
+      },
       home: const RootGate(),
     );
   }

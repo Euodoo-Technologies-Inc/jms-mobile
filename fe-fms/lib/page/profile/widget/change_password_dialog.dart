@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
 import 'package:fms/core/widgets/snackbar_utils.dart';
 import 'package:fms/page/profile/controller/profile_controller.dart';
 
@@ -97,109 +98,208 @@ class _ChangePasswordDialogContentState
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Change Password'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: widget.formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: widget.currentPasswordCtrl,
-                obscureText: _obscureCurrent,
-                decoration: InputDecoration(
-                  labelText: 'Current Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureCurrent
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () =>
+    final palette = context.dispatch;
+    return Dialog(
+      backgroundColor: palette.card,
+      surfaceTintColor: palette.card,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: palette.cardBorder),
+      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+            child: Form(
+              key: widget.formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header — brand badge + title + supporting line.
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: DispatchColors.brand.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.lock_outline,
+                            color: DispatchColors.brand, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Change password',
+                              style: TextStyle(
+                                color: palette.ink,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Use at least 8 characters.',
+                              style: TextStyle(
+                                color: palette.subtle,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  _passwordField(
+                    controller: widget.currentPasswordCtrl,
+                    label: 'Current password',
+                    icon: Icons.lock_outline,
+                    obscure: _obscureCurrent,
+                    onToggle: () =>
                         setState(() => _obscureCurrent = !_obscureCurrent),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Current password is required';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Current password is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: widget.newPasswordCtrl,
-                obscureText: _obscureNew,
-                decoration: InputDecoration(
-                  labelText: 'New Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureNew ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () =>
-                        setState(() => _obscureNew = !_obscureNew),
+                  const SizedBox(height: 14),
+                  _passwordField(
+                    controller: widget.newPasswordCtrl,
+                    label: 'New password',
+                    icon: Icons.lock_reset_outlined,
+                    obscure: _obscureNew,
+                    onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'New password is required';
+                      }
+                      if (value.trim().length < 8) {
+                        return 'Password must be at least 8 characters';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'New password is required';
-                  }
-                  if (value.trim().length < 8) {
-                    return 'Password must be at least 8 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: widget.confirmPasswordCtrl,
-                obscureText: _obscureConfirm,
-                decoration: InputDecoration(
-                  labelText: 'Confirm New Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () =>
+                  const SizedBox(height: 14),
+                  _passwordField(
+                    controller: widget.confirmPasswordCtrl,
+                    label: 'Confirm new password',
+                    icon: Icons.lock_reset_outlined,
+                    obscure: _obscureConfirm,
+                    onToggle: () =>
                         setState(() => _obscureConfirm = !_obscureConfirm),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please confirm your new password';
+                      }
+                      if (value.trim() != widget.newPasswordCtrl.text.trim()) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please confirm your new password';
-                  }
-                  if (value.trim() != widget.newPasswordCtrl.text.trim()) {
-                    return 'Passwords do not match';
-                  }
-                  return null;
-                },
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: OutlinedButton(
+                            onPressed:
+                                _isLoading ? null : () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: palette.ink,
+                              side: BorderSide(color: palette.cardBorder),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: FilledButton(
+                            onPressed: _isLoading ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: DispatchColors.brand,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Update'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+    );
+  }
+
+  /// A theme-aware obscured password field with a visibility toggle, styled to
+  /// match the rest of the profile surface.
+  Widget _passwordField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool obscure,
+    required VoidCallback onToggle,
+    required String? Function(String?) validator,
+  }) {
+    final palette = context.dispatch;
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: DispatchColors.brand, size: 20),
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: palette.subtle,
+            size: 20,
+          ),
+          onPressed: onToggle,
         ),
-        FilledButton(
-          onPressed: _isLoading ? null : _submit,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Change Password'),
-        ),
-      ],
+      ),
+      validator: validator,
     );
   }
 }

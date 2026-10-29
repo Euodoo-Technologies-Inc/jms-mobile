@@ -73,6 +73,9 @@ class Variables {
   static const String prefTraxrootToken = 'TraxrootAccessToken';
   static const String prefTraxrootTokenExpiry = 'TraxrootAccessTokenExpiry';
   static const String prefUserRole = 'UserRole';
+  // User identity, persisted at login so the profile renders with no fetch.
+  static const String prefFullName = 'FullName';
+  static const String prefEmail = 'Email';
 
 
   static const String companyLogo = 'CompanyLogo';

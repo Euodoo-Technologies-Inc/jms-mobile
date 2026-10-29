@@ -126,7 +126,11 @@ Future<AuthResponseModel> login({
       'Too many login attempts. Please try again in $seconds seconds.',
     );
   } else {
-    HttpErrorHandler.handleResponse(response.statusCode, response.body);
+    // NOTE: deliberately do NOT route through HttpErrorHandler here. A 401 on
+    // the login request just means wrong credentials — there's no session to
+    // expire. Running the global 401 handler would call logout() and
+    // Get.offAll(LoginPage), wiping the page and the user's typed inputs. We
+    // simply surface the message so the login page can show it inline.
     log(response.body, name: 'AuthRemoteDataSource', level: 1200);
     throw Exception(_extractErrorMessage(
       response.body,

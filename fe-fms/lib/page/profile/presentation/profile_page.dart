@@ -3,12 +3,25 @@ import 'package:get/get.dart';
 import 'package:fms/core/services/subscription.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fms/core/constants/variables.dart';
-import 'package:fms/core/widgets/skeleton_loading.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/widgets/profile_widgets.dart';
+import 'package:fms/page/auth/controller/auth_controller.dart';
 import '../controller/profile_controller.dart';
 import '../widget/change_password_dialog.dart';
-import '../../../nav_bar.dart';
 
-/// A page displaying the user's profile, subscription status, and logout option.
+const String _kAppName = 'JMS';
+const String _kAppVersion = '2.0';
+const String _kAppBuild = '36';
+
+/// User profile for the two-wheels (legacy E-FMS) surface.
+///
+/// Mirrors the four-wheels [DispatchProfilePage]: it renders entirely from the
+/// identity cached on [AuthController] at login (name, email) plus the company
+/// and plan persisted in prefs/subscription — so there is **no network fetch
+/// and no loading state** when opening the page. The green brand header and
+/// theme-aware sections (including the light/dark theme picker) match the
+/// four-wheels design, while keeping the two-wheels features: PRO/BASIC plan,
+/// subscription, support, change-password, and logout.
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -18,197 +31,144 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late final ProfileController _controller;
+  final AuthController _auth = Get.find<AuthController>();
   String? _company;
 
   @override
   void initState() {
     super.initState();
-    _controller = Get.put(ProfileController());
+    // Kept alive for change-password (the dialog does Get.find) and logout.
+    // It no longer fetches the profile — identity comes from [AuthController].
+    _controller = Get.isRegistered<ProfileController>()
+        ? Get.find<ProfileController>()
+        : Get.put(ProfileController());
 
-    // Load company from SharedPreferences (persisted at login)
+    // Company name was persisted at login.
     SharedPreferences.getInstance().then((prefs) {
       final company = prefs.getString(Variables.prefCompany);
       if (mounted) setState(() => _company = company);
     });
   }
 
+  Future<void> _confirmLogout() async {
+    final ok = await showProfileLogoutDialog(
+      context,
+      message: 'Are you sure you want to log out?',
+    );
+    if (!ok || !mounted) return;
+    await _controller.logout(context: context, mounted: mounted);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final palette = context.dispatch;
     final isPro = subscriptionService.currentPlan == Plan.pro;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        //back button
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const NavBar()),
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Obx(() {
-            final profile = _controller.profile.value;
-            final loading = _controller.isLoading.value;
-
-            if (loading) {
-              return const ShimmerProvider(child: SkeletonProfile());
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Card(
-                  child: ListTile(
-                    isThreeLine: false,
-                    leading: const CircleAvatar(
-                      radius: 26,
-                      child: Icon(Icons.person),
-                    ),
-                    title: Text(
-                      profile?.data?.fullname ?? 'Unknown',
-                    ),
-                    subtitle: Text(
-                      profile?.data?.email ?? 'Unknown',
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isPro
-                            ? Colors.blue.withValues(alpha: 0.08)
-                            : Colors.grey.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        isPro ? 'PRO' : 'BASIC',
-                        style: TextStyle(
-                          color: isPro
-                              ? Colors.blue.shade700
-                              : Colors.grey.shade700,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+      backgroundColor: palette.pageSurface,
+      body: SingleChildScrollView(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Identity is cached on AuthController, so it shows immediately.
+            Obx(() {
+              final name = _auth.fullName.value?.trim();
+              final email = _auth.userEmail.value?.trim();
+              return ProfileBrandHeader(
+                name: (name == null || name.isEmpty) ? 'Unknown' : name,
+                subtitle:
+                    (email == null || email.isEmpty) ? 'No email on file' : email,
+                chipLabel: isPro ? 'Pro' : 'Basic',
+              );
+            }),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const ProfileSectionLabel('Company'),
+                  ProfileInfoRow(
+                    icon: Icons.business_outlined,
+                    title: _company ?? 'Unknown company',
                   ),
-                ),
-                if (_controller.error.value != null)
+                  const SizedBox(height: 22),
+                  const ProfileSectionLabel('Subscription'),
+                  ProfileInfoRow(
+                    icon: Icons.workspace_premium_outlined,
+                    title: isPro ? 'Pro plan' : 'Basic plan',
+                    trailing: _PlanBadge(isPro: isPro),
+                  ),
+                  const SizedBox(height: 8),
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Card(
-                      color: Colors.red.shade50,
-                      child: ListTile(
-                        leading: Icon(Icons.error_outline, color: Colors.red.shade700),
-                        title: Text(
-                          _controller.error.value!,
-                          style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-                        ),
-                        trailing: TextButton(
-                          onPressed: () => _controller.fetchProfile(),
-                          child: const Text('RETRY'),
-                        ),
-                      ),
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      '${_company ?? "The company"} is subscribed to the '
+                      '${isPro ? "Pro" : "Basic"} plan.',
+                      style: TextStyle(color: palette.subtle, fontSize: 12.5),
                     ),
                   ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Subscription',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 10),
-                        SegmentedButton<Plan>(
-                          segments: const [
-                            ButtonSegment(
-                              value: Plan.basic,
-                              label: Text('Basic'),
-                            ),
-                            ButtonSegment(value: Plan.pro, label: Text('Pro')),
-                          ],
-                          selected: {subscriptionService.currentPlan},
-                          // Disabled - cannot change subscription from app
-                          onSelectionChanged: null,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          isPro
-                            ? '${_company ?? "The company"} is subscribed to the Pro plan.'
-                            : '${_company ?? "The company"} is subscribed to the Basic plan.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text('Support'),
-                    subtitle: const Text('help@efms.app'),
-                    onTap: () {},
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.lock_outline),
-                    title: const Text('Change Password'),
+                  const SizedBox(height: 22),
+                  const ProfileSectionLabel('Appearance'),
+                  const ProfileThemeModeTile(),
+                  const SizedBox(height: 22),
+                  const ProfileSectionLabel('Account'),
+                  ProfileActionRow(
+                    icon: Icons.lock_outline,
+                    title: 'Change password',
                     onTap: () => showChangePasswordDialog(context),
                   ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text(
-                      'Logout',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    onTap: () {
-                      //show dialog
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Logout'),
-                          content: const Text(
-                            'Are you sure you want to logout?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                await _controller.logout(
-                                  context: context,
-                                  mounted: mounted,
-                                );
-                              },
-                              child: const Text(
-                                'Logout',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                  const SizedBox(height: 12),
+                  const ProfileInfoRow(
+                    icon: Icons.help_outline,
+                    title: 'Support',
+                    subtitle: 'help@efms.app',
                   ),
-                ),
-              ],
-            );
-          }),
+                  const SizedBox(height: 12),
+                  ProfileActionRow(
+                    icon: Icons.logout,
+                    title: 'Log out',
+                    danger: true,
+                    onTap: _confirmLogout,
+                  ),
+                  const SizedBox(height: 26),
+                  Center(
+                    child: Text(
+                      '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
+                      style: TextStyle(color: palette.subtle, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small plan badge shown on the subscription row.
+class _PlanBadge extends StatelessWidget {
+  const _PlanBadge({required this.isPro});
+  final bool isPro;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isPro ? DispatchColors.brand : context.dispatch.subtle;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isPro ? 'PRO' : 'BASIC',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          letterSpacing: 0.5,
         ),
       ),
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dispatch_palette.dart';
+
 /// A model representing a badge on the job summary card.
 class JobCardBadge {
   final String label;
@@ -59,11 +61,11 @@ class JobSummaryCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
-            border: Border.all(color: accent.withValues(alpha: 0.18)),
+            color: context.dispatch.card,
+            border: Border.all(color: context.dispatch.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: accent.withValues(alpha: 0.08),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
