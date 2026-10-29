@@ -10,11 +10,9 @@ Future<bool> launchMapsDirections(
   BuildContext context, {
   required double lat,
   required double lng,
-  String? label,
 }) async {
   final uri = Uri.parse(
-    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng'
-    '${label != null ? '&destination_place_id=${Uri.encodeComponent(label)}' : ''}',
+    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
   );
   try {
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);

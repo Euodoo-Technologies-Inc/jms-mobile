@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
+import '../service/dispatch_notice_service.dart';
 
 /// A plain, flat list of today's jobs — a quick read-through of the day.
 /// Tapping a job focuses it on the map and returns.
@@ -29,7 +30,10 @@ class DispatchJobsOverviewPage extends StatelessWidget {
         ),
       ),
       body: Obx(() {
-        if (ctrl.isLoading.value && ctrl.jobs.isEmpty) {
+        // First load only — a poll on a zero-job day refreshes in place.
+        if (ctrl.isLoading.value &&
+            ctrl.jobs.isEmpty &&
+            ctrl.lastFetchedAt.value == null) {
           return const Center(
             child: CircularProgressIndicator(color: DispatchColors.brand),
           );
@@ -65,8 +69,16 @@ class DispatchJobsOverviewPage extends StatelessWidget {
                 job: job,
                 stopNumber: job.routeOrder ?? (i + 1),
                 onTap: () {
-                  ctrl.selectJob(job);
-                  Get.back();
+                  // The map only shows unfinished, geocoded jobs — say why
+                  // instead of silently staying put.
+                  final notices = Get.find<DispatchNoticeController>();
+                  if (job.isFinished) {
+                    notices.info('This job is already finished.');
+                  } else if (!ctrl.selectJob(job)) {
+                    notices.info('This job has no coordinates yet.');
+                  } else {
+                    Get.back();
+                  }
                 },
               );
             },
