@@ -1563,7 +1563,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 value: job.notes!,
                               ),
                             for (final section in job.externalDetails)
-                              _DetailSection(section: section),
+                              DispatchJobDetailSectionTile(section: section),
                             const SizedBox(height: 16),
                             _PanelActions(
                               job: job,
@@ -1715,9 +1715,11 @@ class _PanelActions extends StatelessWidget {
   }
 }
 
-/// One ORMECO details section, collapsed so the panel stays map-sized.
-class _DetailSection extends StatelessWidget {
-  const _DetailSection({required this.section});
+/// One ORMECO details section, collapsed so the panel stays map-sized. Public
+/// only so a widget test can pump it without the map page around it.
+@visibleForTesting
+class DispatchJobDetailSectionTile extends StatelessWidget {
+  const DispatchJobDetailSectionTile({super.key, required this.section});
   final DispatchJobDetailSection section;
 
   @override
