@@ -30,15 +30,21 @@ class DispatchBrandHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (onBack != null)
-            IconButton(
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back,
-                  color: DispatchColors.onBrand),
-              tooltip: 'Back',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+            // 48dp target; shifted left so the glyph stays on the 20px edge.
+            Transform.translate(
+              offset: const Offset(-12, 0),
+              child: IconButton(
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back,
+                    color: DispatchColors.onBrand),
+                tooltip: 'Back',
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints.tightFor(width: 48, height: 48),
+              ),
             ),
-          const SizedBox(height: 18),
+          // The 48dp back target already adds 12px under the glyph.
+          SizedBox(height: onBack != null ? 6 : 18),
           Container(
             width: 60,
             height: 60,
@@ -53,18 +59,15 @@ class DispatchBrandHeader extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: DispatchColors.onBrand,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 14,
             ),
           ),
         ],
@@ -165,7 +168,7 @@ class DispatchErrorText extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: red, fontSize: 12.5),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: red),
             ),
           ),
         ],
@@ -195,7 +198,9 @@ class DispatchPrimaryButton extends StatelessWidget {
         foregroundColor: DispatchColors.onBrand,
         disabledBackgroundColor: DispatchColors.brand.withValues(alpha: 0.5),
         minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
       ),
       onPressed: loading ? null : onPressed,
       child: loading

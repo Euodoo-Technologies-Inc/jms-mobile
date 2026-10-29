@@ -46,6 +46,19 @@ class AppDialog extends StatelessWidget {
   /// Action buttons, laid out as an even row. Use [AppDialogButton].
   final List<Widget> actions;
 
+  /// Blocking progress overlay for a request in flight. Not dismissible by tap
+  /// or back; close it with `Navigator.of(context, rootNavigator: true).pop()`.
+  static void showLoading(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
@@ -76,23 +89,18 @@ class AppDialog extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: palette.ink,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(height: 1.3),
               ),
               if (message != null) ...[
                 const SizedBox(height: 8),
                 Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: palette.subtle,
-                    fontSize: 13.5,
-                    height: 1.45,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.45),
                 ),
               ],
               if (content != null) ...[
@@ -129,6 +137,7 @@ class AppDialogButton extends StatelessWidget {
     this.color,
     this.filled = false,
     this.icon,
+    this.busy = false,
   });
 
   final String label;
@@ -137,6 +146,9 @@ class AppDialogButton extends StatelessWidget {
   final bool filled;
   final IconData? icon;
 
+  /// Shows a spinner in place of the label (pair with `onPressed: null`).
+  final bool busy;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
@@ -144,18 +156,29 @@ class AppDialogButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
     );
     const padding = EdgeInsets.symmetric(vertical: 14);
-    final text = Text(
-      label,
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-    );
+    // Buttons recolour textStyle with their foreground colour.
+    final textStyle = Theme.of(context).textTheme.titleMedium;
+    final Widget text = busy
+        ? SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: filled ? Colors.white : palette.ink,
+              semanticsLabel: label,
+            ),
+          )
+        : Text(label);
 
     if (filled) {
       final bg = color ?? DispatchColors.brand;
       final style = FilledButton.styleFrom(
         backgroundColor: bg,
         foregroundColor: Colors.white,
+        // Busy keeps the fill so the white spinner stays visible.
+        disabledBackgroundColor: busy ? bg : null,
         padding: padding,
         shape: shape,
+        textStyle: textStyle,
         elevation: 0,
       );
       return icon == null
@@ -176,6 +199,7 @@ class AppDialogButton extends StatelessWidget {
       ),
       padding: padding,
       shape: shape,
+      textStyle: textStyle,
       overlayColor: fg.withValues(alpha: 0.08),
     );
     return icon == null

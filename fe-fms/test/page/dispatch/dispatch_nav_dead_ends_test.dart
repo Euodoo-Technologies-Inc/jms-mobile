@@ -91,7 +91,7 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       jobs.lastFetchedAt.value = DateTime.now();
-      await tester.pump();
+      await tester.pumpAndSettle(); // the spinner fades out
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('No pending jobs'), findsOneWidget);
       await unmountMap(tester);

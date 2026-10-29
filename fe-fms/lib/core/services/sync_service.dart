@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:fms/core/widgets/app_feedback.dart';
 import 'package:fms/core/network/api_client.dart';
 import 'package:fms/core/services/connectivity_service.dart';
 import 'package:fms/core/services/image_storage_service.dart';
@@ -12,7 +12,6 @@ import 'package:fms/data/datasource/reschedule_job_datasource.dart';
 import 'package:fms/data/models/offline_queue_item.dart';
 import 'package:fms/data/repository/offline_queue_repository.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
-import 'package:fms/core/theme/dispatch_palette.dart';
 
 class SyncService extends GetxService {
   final OfflineQueueRepository _queueRepo = OfflineQueueRepository();
@@ -54,14 +53,7 @@ class SyncService extends GetxService {
       if (items.isEmpty) return;
 
       log('Syncing ${items.length} queued action(s)...', name: 'SyncService');
-      Get.snackbar(
-        'Syncing',
-        'Syncing ${items.length} queued action(s)...',
-        backgroundColor: DispatchColors.brand.withValues(alpha: 0.9),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+      AppFeedback.info('Syncing ${items.length} queued action(s)...');
 
       final connectivity = Get.find<ConnectivityService>();
 
@@ -112,14 +104,7 @@ class SyncService extends GetxService {
       }
 
       log('Job #${item.jobId} synced successfully', name: 'SyncService');
-      Get.snackbar(
-        'Synced',
-        'Job #${item.jobId} synced successfully',
-        backgroundColor: DispatchColors.brand.withValues(alpha: 0.9),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+      AppFeedback.success('Job #${item.jobId} synced successfully');
     } catch (e) {
       log('Failed to sync job #${item.jobId}: $e', name: 'SyncService', level: 1000);
 
@@ -131,26 +116,12 @@ class SyncService extends GetxService {
           await ImageStorageService.deleteImages(item.imagePaths!);
         }
 
-        Get.snackbar(
-          'Sync Failed',
-          'Job #${item.jobId} failed after 3 attempts. Discarded.',
-          backgroundColor: DispatchColors.danger.withValues(alpha: 0.9),
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 4),
-        );
+        AppFeedback.error('Job #${item.jobId} failed after 3 attempts. Discarded.');
       } else {
         // Reset to pending for retry on next sync cycle
         await _queueRepo.resetToPendingWithRetry(itemId, newRetryCount);
 
-        Get.snackbar(
-          'Sync Retry',
-          'Job #${item.jobId} will retry ($newRetryCount/3)',
-          backgroundColor: DispatchColors.warning.withValues(alpha: 0.9),
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
-        );
+        AppFeedback.info('Job #${item.jobId} will retry ($newRetryCount/3)');
       }
     }
   }

@@ -110,9 +110,8 @@ class JobReportPage extends StatelessWidget {
             DetailCard(
               child: Text(
                 notes,
-                style: TextStyle(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: palette.ink,
-                  fontSize: 13.5,
                   height: 1.5,
                 ),
               ),

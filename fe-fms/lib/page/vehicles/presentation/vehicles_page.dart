@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fms/core/widgets/object_status_bottom_sheet.dart';
 import 'package:fms/page/vehicles/controller/vehicles_controller.dart';
 import 'package:fms/core/widgets/skeleton_loading.dart';
+import 'package:fms/core/theme/motion.dart';
 import 'package:fms/page/vehicles/presentation/vehicle_tracking_page.dart';
 import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/core/theme/dispatch_palette.dart';
@@ -61,9 +62,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                             const Text('All'),
                             Text(
                               '${controller.totalVehicleCount}',
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.grey[600],
-                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -84,9 +84,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                               ),
                               Text(
                                 '$count',
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: Colors.grey[600],
-                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -104,9 +103,13 @@ class _VehiclesPageState extends State<VehiclesPage> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: controller.loadData,
-            child: Obx(() {
+            // Cross-fade skeleton → list; instant under reduce motion.
+            child: Obx(() => AnimatedSwitcher(
+                duration: Motion.of(context, Motion.short),
+                child: () {
               if (controller.isLoading.value && controller.objects.isEmpty) {
                 return ShimmerProvider(
+                  key: const ValueKey('skeleton'),
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
@@ -171,18 +174,15 @@ class _VehiclesPageState extends State<VehiclesPage> {
                       leading: _VehicleIcon(url: iconUrl),
                       title: Text(
                         vehicle.name ?? 'Object ${vehicle.id ?? index + 1}',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: palette.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       subtitle: subtitle != null && subtitle.isNotEmpty
                           ? Text(
                               subtitle,
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: palette.subtle,
-                                fontSize: 13,
                               ),
                             )
                           : null,
@@ -241,7 +241,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                   );
                 },
               );
-            }),
+            }())),
           ),
         ),
       ],
@@ -405,7 +405,7 @@ class _VehiclesMessage extends StatelessWidget {
         Text(
           message,
           textAlign: TextAlign.center,
-          style: TextStyle(color: palette.subtle, fontSize: 15),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: palette.subtle),
         ),
         if (onRetry != null) ...[
           const SizedBox(height: 16),

@@ -96,10 +96,7 @@ class DispatchProfilePage extends StatelessWidget {
                       Center(
                         child: Text(
                           '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
-                          style: TextStyle(
-                            color: palette.subtle,
-                            fontSize: 12,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
                     ],
@@ -134,6 +131,7 @@ class DispatchProfilePage extends StatelessWidget {
     await auth.logout();
     // The Profile page sits on top of a Get.to() push, so the chooser is
     // hidden beneath it — replace the whole stack explicitly.
-    Get.offAll(() => const LoginChooserPage());
+    // Fade, not the forward slide: signing out is going back.
+    Get.offAll(() => const LoginChooserPage(), transition: Transition.fade);
   }
 }
