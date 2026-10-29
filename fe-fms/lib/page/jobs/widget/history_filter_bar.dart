@@ -185,9 +185,10 @@ class _FilterBody extends StatelessWidget {
           ),
         ),
 
-        // Date range chips
+        // Date range chips. The row grows with text size so the chips
+        // don't clip.
         SizedBox(
-          height: 38,
+          height: MediaQuery.textScalerOf(context).scale(38),
           child: Obx(() {
             return ListView(
               scrollDirection: Axis.horizontal,
@@ -213,7 +214,7 @@ class _FilterBody extends StatelessWidget {
 
         // Job type chips
         SizedBox(
-          height: 38,
+          height: MediaQuery.textScalerOf(context).scale(38),
           child: Obx(() {
             return ListView(
               scrollDirection: Axis.horizontal,
