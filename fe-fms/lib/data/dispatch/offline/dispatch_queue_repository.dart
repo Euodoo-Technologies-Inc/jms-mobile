@@ -22,6 +22,7 @@ class DispatchQueueEntry {
     this.meterNumber,
     this.photoPaths = const [],
     this.fcmToken,
+    this.actionAt,
   });
 
   final String id; // monotonically increasing index, used to dedupe drains
@@ -33,6 +34,11 @@ class DispatchQueueEntry {
   final List<String> photoPaths;
   final String? fcmToken;
 
+  /// When the crew pressed Start / Finish. Sent as `started_at` /
+  /// `finished_at` so the server records it instead of the sync time. Null
+  /// on entries queued before it was recorded.
+  final DateTime? actionAt;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'type': type.name,
@@ -42,6 +48,7 @@ class DispatchQueueEntry {
         if (meterNumber != null) 'meterNumber': meterNumber,
         if (photoPaths.isNotEmpty) 'photoPaths': photoPaths,
         if (fcmToken != null) 'fcmToken': fcmToken,
+        if (actionAt != null) 'actionAt': actionAt!.toUtc().toIso8601String(),
       };
 
   factory DispatchQueueEntry.fromJson(Map<String, dynamic> json) {
@@ -61,6 +68,8 @@ class DispatchQueueEntry {
           .map((e) => e.toString())
           .toList(growable: false),
       fcmToken: json['fcmToken']?.toString(),
+      actionAt:
+          DateTime.tryParse(json['actionAt']?.toString() ?? '')?.toLocal(),
     );
   }
 }
@@ -113,12 +122,16 @@ class DispatchQueueRepository {
 
   /// Enqueues a start operation. Idempotency key is already persisted by
   /// the controller via [DispatchIdempotencyStore].
-  Future<DispatchQueueEntry> enqueueStart(int jobId) async {
+  Future<DispatchQueueEntry> enqueueStart(
+    int jobId, {
+    DateTime? startedAt,
+  }) async {
     final entry = DispatchQueueEntry(
       id: _nextId(),
       type: DispatchQueueOpType.start,
       enqueuedAt: DateTime.now(),
       jobId: jobId,
+      actionAt: startedAt,
     );
     final all = await readAll();
     all.add(entry);
@@ -133,6 +146,7 @@ class DispatchQueueRepository {
     String? notes,
     String? meterNumber,
     List<File> photos = const [],
+    DateTime? finishedAt,
   }) async {
     final dir = await _photoDir();
     final copies = <String>[];
@@ -158,6 +172,7 @@ class DispatchQueueRepository {
       notes: notes,
       meterNumber: meterNumber,
       photoPaths: copies,
+      actionAt: finishedAt,
     );
     final all = await readAll();
     all.add(entry);
