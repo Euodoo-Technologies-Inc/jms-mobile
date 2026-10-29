@@ -54,7 +54,8 @@ class DispatchJobsOverviewPage extends StatelessWidget {
           color: DispatchColors.brand,
           onRefresh: ctrl.refreshToday,
           child: ListView.separated(
-            padding: EdgeInsets.zero,
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom),
             itemCount: jobs.length,
             separatorBuilder: (_, _) => Divider(
               height: 1,

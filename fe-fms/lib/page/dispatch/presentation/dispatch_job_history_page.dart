@@ -120,7 +120,7 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
       );
     }
     return ListView.separated(
-      padding: EdgeInsets.zero,
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       itemCount: _jobs.length,
       separatorBuilder: (_, _) => Divider(
         height: 1,

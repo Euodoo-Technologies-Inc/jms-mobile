@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/dispatch_palette.dart';
@@ -21,78 +22,94 @@ class DispatchProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Get.find<DispatchAuthController>();
     final palette = context.dispatch;
-    return Scaffold(
-      backgroundColor: palette.pageSurface,
-      body: Obx(() {
-        final rider = auth.rider.value;
-        final company = auth.company.value;
-        final name = rider?.fullname.isNotEmpty == true
-            ? rider!.fullname
-            : 'Driver';
-        final phone = rider?.phone ?? '';
-        return SingleChildScrollView(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ProfileBrandHeader(
-                name: name,
-                subtitle: phone.isEmpty ? 'No phone on file' : phone,
-                chipLabel: 'Driver',
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (company != null) ...[
-                      const ProfileSectionLabel('Company'),
-                      ProfileInfoRow(
-                        icon: Icons.business_outlined,
-                        title: company.name,
-                      ),
-                      const SizedBox(height: 22),
-                    ],
-                    if (rider != null) ...[
-                      const ProfileSectionLabel('Vehicle'),
-                      ProfileInfoRow(
-                        icon: Icons.local_shipping_outlined,
-                        title: rider.vehicleName ?? 'No vehicle assigned',
-                      ),
-                      const SizedBox(height: 22),
-                    ],
-                    const ProfileSectionLabel('Activity'),
-                    ProfileActionRow(
-                      icon: Icons.history,
-                      title: 'Job history',
-                      subtitle: 'Review your completed jobs',
-                      onTap: () => Get.to(() => const DispatchJobHistoryPage()),
-                    ),
-                    const SizedBox(height: 22),
-                    const ProfileSectionLabel('Appearance'),
-                    const ProfileThemeModeTile(),
-                    const SizedBox(height: 22),
-                    const ProfileSectionLabel('Account'),
-                    ProfileActionRow(
-                      icon: Icons.logout,
-                      title: 'Log out',
-                      danger: true,
-                      onTap: () => _confirmLogout(context, auth),
-                    ),
-                    const SizedBox(height: 26),
-                    Center(
-                      child: Text(
-                        '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
-                        style: TextStyle(color: palette.subtle, fontSize: 12),
-                      ),
-                    ),
-                  ],
+    // The green header runs under the status bar: light icons, whatever the
+    // map page behind it set.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: palette.pageSurface,
+        body: Obx(() {
+          final rider = auth.rider.value;
+          final company = auth.company.value;
+          final name = rider?.fullname.isNotEmpty == true
+              ? rider!.fullname
+              : 'Driver';
+          final phone = rider?.phone ?? '';
+          return SingleChildScrollView(
+            // The header covers the top inset; this keeps the footer clear of
+            // the nav bar.
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ProfileBrandHeader(
+                  name: name,
+                  subtitle: phone.isEmpty ? 'No phone on file' : phone,
+                  chipLabel: 'Driver',
                 ),
-              ),
-            ],
-          ),
-        );
-      }),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (company != null) ...[
+                        const ProfileSectionLabel('Company'),
+                        ProfileInfoRow(
+                          icon: Icons.business_outlined,
+                          title: company.name,
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+                      if (rider != null) ...[
+                        const ProfileSectionLabel('Vehicle'),
+                        ProfileInfoRow(
+                          icon: Icons.local_shipping_outlined,
+                          title: rider.vehicleName ?? 'No vehicle assigned',
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+                      const ProfileSectionLabel('Activity'),
+                      ProfileActionRow(
+                        icon: Icons.history,
+                        title: 'Job history',
+                        subtitle: 'Review your completed jobs',
+                        onTap: () =>
+                            Get.to(() => const DispatchJobHistoryPage()),
+                      ),
+                      const SizedBox(height: 22),
+                      const ProfileSectionLabel('Appearance'),
+                      const ProfileThemeModeTile(),
+                      const SizedBox(height: 22),
+                      const ProfileSectionLabel('Account'),
+                      ProfileActionRow(
+                        icon: Icons.logout,
+                        title: 'Log out',
+                        danger: true,
+                        onTap: () => _confirmLogout(context, auth),
+                      ),
+                      const SizedBox(height: 26),
+                      Center(
+                        child: Text(
+                          '$_kAppName  •  v$_kAppVersion ($_kAppBuild)',
+                          style: TextStyle(
+                            color: palette.subtle,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
     );
   }
 
