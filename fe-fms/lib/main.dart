@@ -1,3 +1,6 @@
+import 'dart:developer';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -23,6 +26,44 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // App-level safety net: log uncaught framework and async errors instead of
+  // letting them vanish, and in release show a calm message in place of a
+  // widget that failed to build (debug keeps the red screen for diagnosis).
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    log(
+      '${details.exception}',
+      name: 'FlutterError',
+      error: details.exception,
+      stackTrace: details.stack,
+      level: 1000,
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    log(
+      '$error',
+      name: 'Uncaught',
+      error: error,
+      stackTrace: stack,
+      level: 1000,
+    );
+    return true;
+  };
+  if (kReleaseMode) {
+    ErrorWidget.builder = (_) => const Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Something went wrong on this screen. Please go back and try again.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);

@@ -22,6 +22,7 @@ import 'package:fms/data/models/traxroot_object_model.dart';
 import 'package:fms/data/models/traxroot_object_status_model.dart';
 import 'package:fms/nav_bar.dart';
 import 'package:fms/page/auth/presentation/login_chooser_page.dart';
+import 'package:fms/page/dispatch/service/dispatch_notice_service.dart';
 import 'package:fms/page/home/controller/home_controller.dart';
 import 'package:fms/page/jobs/controller/jobs_controller.dart';
 import 'package:fms/page/profile/controller/profile_controller.dart';
@@ -238,11 +239,29 @@ class AuthController extends GetxController {
     }
   }
 
+  bool _loggingOut = false;
+
   /// Logs out the user and clears all data.
   ///
   /// Removes stored credentials, clears cached data in controllers, and
-  /// redirects the user to the login page.
-  Future<void> logout() async {
+  /// redirects the user to the login page. The single 2W logout path: the
+  /// Profile button, every 401 and the subscription-mismatch check all land
+  /// here. [notice] (e.g. "Session expired") is shown over the chooser.
+  Future<void> logout({String? notice}) async {
+    // Several requests can 401 at once; only the first one logs out.
+    if (_loggingOut) return;
+    _loggingOut = true;
+    try {
+      await _logout();
+    } finally {
+      _loggingOut = false;
+    }
+    if (notice != null && Get.isRegistered<DispatchNoticeController>()) {
+      Get.find<DispatchNoticeController>().error(notice);
+    }
+  }
+
+  Future<void> _logout() async {
     // Clear FCM token so device stops receiving notifications
     try {
       await FirebaseMessaging.instance.deleteToken();
