@@ -145,11 +145,11 @@ void main() {
     final name = find.text('JUAN DELA CRUZ');
     final close = find.byTooltip('Back to list');
     expect(tester.getCenter(close).dy, closeTo(tester.getCenter(name).dy, 1));
-    // The stop disc keeps to the name's first line.
+    // The stop disc shares that centre too.
     final disc = find
         .ancestor(of: find.text('1'), matching: find.byType(Container))
         .first;
-    expect(tester.getTopLeft(disc).dy, closeTo(tester.getTopLeft(name).dy, 1.5));
+    expect(tester.getCenter(disc).dy, closeTo(tester.getCenter(close).dy, 1));
     expect(tester.getTopLeft(disc).dx, 18, reason: 'same left edge');
     expect(tester.getTopLeft(name).dx, 18 + 24 + 10);
     final oneLine = tester.getSize(name).height;
@@ -165,6 +165,9 @@ void main() {
     expect(tester.getRect(long).right,
         lessThanOrEqualTo(tester.getRect(close).left));
     expect(tester.getCenter(close).dy, closeTo(tester.getCenter(long).dy, 1));
+    // With a wrapped name the disc moves down with it, level with the ✕
+    // (user feedback 2026-10-30: it sat on the first line, above the ✕).
+    expect(tester.getCenter(disc).dy, closeTo(tester.getCenter(close).dy, 1));
   });
 
   testWidgets('a flagged job shows its notes once, up top, not in Detail',
