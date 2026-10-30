@@ -84,6 +84,22 @@ void main() {
       await unmountMap(tester);
     });
 
+    testWidgets('the map page fills the screen once loaded', (tester) async {
+      // Regression: the idle spinner layer was a non-positioned
+      // SizedBox.shrink() in the body Stack, which shrank the whole page
+      // to 0×0 — a blank screen on the phone, with no error.
+      jobs.lastFetchedAt.value = DateTime.now();
+      await pumpMap(tester);
+
+      final screen = tester.getSize(find.byType(DispatchJobsPage));
+      final body = find
+          .descendant(of: find.byType(Scaffold), matching: find.byType(Stack))
+          .first;
+      expect(tester.getSize(body), screen);
+      expect(tester.getSize(find.byTooltip('Job list')).width, greaterThan(0));
+      await unmountMap(tester);
+    });
+
     testWidgets('spinner on first load only, not on a zero-job poll',
         (tester) async {
       jobs.isLoading.value = true;
