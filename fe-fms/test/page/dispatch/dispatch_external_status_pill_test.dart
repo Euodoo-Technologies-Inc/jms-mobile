@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fms/core/theme/dispatch_palette.dart';
+import 'package:fms/core/widgets/detail_widgets.dart';
 import 'package:fms/data/dispatch/models/dispatch_job_model.dart';
 import 'package:fms/page/dispatch/widget/dispatch_external_status_pill.dart';
 
@@ -26,6 +28,9 @@ void main() {
     expect(find.text('Has problem'), findsOneWidget);
     expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
     expect(find.byTooltip('ORMECO status: Has problem'), findsOneWidget);
+    // Same rounded pill as our own status beside it, in warning amber.
+    final pill = tester.widget<DetailStatusPill>(find.byType(DetailStatusPill));
+    expect(pill.color, DispatchPalette.light.warning);
   });
 
   testWidgets('unflagged, own or older-backend job renders nothing',
