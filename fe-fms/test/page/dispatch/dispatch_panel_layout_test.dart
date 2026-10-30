@@ -28,14 +28,17 @@ const _detailLabels = [
   'Requestor', 'Receiver', 'Remarks', 'Encoder',
 ];
 
-DispatchJob _ormecoJob() => DispatchJob.fromJson({
+DispatchJob _ormecoJob({String? flag, String customer = 'JUAN DELA CRUZ'}) =>
+    DispatchJob.fromJson({
       'id': 908192,
       'job_name': 'New Connection',
-      'customer': 'JUAN DELA CRUZ',
+      'customer': customer,
       'address': 'Brgy. Lalud, Calapan City',
       'lat': 13.41,
       'lng': 121.18,
       'scheduled_arrival': '2026-10-29T09:30:00',
+      'external_status': flag == null ? null : 'has_problem',
+      'external_status_label': flag,
       'external_details': [
         {
           'heading': 'Detail',
@@ -52,15 +55,17 @@ DispatchJob _ormecoJob() => DispatchJob.fromJson({
       ],
     });
 
-Future<void> _pumpPanel(WidgetTester tester) async {
+Future<void> _pumpPanel(WidgetTester tester, [DispatchJob? job]) async {
   tester.view.physicalSize = const Size(360, 780);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // Fresh tree each time, so a second pump doesn't inherit expanded tiles.
+  await tester.pumpWidget(const SizedBox());
   await tester.pumpWidget(MaterialApp(
     home: Scaffold(
       body: Align(
         alignment: Alignment.bottomCenter,
-        child: debugFocusedJobPanel(_ormecoJob()),
+        child: debugFocusedJobPanel(job ?? _ormecoJob()),
       ),
     ),
   ));
@@ -107,7 +112,7 @@ void main() {
     expect(turns(), 0.5);
   });
 
-  testWidgets('account button is concentric with the top island',
+  testWidgets('account button is a circle centred in the island\'s round end',
       (tester) async {
     final ctrl = _IdleJobsController();
     addTearDown(Get.reset);
@@ -119,14 +124,71 @@ void main() {
         of: find.byTooltip('Profile'), matching: find.byType(Material));
     final button = materials.at(0);
     final island = materials.at(1);
+    expect(tester.widget<Material>(button).shape, isA<CircleBorder>());
     final b = tester.getRect(button);
     final i = tester.getRect(island);
+    expect(b.width, b.height, reason: 'a circle, not an oval');
+    expect(b.width, greaterThanOrEqualTo(48));
     final inset = b.top - i.top;
     expect(i.bottom - b.bottom, inset, reason: 'vertically centred');
     expect(i.right - b.right, inset, reason: 'same gap on the right');
+    // The island's end is a semicircle, so the gap is even all round.
+    final radius =
+        (tester.widget<Material>(island).borderRadius! as BorderRadius)
+            .topRight;
+    expect(radius.x, i.height / 2);
+  });
 
-    Radius radius(Finder f) =>
-        (tester.widget<Material>(f).borderRadius! as BorderRadius).topRight;
-    expect(radius(button).x, radius(island).x - inset);
+  testWidgets('close button sits on the name row, centred on it',
+      (tester) async {
+    await _pumpPanel(tester);
+    final name = find.text('JUAN DELA CRUZ');
+    final close = find.byTooltip('Back to list');
+    expect(tester.getCenter(close).dy, closeTo(tester.getCenter(name).dy, 1));
+    // The stop disc keeps to the name's first line.
+    final disc = find
+        .ancestor(of: find.text('1'), matching: find.byType(Container))
+        .first;
+    expect(tester.getTopLeft(disc).dy, closeTo(tester.getTopLeft(name).dy, 1.5));
+    expect(tester.getTopLeft(disc).dx, 18, reason: 'same left edge');
+    expect(tester.getTopLeft(name).dx, 18 + 24 + 10);
+    final oneLine = tester.getSize(name).height;
+
+    // A long name wraps before the ✕ and never runs under it.
+    await _pumpPanel(
+        tester,
+        _ormecoJob(
+            customer: 'JUAN DELA CRUZ Y SANTOS ELECTRICAL SUPPLY AND '
+                'HARDWARE TRADING'));
+    final long = find.textContaining('JUAN DELA CRUZ Y SANTOS');
+    expect(tester.getSize(long).height, greaterThan(oneLine));
+    expect(tester.getRect(long).right,
+        lessThanOrEqualTo(tester.getRect(close).left));
+    expect(tester.getCenter(close).dy, closeTo(tester.getCenter(long).dy, 1));
+  });
+
+  testWidgets('a flagged job shows its notes once, up top, not in Detail',
+      (tester) async {
+    await _pumpPanel(tester, _ormecoJob(flag: 'Has problem'));
+    expect(find.text('REMARKS'), findsOneWidget);
+    expect(find.text('Customer requests a morning visit.\nCall first.'),
+        findsOneWidget);
+    expect(find.text('ADDITIONAL INFO'), findsOneWidget);
+    await tester.ensureVisible(find.text('Detail'));
+    await tester.tap(find.text('Detail'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remarks'), findsNothing);
+    expect(find.text('Additional info'), findsNothing);
+    expect(find.text('Customer requests a morning visit.\nCall first.'),
+        findsOneWidget);
+    expect(find.text('Encoder'), findsOneWidget); // the rest of Detail stays
+
+    // Unflagged: nothing up top, notes stay in Detail.
+    await _pumpPanel(tester);
+    expect(find.text('REMARKS'), findsNothing);
+    await tester.ensureVisible(find.text('Detail'));
+    await tester.tap(find.text('Detail'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remarks'), findsOneWidget);
   });
 }
