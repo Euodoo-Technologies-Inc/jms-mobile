@@ -61,6 +61,11 @@ class FlutterMapWidget extends StatefulWidget {
   /// Build them with [markerLayer] / [polylineLayer] / [polygonLayer].
   final List<Widget> layers;
 
+  /// Tile source override for tests, so the network can be faked. Defaults to
+  /// [osmTileProvider].
+  @visibleForTesting
+  final NetworkTileProvider? tileProvider;
+
   const FlutterMapWidget({
     super.key,
     required this.center,
@@ -73,6 +78,7 @@ class FlutterMapWidget extends StatefulWidget {
     this.bottomInset = 0,
     this.topInset = 0,
     this.layers = const [],
+    this.tileProvider,
   });
 
   /// The pin layer for [markers]; also what [FlutterMapWidget.markers] draws.
@@ -162,8 +168,33 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
   final MapController _mapController = MapController();
   AnimationController? _camAnim;
 
-  /// One provider for the map's lifetime; the [TileLayer] disposes it.
-  late final NetworkTileProvider _tileProvider = osmTileProvider();
+  /// One provider for the map's lifetime, shared by both tile layers (each
+  /// disposes it; harmless, the client is ours).
+  late final NetworkTileProvider _tileProvider =
+      widget.tileProvider ?? osmTileProvider();
+
+  /// Built once (lazily, at first build, so context is valid): a reduced-
+  /// motion toggle mid-session applies after the map remounts.
+  late final TileDisplay _tileDisplay = Motion.reduced(context)
+      ? const TileDisplay.instantaneous()
+      : const TileDisplay.fadeIn();
+
+  /// Soft preview under [_tileLayer]: tiles two zoom levels out, each drawn
+  /// over 4×4 sharp tiles, so a fresh screen shows a blurry map after 2–4
+  /// downloads instead of 20–40, and the sharp tiles fade in over it. Hidden
+  /// below camera zoom 5 (OSM zoom 3), where it adds nothing. No pan buffer,
+  /// so it never fetches beyond the view.
+  late final Widget _previewLayer = TileLayer(
+    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    userAgentPackageName: 'com.querta.fms',
+    tileDimension: 1024,
+    zoomOffset: -2,
+    minZoom: 5,
+    maxZoom: 15,
+    panBuffer: 0,
+    tileProvider: _tileProvider,
+    tileDisplay: _tileDisplay,
+  );
 
   /// flutter_map's camera has no valid size until the map is laid out — guards
   /// the [CameraFit] math, which divides by the viewport size.
@@ -183,11 +214,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     // OSM's per-IP connection limit and starve the tiles actually in
     // view.
     tileProvider: _tileProvider,
-    // Built once (lazily, at first build, so context is valid): a reduced-
-    // motion toggle mid-session applies after the map remounts.
-    tileDisplay: Motion.reduced(context)
-        ? const TileDisplay.instantaneous()
-        : const TileDisplay.fadeIn(),
+    tileDisplay: _tileDisplay,
   );
 
   @override
@@ -315,6 +342,9 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
           },
         ),
         children: [
+          // Preview first: it mounts and subscribes to camera events before
+          // the sharp layer, so its tiles are requested first.
+          _previewLayer,
           _tileLayer,
           if (zones.any((z) => z.type == MapZoneType.polygon))
             FlutterMapWidget.polygonLayer(zones),
