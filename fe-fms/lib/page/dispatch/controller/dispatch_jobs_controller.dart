@@ -115,9 +115,13 @@ class DispatchJobsController extends GetxController
   static const Duration _pollInterval = Duration(seconds: 30);
 
   /// Silent GPS poll cadence — keeps [riderPos] and the OSRM origin in sync
-  /// with real movement. OSRM + ETA fetches are memoised at 4-dp (~11m) so
-  /// this rate doesn't translate into network traffic 1:1.
+  /// with real movement. A fix within [_onRouteMeters] of the drawn line
+  /// costs no request, so this is also the floor between route refetches.
   static const Duration _riderTrackInterval = Duration(seconds: 10);
+
+  /// A rider this close to the drawn route is still on it: no refetch, just
+  /// the remaining distance read off the line (#61).
+  static const double _onRouteMeters = 50;
 
   /// Polyline "draw-on" reveal: a vsync ticker with eased progress, so it
   /// runs once per frame and pauses with the app instead of a 16 ms timer.
@@ -136,8 +140,14 @@ class DispatchJobsController extends GetxController
   int _routeRequestSeq = 0;
   int _etaRequestSeq = 0;
   int _previewRequestSeq = 0;
-  String? _lastRouteKey;
   int? _lastRouteTargetId;
+  int? _routeInFlightFor;
+
+  /// Last rider→job route per job id, so a revisited job draws at once and
+  /// GPS drift along a drawn line costs no request (#61). The current
+  /// target's is also persisted for the next app start.
+  /// ponytail: unbounded, fine for one rider's day of jobs.
+  final Map<int, DispatchRoute> _routes = {};
   String? _lastEtaKey;
 
   /// Signature of the stops currently used by the all-jobs preview line. Re-
@@ -365,8 +375,8 @@ class DispatchJobsController extends GetxController
   /// Fires the OSRM + ETA fetches as soon as a *last-known* position is
   /// available, without waiting for the (up to 6s) fresh-fix call. Last-known
   /// is the rider's real coordinates from the most recent GPS sample the OS
-  /// recorded — not stale in the misleading sense, just slightly older. The
-  /// 4-dp memo key (~11m grid) means the fresh-fix refetch is usually a no-op.
+  /// recorded — not stale in the misleading sense, just slightly older. A
+  /// fresh fix still on the drawn line makes the second pass a no-op.
   Future<void> refreshRiderPosition({
     bool force = false,
     bool silent = false,
@@ -402,9 +412,9 @@ class DispatchJobsController extends GetxController
     } finally {
       if (!silent) locating.value = false;
     }
-    // Second pass with the fresh fix. If the rider hasn't moved more than
-    // ~11m the memo key matches and these are cheap no-ops; otherwise the
-    // polyline updates in place (no reveal-animation replay).
+    // Second pass with the fresh fix. While the rider is on the drawn line
+    // these are cheap no-ops; otherwise the polyline updates in place (no
+    // reveal-animation replay).
     unawaited(_maybeFetchRoute());
     if (selectedJobId.value == null) {
       unawaited(_maybeFetchEta());
@@ -473,25 +483,33 @@ class DispatchJobsController extends GetxController
         routePoints.value = null;
         routeRevealCount.value = 0;
         _stopRouteAnim();
-        _lastRouteKey = null;
         _lastRouteTargetId = null;
       }
       return;
     }
     final targetId = job.id;
-    final key = '${rider.lat.toStringAsFixed(4)},'
-        '${rider.lng.toStringAsFixed(4)}->$targetId';
-    if (key == _lastRouteKey) {
-      debugPrint('[route] skip: memo hit ($key)');
+    // A job routed before draws its last line at once; the fetch below only
+    // runs if the rider has since left that line.
+    final known = _routes[targetId];
+    if (known != null && _lastRouteTargetId != targetId) {
+      _showRoute(targetId, known);
+    }
+    if (_onKnownRoute(targetId, rider)) {
+      debugPrint('[route] skip: rider on the drawn route for job $targetId');
       return;
     }
-    _lastRouteKey = key;
-    debugPrint('[route] fetching OSRM for job $targetId ($key)');
+    if (_routeInFlightFor == targetId) {
+      debugPrint('[route] skip: fetch for job $targetId already in flight');
+      return;
+    }
+    _routeInFlightFor = targetId;
+    debugPrint('[route] fetching OSRM for job $targetId');
 
     final seq = ++_routeRequestSeq;
     try {
       final result =
           await _osrm.route([rider, GeoPoint(job.lat!, job.lng!)]);
+      if (result != null) _routes[targetId] = result;
       if (seq != _routeRequestSeq) {
         debugPrint('[route] stale response ignored');
         return;
@@ -503,40 +521,53 @@ class DispatchJobsController extends GetxController
         debugPrint('[route] target changed mid-flight, ignoring');
         return;
       }
-      final pts = result?.points;
-      if (pts == null || pts.length < 2) {
-        // Upstream gave us nothing usable. Clear the memo so the next poll
-        // retries instead of leaving the route blank forever for a rider who
-        // hasn't moved — and keep the last good polyline on screen.
-        _lastRouteKey = null;
-        debugPrint('[route] OSRM returned no usable polyline '
-            '(result=${result == null ? 'null' : '${result.points.length} pts'})');
+      if (result == null) {
+        // Upstream gave us nothing usable. Nothing is cached, so the next
+        // poll retries — and the last good polyline stays on screen.
+        debugPrint('[route] OSRM returned no usable polyline');
         return;
       }
-      // Animate-vs-snap rule: animate on *target change* (different job, or
-      // first appearance). Snap on rider-drift refetches against the same
-      // target, otherwise the line looks like it keeps redrawing itself.
-      final targetChanged = _lastRouteTargetId != targetId;
-      _lastRouteTargetId = targetId;
-      routePoints.value = pts;
-      etaMeters.value = result!.distanceMeters;
-      if (targetChanged) {
-        routeRevealCount.value = 2;
-        _startRouteAnim();
-      } else {
-        _stopRouteAnim();
-        routeRevealCount.value = pts.length;
-      }
-      debugPrint('[route] OK: ${pts.length} pts, routePoints set, '
+      _showRoute(targetId, result);
+      unawaited(_writeRouteCache(targetId, result));
+      debugPrint('[route] OK: ${result.points.length} pts, routePoints set, '
           'revealCount=${routeRevealCount.value}');
     } catch (e) {
-      if (seq != _routeRequestSeq) return;
-      // Transient failure (network / rate-limited demo OSRM). Clear the memo
-      // so the next tick retries — otherwise a stationary rider never sees the
-      // route come back. Keep any existing polyline visible meanwhile.
-      _lastRouteKey = null;
+      // Transient failure (network / rate-limited demo OSRM). Nothing is
+      // cached, so the next tick retries. Keep any existing polyline visible.
       debugPrint('[route] OSRM fetch FAILED for job $targetId: $e');
+    } finally {
+      if (seq == _routeRequestSeq) _routeInFlightFor = null;
     }
+  }
+
+  /// Draws [route] as the line to [targetId]. Animate-vs-snap rule: animate
+  /// on *target change* (different job, or first appearance). Snap on
+  /// rider-drift refetches against the same target, otherwise the line looks
+  /// like it keeps redrawing itself.
+  void _showRoute(int targetId, DispatchRoute route) {
+    final targetChanged = _lastRouteTargetId != targetId;
+    _lastRouteTargetId = targetId;
+    routePoints.value = route.points;
+    etaMeters.value = route.distanceMeters;
+    if (targetChanged) {
+      routeRevealCount.value = 2;
+      _startRouteAnim();
+    } else {
+      _stopRouteAnim();
+      routeRevealCount.value = route.points.length;
+    }
+  }
+
+  /// True when [rider] is within [_onRouteMeters] of the cached route to
+  /// [jobId]; the distance left is then read off the line instead of
+  /// fetched.
+  bool _onKnownRoute(int jobId, GeoPoint rider) {
+    final known = _routes[jobId];
+    if (known == null) return false;
+    final at = projectOnPolyline(rider, known.points);
+    if (at.offMeters > _onRouteMeters) return false;
+    etaMeters.value = known.distanceMeters * at.remaining;
+    return true;
   }
 
   Future<void> _maybeFetchEta() async {
@@ -550,6 +581,7 @@ class DispatchJobsController extends GetxController
       _lastEtaKey = null;
       return;
     }
+    if (_onKnownRoute(target.id, rider)) return;
     final key = '${rider.lat.toStringAsFixed(4)},'
         '${rider.lng.toStringAsFixed(4)}->${target.id}';
     if (key == _lastEtaKey && etaMeters.value != null) return;
@@ -560,6 +592,7 @@ class DispatchJobsController extends GetxController
       final result = await _osrm.route(
         [rider, GeoPoint(target.lat!, target.lng!)],
       );
+      if (result != null) _routes[target.id] = result;
       if (seq != _etaRequestSeq) return;
       if (selectedJobId.value != null) return;
       if (_etaTarget()?.id != target.id) return;
@@ -633,6 +666,8 @@ class DispatchJobsController extends GetxController
   Future<void> _loadCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Before the jobs land: their change handler is what draws the route.
+      _loadRouteCache(prefs);
       final raw = prefs.getString(DispatchConstants.prefJobsTodayCache);
       if (raw == null || raw.isEmpty) return;
       final decoded = jsonDecode(raw);
@@ -645,6 +680,48 @@ class DispatchJobsController extends GetxController
     } catch (e) {
       log(
         'DispatchJobsController: failed to load cache: $e',
+        name: 'DispatchJobsController',
+        level: 900,
+      );
+    }
+  }
+
+  /// The last drawn route, so reopening the app shows it before any fetch.
+  void _loadRouteCache(SharedPreferences prefs) {
+    try {
+      final raw = prefs.getString(DispatchConstants.prefRouteCache);
+      if (raw == null) return;
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      _routes[m['job_id'] as int] = DispatchRoute(
+        points: [
+          for (final p in m['points'] as List)
+            GeoPoint((p[0] as num).toDouble(), (p[1] as num).toDouble()),
+        ],
+        durationSeconds: m['duration'] as int,
+        distanceMeters: (m['distance'] as num).toDouble(),
+      );
+    } catch (_) {
+      // A corrupt entry just means the first route is fetched, as before.
+    }
+  }
+
+  Future<void> _writeRouteCache(int jobId, DispatchRoute route) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        DispatchConstants.prefRouteCache,
+        jsonEncode({
+          'job_id': jobId,
+          'duration': route.durationSeconds,
+          'distance': route.distanceMeters,
+          'points': [
+            for (final p in route.points) [p.lat, p.lng],
+          ],
+        }),
+      );
+    } catch (e) {
+      log(
+        'DispatchJobsController: failed to write route cache: $e',
         name: 'DispatchJobsController',
         level: 900,
       );

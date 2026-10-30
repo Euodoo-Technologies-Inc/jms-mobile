@@ -1,8 +1,36 @@
+import 'dart:math' as math;
+
 /// Represents a geographical point with latitude and longitude.
 class GeoPoint {
   final double lat;
   final double lng;
   const GeoPoint(this.lat, this.lng);
+}
+
+/// Where [p] sits against [line]: metres to the nearest point on it, and the
+/// share (0–1) of the line's length still ahead of that point. Flat-earth
+/// projection around [p], which is well under 1% off at city scale.
+({double offMeters, double remaining}) projectOnPolyline(
+    GeoPoint p, List<GeoPoint> line) {
+  const my = 111320.0; // metres per degree of latitude
+  final mx = my * math.cos(p.lat * math.pi / 180);
+  var best = double.infinity, bestAlong = 0.0, total = 0.0;
+  for (var i = 1; i < line.length; i++) {
+    final ax = (line[i - 1].lng - p.lng) * mx;
+    final ay = (line[i - 1].lat - p.lat) * my;
+    final dx = (line[i].lng - p.lng) * mx - ax;
+    final dy = (line[i].lat - p.lat) * my - ay;
+    final len2 = dx * dx + dy * dy;
+    final t = len2 == 0 ? 0.0 : (-(ax * dx + ay * dy) / len2).clamp(0.0, 1.0);
+    final off = math.sqrt(math.pow(ax + t * dx, 2) + math.pow(ay + t * dy, 2));
+    final len = math.sqrt(len2);
+    if (off < best) {
+      best = off;
+      bestAlong = total + t * len;
+    }
+    total += len;
+  }
+  return (offMeters: best, remaining: total == 0 ? 0 : 1 - bestAlong / total);
 }
 
 /// An axis-aligned latitude/longitude rectangle. Used to frame a set of points
