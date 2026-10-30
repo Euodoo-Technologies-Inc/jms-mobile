@@ -1,12 +1,39 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
+import 'package:http/retry.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:fms/core/models/geo.dart';
+import 'package:fms/core/theme/motion.dart';
 
 /// Breathing room (logical px) kept between framed content and the edges of
 /// the *visible* map area when fitting to [FlutterMapWidget.fitBounds].
 const double _kFitPadding = 40;
+
+/// OpenStreetMap tiles, cached on the device by flutter_map's built-in disk
+/// cache so they survive app restarts, and aborted when pruned mid-flight.
+///
+/// OSM sends `max-age` of about a day; a cached tile stays fresh for 7 days
+/// (OSM's own `stale-while-revalidate` window), then is revalidated by ETag.
+/// The cache is trimmed to 200 MB on each app start. At most 2 connections to
+/// the tile server at once, per OSM's tile usage policy.
+@visibleForTesting
+NetworkTileProvider osmTileProvider({
+  http.Client? httpClient,
+  String? cacheDirectory,
+}) => NetworkTileProvider(
+  httpClient:
+      httpClient ??
+      RetryClient(IOClient(HttpClient()..maxConnectionsPerHost = 2)),
+  cachingProvider: BuiltInMapCachingProvider.getOrCreateInstance(
+    cacheDirectory: cacheDirectory,
+    maxCacheSize: 200 * 1024 * 1024,
+    overrideFreshAge: const Duration(days: 7),
+  ),
+);
 
 /// A map widget implementation using `flutter_map` (OpenStreetMap).
 class FlutterMapWidget extends StatefulWidget {
@@ -49,6 +76,9 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     with TickerProviderStateMixin {
   final MapController _mapController = MapController();
   AnimationController? _camAnim;
+
+  /// One provider for the map's lifetime; the [TileLayer] disposes it.
+  late final NetworkTileProvider _tileProvider = osmTileProvider();
 
   /// flutter_map's camera has no valid size until the map is laid out — guards
   /// the [CameraFit] math, which divides by the viewport size.
@@ -189,8 +219,11 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
             // Cancels in-flight requests for tiles pruned during the
             // fit-to-bounds camera animation, instead of letting them tie up
             // OSM's per-IP connection limit and starve the tiles actually in
-            // view. Drop-in for the default NetworkTileProvider.
-            tileProvider: CancellableNetworkTileProvider(),
+            // view.
+            tileProvider: _tileProvider,
+            tileDisplay: Motion.reduced(context)
+                ? const TileDisplay.instantaneous()
+                : const TileDisplay.fadeIn(),
           ),
           if (zones.isNotEmpty)
             PolygonLayer(
