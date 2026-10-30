@@ -1419,8 +1419,10 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                         child: Row(
                           children: [
                             Expanded(
+                              // Centred: the disc, the name block and the ✕
+                              // share one vertical centre, also when a long
+                              // name wraps onto two or three lines.
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _StopNumber(
                                     number: widget.stopNumber,
@@ -1429,20 +1431,16 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Padding(
-                                      // Centres a one-line name on the disc.
-                                      padding: const EdgeInsets.only(top: 1),
-                                      child: Text(
-                                        job.customer ?? job.jobName,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleLarge
-                                            ?.copyWith(
-                                          color: Colors.white,
-                                          height: 1.2,
-                                        ),
+                                    child: Text(
+                                      job.customer ?? job.jobName,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                        color: Colors.white,
+                                        height: 1.2,
                                       ),
                                     ),
                                   ),
