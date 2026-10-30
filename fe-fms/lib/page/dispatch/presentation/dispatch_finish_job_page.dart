@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/dispatch/dispatch_constants.dart';
+import '../../../core/dispatch/dispatch_finish_draft.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/detail_widgets.dart';
 import '../controller/dispatch_jobs_controller.dart';
@@ -18,16 +20,21 @@ import '../service/dispatch_notice_service.dart';
 /// Palette-driven layout matching the profile / history / overview pages —
 /// hairline app bar, section labels, bordered card blocks.
 class DispatchFinishJobPage extends StatefulWidget {
-  const DispatchFinishJobPage({super.key, required this.jobId});
+  const DispatchFinishJobPage({
+    super.key,
+    required this.jobId,
+    @visibleForTesting this.picker,
+  });
 
   final int jobId;
+  final ImagePicker? picker;
 
   @override
   State<DispatchFinishJobPage> createState() => _DispatchFinishJobPageState();
 }
 
 class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
-  final _picker = ImagePicker();
+  late final _picker = widget.picker ?? ImagePicker();
   final _notesCtrl = TextEditingController();
   final _meterCtrl = TextEditingController();
   final List<File> _photos = [];
@@ -77,6 +84,45 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
     super.initState();
     // Submit button reacts to meter input live (notes don't gate submit).
     _meterCtrl.addListener(_onMeterChanged);
+    _restoreDraft();
+  }
+
+  /// Android may kill the app while the camera or gallery is up (#78). The
+  /// form is saved before the picker opens and put back here on the next
+  /// open, plus the capture image_picker kept for us.
+  Future<void> _saveDraft() => DispatchFinishDraft(
+        jobId: widget.jobId,
+        photoPaths: [for (final f in _photos) f.path],
+        meter: _meterCtrl.text,
+        notes: _notesCtrl.text,
+      ).save();
+
+  Future<void> _restoreDraft() async {
+    final draft = await DispatchFinishDraft.load();
+    if (draft == null || draft.jobId != widget.jobId) return;
+    _photos.addAll(draft.photoPaths.map(File.new).where((f) => f.existsSync()));
+    _meterCtrl.text = draft.meter;
+    _notesCtrl.text = draft.notes;
+    if (!mounted) return;
+    // The form first; the lost capture follows once the plugin answers.
+    setState(() {});
+    var message = 'Your photos and notes were restored.';
+    try {
+      final lost = await _picker.retrieveLostData();
+      for (final x in lost.files ?? const <XFile>[]) {
+        if (_photos.length >= DispatchConstants.maxPhotos) break;
+        await _maybeAdd(File(x.path));
+      }
+      if (lost.exception != null) {
+        message = 'Your photos and notes were restored, but the last photo '
+            'was lost. Please take it again.';
+      }
+    } catch (_) {
+      // Not Android, or nothing kept — the draft alone is still worth having.
+    }
+    if (!mounted) return;
+    setState(() {});
+    _notices.info(message);
   }
 
   void _onMeterChanged() {
@@ -89,6 +135,8 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
     _meterCtrl.removeListener(_onMeterChanged);
     _notesCtrl.dispose();
     _meterCtrl.dispose();
+    // Submit, Discard or an empty Back all end here: the draft is done with.
+    unawaited(DispatchFinishDraft.clear());
     super.dispose();
   }
 
@@ -97,6 +145,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
       _notices.info('Maximum ${DispatchConstants.maxPhotos} photos.');
       return;
     }
+    await _saveDraft();
     try {
       if (source == ImageSource.gallery) {
         final picked = await _picker.pickMultiImage(
@@ -116,6 +165,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
         if (x != null) await _maybeAdd(File(x.path));
       }
       if (mounted) setState(() {});
+      await _saveDraft();
     } catch (e) {
       // Usually a denied camera or photos permission.
       _notices.error(
@@ -126,7 +176,7 @@ class _DispatchFinishJobPageState extends State<DispatchFinishJobPage> {
   }
 
   Future<void> _maybeAdd(File file) async {
-    final size = await file.length();
+    final size = file.lengthSync();
     if (size > DispatchConstants.maxPhotoBytes) {
       _notices.info(
         '${file.uri.pathSegments.last} is over '

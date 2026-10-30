@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
 import '../../../core/dispatch/dispatch_constants.dart';
+import '../../../core/dispatch/dispatch_finish_draft.dart';
 import '../../../core/dispatch/dispatch_idempotency.dart';
 import '../../../data/dispatch/datasource/dispatch_auth_datasource.dart';
 import '../../../data/dispatch/models/dispatch_rider_model.dart';
@@ -255,6 +256,7 @@ class DispatchAuthController extends GetxController {
     await prefs.remove(DispatchConstants.prefRider);
     await prefs.remove(DispatchConstants.prefCompany);
     await DispatchIdempotencyStore.wipe();
+    await DispatchFinishDraft.clear();
     if (Get.isRegistered<DispatchSyncService>()) {
       await Get.find<DispatchSyncService>().wipe();
     }
