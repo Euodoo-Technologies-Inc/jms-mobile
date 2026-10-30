@@ -1576,6 +1576,29 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 ],
                               ),
                             ),
+                            // ORMECO sends no reason for a flag; its own
+                            // notes are the closest, so they sit right under
+                            // it instead of only inside Detail.
+                            if (job.externalStatusLabel != null &&
+                                job.externalNotes.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              const _CardLabel('ORMECO NOTE'),
+                              const SizedBox(height: 4),
+                              for (final note in job.externalNotes)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    '${note.label}: ${note.value}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                      color: Colors.white,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                            ],
                             const SizedBox(height: 6),
                             if (job.scheduledArrival != null)
                               _InfoRow(

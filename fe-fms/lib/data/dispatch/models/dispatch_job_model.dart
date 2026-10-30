@@ -108,6 +108,17 @@ class DispatchJob {
   /// present, [notes] is null — the backend moved its text into these.
   final List<DispatchJobDetailSection> externalDetails;
 
+  /// ORMECO's free-text notes (Remarks, Action taken, Additional info), in
+  /// detail order and non-empty only. Its feed has no "reason" field for a
+  /// flag; these are the closest thing, so the panel shows them beside it.
+  List<({String label, String value})> get externalNotes => [
+        for (final section in externalDetails)
+          for (final f in section.fields)
+            if (_noteLabels.contains(f.label) && f.value.trim().isNotEmpty) f,
+      ];
+
+  static const _noteLabels = {'Remarks', 'Action taken', 'Additional info'};
+
   bool get isAssigned => status == null;
   bool get isOnTheWay => status == 1;
   bool get isFinished => status == 2;
