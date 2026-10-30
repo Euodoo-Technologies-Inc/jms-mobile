@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fms/core/theme/motion.dart';
 import 'package:fms/core/theme/theme_controller.dart';
+import 'package:fms/data/dispatch/models/dispatch_job_model.dart';
 import 'package:fms/page/dispatch/controller/dispatch_jobs_controller.dart';
 import 'package:fms/page/dispatch/presentation/dispatch_jobs_page.dart';
 import 'package:fms/page/dispatch/service/dispatch_notice_service.dart';
@@ -64,6 +65,109 @@ void main() {
     final content = find.descendant(of: area, matching: find.byType(Column));
     return tester.getSize(area).height == tester.getSize(content.first).height;
   }
+
+  final carousel = find.byKey(const ValueKey('carousel'));
+  final panel = find.byKey(const ValueKey('panel_1'));
+
+  /// Whether [layer] sits entirely below the screen's bottom edge.
+  bool offScreen(WidgetTester tester, Finder layer) =>
+      tester.getRect(layer).top >= tester.getSize(find.byType(Scaffold)).height;
+
+  /// Whether [layer] rests on the bottom edge, fully on screen.
+  bool inPlace(WidgetTester tester, Finder layer) =>
+      tester.getRect(layer).bottom ==
+      tester.getSize(find.byType(Scaffold)).height;
+
+  Future<void> pumpMapWithJob(WidgetTester tester, {required bool reduce}) {
+    jobs.lastFetchedAt.value = DateTime.now();
+    jobs.jobs.assignAll([
+      DispatchJob(id: 1, jobName: 'Meter check', status: 0, lat: 13.4, lng: 121.2),
+    ]);
+    return pumpMap(tester, reduce: reduce);
+  }
+
+  /// A zero-length frame: a slide that was just started takes its first
+  /// tick, so the clock of the next timed pump starts from here.
+  Future<void> firstTick(WidgetTester tester) => tester.pump();
+
+  testWidgets('opening a job: the cards slide out, then the panel rises',
+      (tester) async {
+    await pumpMapWithJob(tester, reduce: false);
+    expect(inPlace(tester, carousel), isTrue);
+
+    jobs.selectedJobId.value = 1;
+    await tester.pump(); // the panel mounts below the edge; the swap starts
+    await firstTick(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(inPlace(tester, carousel), isFalse); // on its way down
+    expect(offScreen(tester, carousel), isFalse);
+    expect(offScreen(tester, panel), isTrue); // not yet moving
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(offScreen(tester, carousel), isTrue); // gone before the panel moves
+    expect(offScreen(tester, panel), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1)); // hand-off
+    await firstTick(tester);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(offScreen(tester, panel), isFalse); // rising
+    expect(inPlace(tester, panel), isFalse);
+
+    await tester.pump(const Duration(milliseconds: 151));
+    await settle(tester);
+    expect(inPlace(tester, panel), isTrue);
+    expect(carousel, findsNothing);
+    await unmountMap(tester);
+  });
+
+  testWidgets('closing: the panel slides out, then the cards rise',
+      (tester) async {
+    await pumpMapWithJob(tester, reduce: false);
+    jobs.selectedJobId.value = 1;
+    await tester.pumpAndSettle();
+    expect(inPlace(tester, panel), isTrue);
+    expect(carousel, findsNothing);
+
+    jobs.selectedJobId.value = null;
+    await tester.pump();
+    await firstTick(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(inPlace(tester, panel), isFalse);
+    expect(offScreen(tester, panel), isFalse);
+    expect(offScreen(tester, carousel), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(offScreen(tester, panel), isTrue);
+    expect(offScreen(tester, carousel), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await firstTick(tester);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(offScreen(tester, carousel), isFalse);
+    expect(inPlace(tester, carousel), isFalse);
+
+    await tester.pump(const Duration(milliseconds: 151));
+    await settle(tester);
+    expect(inPlace(tester, carousel), isTrue);
+    expect(panel, findsNothing);
+    await unmountMap(tester);
+  });
+
+  testWidgets('under reduce motion the swap takes no animation time',
+      (tester) async {
+    await pumpMapWithJob(tester, reduce: true);
+
+    jobs.selectedJobId.value = 1;
+    await settle(tester);
+    expect(inPlace(tester, panel), isTrue);
+    expect(carousel, findsNothing);
+
+    jobs.selectedJobId.value = null;
+    await settle(tester);
+    expect(inPlace(tester, carousel), isTrue);
+    expect(panel, findsNothing);
+    await unmountMap(tester);
+  });
 
   for (final reduce in [false, true]) {
     final mode = reduce ? 'under reduce motion' : 'normally';

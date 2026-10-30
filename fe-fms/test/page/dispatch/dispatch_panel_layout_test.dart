@@ -107,6 +107,20 @@ void main() {
         lessThanOrEqualTo(oneLine));
   });
 
+  testWidgets('detail labels are bold and smaller than their values',
+      (tester) async {
+    await _pumpPanel(tester);
+    await tester.ensureVisible(find.text('Detail'));
+    await tester.tap(find.text('Detail'));
+    await tester.pumpAndSettle();
+
+    final label = tester.widget<Text>(find.text('Account no')).style!;
+    final value = tester.widget<Text>(find.text('012026940280').first).style!;
+    expect(label.fontWeight, FontWeight.w700);
+    expect(value.fontWeight, isNot(FontWeight.w700));
+    expect(label.fontSize!, lessThan(value.fontSize!));
+  });
+
   testWidgets('section header is clipped round; its chevron turns',
       (tester) async {
     await _pumpPanel(tester);

@@ -44,6 +44,7 @@ class DispatchConstants {
   static const String prefJobsTodayCache = 'dispatch.cache.jobs_today';
   static const String prefJobsTodayCachedAt = 'dispatch.cache.jobs_today_at';
   static const String prefRouteCache = 'dispatch.cache.route';
+  static const String prefFinishDraft = 'dispatch.finish.draft';
 
   // Job status (per dispatch contract §2)
   static const int statusOnTheWay = 1;
