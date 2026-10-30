@@ -43,6 +43,7 @@ class DispatchConstants {
   static const String prefIdempotencyKeys = 'dispatch.idempotency';
   static const String prefJobsTodayCache = 'dispatch.cache.jobs_today';
   static const String prefJobsTodayCachedAt = 'dispatch.cache.jobs_today_at';
+  static const String prefRouteCache = 'dispatch.cache.route';
 
   // Job status (per dispatch contract §2)
   static const int statusOnTheWay = 1;

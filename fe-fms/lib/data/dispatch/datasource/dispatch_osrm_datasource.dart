@@ -16,9 +16,10 @@ class DispatchRoute {
   final double distanceMeters;
 }
 
-/// Backend-proxied OSRM routing. The server caches 60s and chooses the
-/// upstream driver (public demo / self-hosted), so the client just asks for
-/// "the road polyline between these waypoints".
+/// Backend-proxied OSRM routing. The server caches (rider origin rounded to
+/// ~110 m, laravel-jms #53) and chooses the upstream driver (public demo /
+/// self-hosted), so the client just asks for "the road polyline between
+/// these waypoints".
 class DispatchOsrmDatasource {
   DispatchOsrmDatasource({DispatchApiClient? client})
       : _client = client ?? DispatchApiClient();
