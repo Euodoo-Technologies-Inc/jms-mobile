@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:developer';
 
@@ -53,6 +54,9 @@ class DispatchSyncService extends GetxService {
     }
     _lifecycle = AppLifecycleListener(onResume: _maybeDrain);
     await _refreshCount();
+    // The session may have been restored before this service came up (it
+    // starts after the first frame, #62) — that auth change is already past.
+    unawaited(_maybeDrain());
     return this;
   }
 
