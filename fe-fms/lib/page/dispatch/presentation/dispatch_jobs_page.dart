@@ -878,6 +878,7 @@ class _JobCarouselState extends State<_JobCarousel> {
             job: job,
             stopNumber: stopNumber,
             etaMeters: job.id == etaTargetId ? widget.etaMeters : null,
+            showDistance: job.id == etaTargetId,
             onTap: () => widget.onSelect(job),
           ),
         );
@@ -892,11 +893,16 @@ class _DispatchJobCard extends StatelessWidget {
     required this.stopNumber,
     required this.onTap,
     this.etaMeters,
+    this.showDistance = true,
   });
 
   final DispatchJob job;
   final int stopNumber;
   final double? etaMeters;
+
+  /// Only the carousel's eta target has a live distance; the other cards
+  /// drop the DISTANCE field instead of showing "—".
+  final bool showDistance;
   final VoidCallback onTap;
 
   /// Fallback fill for the stop-number disc (overridden to white on the
@@ -1001,15 +1007,16 @@ class _DispatchJobCard extends StatelessWidget {
                       value: _compactTime(job.scheduledArrival),
                     ),
                   ),
-                  Expanded(
-                    child: _CardMetric(
-                      label: 'DISTANCE',
-                      value: etaMeters != null
-                          ? formatTravelDistance(etaMeters!)
-                          : (hasGeo ? '—' : 'No location'),
-                      alignEnd: true,
+                  if (showDistance)
+                    Expanded(
+                      child: _CardMetric(
+                        label: 'DISTANCE',
+                        value: etaMeters != null
+                            ? formatTravelDistance(etaMeters!)
+                            : (hasGeo ? '—' : 'No location'),
+                        alignEnd: true,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
