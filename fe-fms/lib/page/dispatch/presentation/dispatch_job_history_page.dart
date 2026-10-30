@@ -7,12 +7,13 @@ import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/widgets/detail_widgets.dart';
 import '../../../data/dispatch/datasource/dispatch_jobs_datasource.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
+import '../controller/dispatch_jobs_controller.dart';
 import '../widget/dispatch_external_status_pill.dart';
 import '../widget/dispatch_job_status.dart';
 
 /// Read-only list of the rider's recently completed jobs (server-capped at
-/// 50). Pulled on open + pull-to-refresh; no caching since it's not a
-/// hot-path screen.
+/// 50). Opens on the list from the last visit (held by the jobs controller)
+/// and refreshes behind it; pull-to-refresh too.
 class DispatchJobHistoryPage extends StatefulWidget {
   const DispatchJobHistoryPage({super.key});
 
@@ -21,10 +22,10 @@ class DispatchJobHistoryPage extends StatefulWidget {
 }
 
 class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
-  final DispatchJobsDatasource _ds = DispatchJobsDatasource();
+  final DispatchJobsController _ctrl = Get.find<DispatchJobsController>();
   bool _loading = false;
   String? _error;
-  List<DispatchJob> _jobs = const [];
+  List<DispatchJob> get _jobs => _ctrl.history;
 
   @override
   void initState() {
@@ -39,9 +40,9 @@ class _DispatchJobHistoryPageState extends State<DispatchJobHistoryPage> {
       _error = null;
     });
     try {
-      final jobs = await _ds.jobsHistory();
+      await _ctrl.refreshHistory();
       if (!mounted) return;
-      setState(() => _jobs = jobs);
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = userMessage(e));
@@ -132,7 +133,8 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final address = job.address;
     return InkWell(
-      onTap: () => Get.to(() => DispatchJobHistoryDetailPage(jobId: job.id)),
+      onTap: () => Get.to(
+          () => DispatchJobHistoryDetailPage(jobId: job.id, initial: job)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
@@ -196,10 +198,18 @@ class _HistoryRow extends StatelessWidget {
 }
 
 /// Read-only detail view for a completed job. Mirrors the web "Job Detail"
-/// page minus the driver name. Fetches `/jobs/{id}` on open.
+/// page minus the driver name. Shows [initial] at once and fetches
+/// `/jobs/{id}` on open for the full record (photos, ORMECO sections).
 class DispatchJobHistoryDetailPage extends StatefulWidget {
-  const DispatchJobHistoryDetailPage({super.key, required this.jobId});
+  const DispatchJobHistoryDetailPage({
+    super.key,
+    required this.jobId,
+    this.initial,
+  });
   final int jobId;
+
+  /// The job as the history list already had it, if it did.
+  final DispatchJob? initial;
 
   @override
   State<DispatchJobHistoryDetailPage> createState() =>
@@ -211,7 +221,7 @@ class _DispatchJobHistoryDetailPageState
   final DispatchJobsDatasource _ds = DispatchJobsDatasource();
   bool _loading = false;
   String? _error;
-  DispatchJob? _job;
+  late DispatchJob? _job = widget.initial;
 
   @override
   void initState() {

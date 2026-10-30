@@ -54,9 +54,36 @@ void main() async {
     );
   }
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  // Before the auth controllers: restoring either session reads the FCM
+  // token, which needs Firebase up.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
+  // Initialize controllers
+  Get.put(AuthController());
+  Get.put(DispatchAuthController(), permanent: true);
+
+  // Theme — restore the persisted (or system-default) mode before the first
+  // frame so the app never flashes the wrong theme on launch.
+  final themeController = ThemeController();
+  await themeController.load();
+  Get.put<ThemeController>(themeController, permanent: true);
+
+  // App-wide transient-notice banner controller (dispatch surface).
+  Get.put<DispatchNoticeController>(DispatchNoticeController(), permanent: true);
+
+  runApp(const MyApp());
+
+  // Only now the rest: the first frame (the spinner, then the login or map
+  // screen) no longer waits on the database, the connectivity probe or the
+  // background services (#62).
+  await _initServices();
+}
+
+/// The offline database, connectivity, sync queues, push and GPS pings —
+/// nothing the first frame needs. Order matters: SyncService listens to
+/// ConnectivityService + auth state, PositionService listens to auth + jobs.
+Future<void> _initServices() async {
   // Initialize SQLite database
   await OfflineDatabase.instance.database;
 
@@ -71,10 +98,6 @@ void main() async {
     () => SyncService().init(),
     permanent: true,
   );
-
-  // Initialize controllers
-  Get.put(AuthController());
-  Get.put(DispatchAuthController(), permanent: true);
 
   // Dispatch services (FCM token refresh, offline queue drain, GPS pings).
   // Order matters: SyncService listens to ConnectivityService + auth state,
@@ -92,16 +115,11 @@ void main() async {
     permanent: true,
   );
 
-  // Theme — restore the persisted (or system-default) mode before the first
-  // frame so the app never flashes the wrong theme on launch.
-  final themeController = ThemeController();
-  await themeController.load();
-  Get.put<ThemeController>(themeController, permanent: true);
-
-  // App-wide transient-notice banner controller (dispatch surface).
-  Get.put<DispatchNoticeController>(DispatchNoticeController(), permanent: true);
-
-  runApp(const MyApp());
+  // Both sessions kick a sync when restored; one restored before its sync
+  // service came up found nothing to kick, so kick it here.
+  if (Get.find<AuthController>().isAuthenticated.value) {
+    Get.find<SyncService>().syncAll();
+  }
 }
 
 // Built once and reused — avoids reallocating ThemeData on every theme swap.
