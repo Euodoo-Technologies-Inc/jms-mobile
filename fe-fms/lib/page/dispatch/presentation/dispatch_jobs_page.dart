@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/dispatch/dispatch_api_client.dart';
+import '../../../core/dispatch/dispatch_finish_draft.dart';
 import '../../../core/dispatch/dispatch_format.dart';
 import '../../../core/dispatch/dispatch_navigation.dart';
 import '../../../core/models/geo.dart';
@@ -168,6 +169,15 @@ class _DispatchJobsPageState extends State<DispatchJobsPage>
     // No prompt on resume: the permission dialog itself pauses/resumes the
     // app, so requesting here would re-prompt in a loop after a denial.
     _lifecycle = AppLifecycleListener(onResume: _checkLocation);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reopenFinishDraft());
+  }
+
+  /// A Finish form saved before the camera or gallery means Android killed
+  /// the app mid-pick (#78): put the crew back on it instead of the map.
+  Future<void> _reopenFinishDraft() async {
+    final draft = await DispatchFinishDraft.load();
+    if (draft == null || !mounted) return;
+    unawaited(Get.to(() => DispatchFinishJobPage(jobId: draft.jobId)));
   }
 
   /// Asks for location once when the map opens and keeps [_locationOff] in
