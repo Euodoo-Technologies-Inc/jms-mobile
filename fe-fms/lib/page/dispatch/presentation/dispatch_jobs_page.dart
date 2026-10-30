@@ -63,9 +63,12 @@ double _carouselHeight(BuildContext context) =>
 /// the island's own fixed height.
 const double _kTopBarTop = 8;
 const double _kTopBarHeight = 56;
-const double _kTopBarRadius = 20;
 
-/// The profile button's inset from the island edge: 48 dp square, centred,
+/// Fully round ends (a stadium), so the circular profile button sits inside
+/// the right end with the same gap all round.
+const double _kTopBarRadius = _kTopBarHeight / 2;
+
+/// The profile button's inset from the island edge: a 48 dp circle, centred,
 /// with the same gap on the right as top and bottom.
 const double _kTopBarInset = (_kTopBarHeight - 48) / 2;
 
@@ -1320,7 +1323,28 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     final height = screenH * _frac;
     final job = widget.job;
     const green = _DispatchJobCard._kCardGreen;
+    // ORMECO sends no reason for a flag; its own notes (Remarks, Action
+    // taken…) are the closest, so a flagged job shows them up here, under the
+    // flag, and not again inside Detail / Action. Unflagged jobs keep them in
+    // the sections only.
+    final List<({String label, String value})> flaggedNotes =
+        job.externalStatusLabel != null ? job.externalNotes : const [];
+    final sections = [
+      for (final section in job.externalDetails)
+        if (flaggedNotes.isEmpty)
+          section
+        else if (section.fields.any((f) => !flaggedNotes.contains(f)))
+          DispatchJobDetailSection(
+            heading: section.heading,
+            fields: [
+              for (final f in section.fields)
+                if (!flaggedNotes.contains(f)) f,
+            ],
+          ),
+    ];
     final timeline = [
+      for (final note in flaggedNotes)
+        (label: note.label.toUpperCase(), value: note.value),
       if (job.scheduledArrival != null)
         (
           label: 'SCHEDULED',
@@ -1350,46 +1374,30 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Drag handle — a 48dp-tall labelled target (M3 sheet handle)
-              // around the 4px grip; tap toggles the panel height. The close
-              // button sits level with the grip, so the header gets the full
-              // width and one left edge.
-              Stack(
-                children: [
-                  Semantics(
-                    button: true,
-                    label: 'Resize job panel',
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _onHandleTap,
-                      onVerticalDragStart: _onDragStart,
-                      onVerticalDragUpdate: (d) => _onDragUpdate(d, screenH),
-                      onVerticalDragEnd: _onDragEnd,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 22),
-                        child: Center(
-                          child: Container(
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
+              // around the 4px grip; tap toggles the panel height.
+              Semantics(
+                button: true,
+                label: 'Resize job panel',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _onHandleTap,
+                  onVerticalDragStart: _onDragStart,
+                  onVerticalDragUpdate: (d) => _onDragUpdate(d, screenH),
+                  onVerticalDragEnd: _onDragEnd,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 22),
+                    child: Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                   ),
-                  Positioned(
-                    top: 0,
-                    // Glyph's right edge on the content's 18dp edge.
-                    right: 6,
-                    child: IconButton(
-                      tooltip: 'Back to list',
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: widget.onClose,
-                    ),
-                  ),
-                ],
+                ),
               ),
               // Content — header + detail. The panel measures this column
               // (via [_contentKey]) and opens exactly tall enough to show all
@@ -1402,34 +1410,53 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Header — mirrors the carousel card's header so the
-                      // card visually "becomes" the panel.
+                      // card visually "becomes" the panel. The close button
+                      // sits on this row, centred on it; a long name wraps
+                      // before it. Right padding 10 so the ✕ glyph's edge
+                      // (8 in from its 40dp box) lands on the 18dp edge.
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        padding: const EdgeInsets.fromLTRB(18, 0, 10, 0),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: _StopNumber(
-                                number: widget.stopNumber,
-                                backgroundColor: Colors.white,
-                                foregroundColor: green,
+                            Expanded(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _StopNumber(
+                                    number: widget.stopNumber,
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: green,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Padding(
+                                      // Centres a one-line name on the disc.
+                                      padding: const EdgeInsets.only(top: 1),
+                                      child: Text(
+                                        job.customer ?? job.jobName,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge
+                                            ?.copyWith(
+                                          color: Colors.white,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  job.customer ?? job.jobName,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Back to list',
+                              // 40dp box; the padded tap target is still 48.
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.close,
+                                  color: Colors.white),
+                              onPressed: widget.onClose,
                             ),
                           ],
                         ),
@@ -1517,29 +1544,6 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 ],
                               ),
                             ),
-                            // ORMECO sends no reason for a flag; its own
-                            // notes are the closest, so they sit right under
-                            // it instead of only inside Detail.
-                            if (job.externalStatusLabel != null &&
-                                job.externalNotes.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              const _CardLabel('ORMECO NOTE'),
-                              const SizedBox(height: 4),
-                              for (final note in job.externalNotes)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Text(
-                                    '${note.label}: ${note.value}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                      color: Colors.white,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ),
-                            ],
                             if (timeline.isNotEmpty) ...[
                               const SizedBox(height: 16),
                               _FieldGrid(timeline, caps: true),
@@ -1550,12 +1554,12 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                       // ORMECO sections, inset 6 so each header's rounded
                       // highlight has room around it; the tile's 12dp padding
                       // keeps titles and fields on the 18dp edge.
-                      if (job.externalDetails.isNotEmpty)
+                      if (sections.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(6, 12, 6, 0),
+                          padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
                           child: Column(
                             children: [
-                              for (final section in job.externalDetails)
+                              for (final section in sections)
                                 DispatchJobDetailSectionTile(
                                   section: section,
                                   onExpansionChanged: _refitAfterSectionToggle,
@@ -1564,7 +1568,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                           ),
                         ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
                         child: _PanelActions(
                           job: job,
                           starting: widget.starting,
@@ -1673,7 +1677,7 @@ class _PanelActions extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
             ),
             child: Row(
@@ -1703,7 +1707,7 @@ class _PanelActions extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
-                minimumSize: const Size.fromHeight(48),
+                minimumSize: const Size.fromHeight(50),
               ),
               onPressed: onNavigate,
               icon: const Icon(Icons.navigation_outlined),
@@ -1812,19 +1816,18 @@ class _MapTopBar extends StatelessWidget {
                     );
                   }),
                   const Spacer(),
-                  // Profile — concentric with the island: its radius is the
-                  // island's less the inset, so the corners follow the curve.
+                  // Profile — a circle concentric with the island's round
+                  // end, so its edge follows the curve with an even gap.
                   Material(
                     color: _DispatchJobCard._kCardGreen,
-                    borderRadius: BorderRadius.circular(
-                        _kTopBarRadius - _kTopBarInset),
+                    shape: const CircleBorder(),
                     clipBehavior: Clip.antiAlias,
                     child: Tooltip(
                       message: 'Profile',
                       child: InkWell(
                         onTap: () =>
                             Get.to(() => const DispatchProfilePage()),
-                        // 48dp square (was 40) for the tap-target minimum.
+                        // 48dp (13 + 22 + 13) for the tap-target minimum.
                         child: const Padding(
                           padding: EdgeInsets.all(13),
                           child: Icon(Icons.person,
@@ -1936,10 +1939,9 @@ class _DispatchJobDetailSectionTileState
 }
 
 /// Label-above-value fields, two to a row where label and value each fit on
-/// one line in half the width, so labels never wrap. Fields keep their order,
-/// which already groups them (account, district, meter, transformer…); a
-/// field that would pull the first of the next group up beside it, or that
-/// doesn't fit, takes the row alone.
+/// one line in half the width, so labels never wrap. Fields keep their order;
+/// only one that doesn't fit takes a row alone, so a short field is never
+/// left beside a gap.
 class _FieldGrid extends StatelessWidget {
   const _FieldGrid(this.fields, {this.caps = false});
   final List<({String label, String value})> fields;
@@ -1987,7 +1989,6 @@ class _FieldGrid extends StatelessWidget {
         return fits;
       }
 
-      String group(String label) => label.split(' ').first.toLowerCase();
       final halves = [
         for (final f in fields)
           fitsHalf(f.label, labelStyle) && fitsHalf(f.value, valueStyle),
@@ -1995,13 +1996,7 @@ class _FieldGrid extends StatelessWidget {
       final rows = <Widget>[];
       for (var i = 0; i < fields.length; i++) {
         final next = i + 1;
-        final nextStartsGroup = next + 1 < fields.length &&
-            group(fields[next].label) != group(fields[i].label) &&
-            group(fields[next].label) == group(fields[next + 1].label);
-        if (next < fields.length &&
-            halves[i] &&
-            halves[next] &&
-            !nextStartsGroup) {
+        if (next < fields.length && halves[i] && halves[next]) {
           rows.add(Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
