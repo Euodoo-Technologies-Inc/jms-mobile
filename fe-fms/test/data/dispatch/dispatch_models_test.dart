@@ -46,6 +46,34 @@ void main() {
       }
       expect(DispatchJob.fromJson({'id': 1}).externalDetails, isEmpty);
     });
+
+    test('externalNotes: Remarks / Action taken / Additional info only',
+        () {
+      final job = DispatchJob.fromJson({
+        'id': 2,
+        'external_details': [
+          {
+            'heading': 'Detail',
+            'fields': [
+              {'label': 'Account no', 'value': '012026940280'},
+              {'label': 'Remarks', 'value': 'METER NOT ENERGIZED'},
+              {'label': 'Additional info', 'value': '  '},
+            ],
+          },
+          {
+            'heading': 'Action',
+            'fields': [
+              {'label': 'Action taken', 'value': 'For re-inspection'},
+            ],
+          },
+        ],
+      });
+      expect(job.externalNotes, [
+        (label: 'Remarks', value: 'METER NOT ENERGIZED'),
+        (label: 'Action taken', value: 'For re-inspection'),
+      ]);
+      expect(DispatchJob.fromJson({'id': 3}).externalNotes, isEmpty);
+    });
   });
 
   group('DispatchRider vehicle', () {
