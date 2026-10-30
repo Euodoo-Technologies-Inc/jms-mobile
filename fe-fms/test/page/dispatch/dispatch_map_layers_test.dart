@@ -54,7 +54,8 @@ void main() {
     await tester.pumpWidget(const GetMaterialApp(home: DispatchJobsPage()));
     await tester.pump();
 
-    final tiles = tester.widget<TileLayer>(find.byType(TileLayer));
+    final tiles = tester.widgetList<TileLayer>(find.byType(TileLayer)).toList();
+    expect(tiles, hasLength(2)); // preview + sharp
     final pins = tester.widget<MarkerLayer>(jobPins());
     expect(find.byType(MarkerLayer), findsNWidgets(2)); // pins + rider
 
@@ -62,7 +63,10 @@ void main() {
     await tester.pump();
 
     // Same widget instances: Flutter skipped them, nothing rebuilt.
-    expect(tester.widget<TileLayer>(find.byType(TileLayer)), same(tiles));
+    expect(
+      tester.widgetList<TileLayer>(find.byType(TileLayer)),
+      orderedEquals(tiles),
+    );
     expect(tester.widget<MarkerLayer>(jobPins()), same(pins));
     // ...while the rider's own layer did pick up the new fix.
     final rider = tester
