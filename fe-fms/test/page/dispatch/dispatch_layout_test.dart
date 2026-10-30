@@ -48,6 +48,47 @@ void main() {
     });
   }
 
+  testWidgets('only the card with the live distance shows DISTANCE',
+      (tester) async {
+    DispatchJob stop(int id, {bool geo = true}) => DispatchJob.fromJson({
+          'id': id,
+          'job_name': 'New Connection',
+          'customer': 'STOP $id',
+          'address': 'Brgy. Lalud, Calapan City',
+          if (geo) 'lat': 13.41,
+          if (geo) 'lng': 121.18,
+          'scheduled_arrival': '2026-10-29T09:30:00',
+        });
+    Finder card(int id) => find
+        .ancestor(of: find.text('STOP $id'), matching: find.byType(InkWell))
+        .first;
+
+    // None on the way: the first actionable stop carries the distance.
+    await _pumpPhone(tester, 1.0,
+        debugJobCarousel([stop(1), stop(2), stop(3)], etaMeters: 8500));
+    await tester.pumpAndSettle();
+    expect(find.text('DISTANCE'), findsOneWidget);
+    expect(find.descendant(of: card(1), matching: find.text('8.5 km')),
+        findsOneWidget);
+    // The peeking neighbour keeps SCHEDULED, on the left, and nothing else.
+    expect(find.descendant(of: card(2), matching: find.text('SCHEDULED')),
+        findsOneWidget);
+    expect(find.descendant(of: card(2), matching: find.text('DISTANCE')),
+        findsNothing);
+    expect(find.text('—'), findsNothing);
+    expect(tester.getTopLeft(find.text('SCHEDULED').at(1)).dx,
+        tester.getTopLeft(find.text('STOP 2')).dx - 24 - 10,
+        reason: 'SCHEDULED stays on the card\'s left edge');
+
+    // The target without coordinates still says so.
+    await _pumpPhone(
+        tester, 1.0, debugJobCarousel([stop(1, geo: false), stop(2)]));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: card(1), matching: find.text('No location')),
+        findsOneWidget);
+    expect(find.text('DISTANCE'), findsOneWidget);
+  });
+
   testWidgets('focused panel status row fits at 2x text', (tester) async {
     await _pumpPhone(
         tester, 2.0, debugFocusedJobPanel(_longJob(), etaMeters: 8500));

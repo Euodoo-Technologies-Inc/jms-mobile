@@ -878,6 +878,7 @@ class _JobCarouselState extends State<_JobCarousel> {
             job: job,
             stopNumber: stopNumber,
             etaMeters: job.id == etaTargetId ? widget.etaMeters : null,
+            showDistance: job.id == etaTargetId,
             onTap: () => widget.onSelect(job),
           ),
         );
@@ -892,11 +893,16 @@ class _DispatchJobCard extends StatelessWidget {
     required this.stopNumber,
     required this.onTap,
     this.etaMeters,
+    this.showDistance = true,
   });
 
   final DispatchJob job;
   final int stopNumber;
   final double? etaMeters;
+
+  /// Only the carousel's eta target has a live distance; the other cards
+  /// drop the DISTANCE field instead of showing "—".
+  final bool showDistance;
   final VoidCallback onTap;
 
   /// Fallback fill for the stop-number disc (overridden to white on the
@@ -1001,15 +1007,16 @@ class _DispatchJobCard extends StatelessWidget {
                       value: _compactTime(job.scheduledArrival),
                     ),
                   ),
-                  Expanded(
-                    child: _CardMetric(
-                      label: 'DISTANCE',
-                      value: etaMeters != null
-                          ? formatTravelDistance(etaMeters!)
-                          : (hasGeo ? '—' : 'No location'),
-                      alignEnd: true,
+                  if (showDistance)
+                    Expanded(
+                      child: _CardMetric(
+                        label: 'DISTANCE',
+                        value: etaMeters != null
+                            ? formatTravelDistance(etaMeters!)
+                            : (hasGeo ? '—' : 'No location'),
+                        alignEnd: true,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -1156,6 +1163,7 @@ class _FocusedJobPanel extends StatefulWidget {
 }
 
 class _FocusedJobPanelState extends State<_FocusedJobPanel> {
+  /// Hard floor for the peek size, used until the summary is measured.
   static const double _minFrac = 0.12;
   static const double _maxFrac = 0.88;
 
@@ -1167,6 +1175,12 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
   /// panel sizes itself to, so everything is visible without scrolling.
   final GlobalKey _contentKey = GlobalKey();
 
+  /// Key on the pill/distance row — the last row of the summary block. Its
+  /// bottom edge (relative to the content column) is the peek height.
+  final GlobalKey _pillRowKey = GlobalKey();
+
+  final ScrollController _scroll = ScrollController();
+
   double _frac = _kPanelMidFrac;
   bool _dragging = false;
   bool _entered = false;
@@ -1177,8 +1191,33 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
   /// measured.
   double _fitFrac = _kPanelMidFrac;
 
+  /// Smallest height fraction: exactly the summary block (handle, stop/name/✕
+  /// row, DESTINATION, divider, pills + distance) — measured, so a 3-line
+  /// name or 1.3× text gets a taller peek. The content can't scroll here.
+  double _peekFrac = _minFrac;
+
+  bool get _atPeek => _frac <= _peekFrac + 0.005;
+
   /// Drag/tap snap anchors: collapsed peek, content-fit, near-full.
-  List<double> get _anchors => [_minFrac, _fitFrac, _maxFrac];
+  List<double> get _anchors => [_peekFrac, _fitFrac, _maxFrac];
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Rest at [target]: the peek shows the summary from its top, so scroll
+  /// back up there before the physics lock it.
+  void _settle(double target) {
+    setState(() {
+      _frac = target;
+      _dragging = false;
+    });
+    if (_atPeek && _scroll.hasClients) _scroll.jumpTo(0);
+    widget.onFracChanged(target);
+    widget.onFracLive(target);
+  }
 
   void _onDragStart(DragStartDetails _) {
     widget.panelDragging.value = true;
@@ -1190,7 +1229,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     // Resize the panel live, but don't re-frame the map mid-drag — that's done
     // once on settle (_onDragEnd / _onHandleTap) so the camera doesn't thrash.
     setState(() {
-      _frac = (_frac - d.delta.dy / screenH).clamp(_minFrac, _maxFrac);
+      _frac = (_frac - d.delta.dy / screenH).clamp(_peekFrac, _maxFrac);
     });
     // The recenter button does follow the live edge.
     widget.onFracLive(_frac);
@@ -1204,7 +1243,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       if (v > 0) {
         target = anchors.lastWhere(
           (a) => a < _frac - 0.01,
-          orElse: () => _minFrac,
+          orElse: () => _peekFrac,
         );
       } else {
         target = anchors.firstWhere(
@@ -1217,27 +1256,20 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
         (a, b) => (a - _frac).abs() < (b - _frac).abs() ? a : b,
       );
     }
-    setState(() {
-      _frac = target;
-      _dragging = false;
-    });
     widget.panelDragging.value = false;
-    widget.onFracChanged(target);
-    widget.onFracLive(target);
+    _settle(target);
   }
 
   void _onHandleTap() {
     final double next;
-    if (_frac <= _minFrac + 0.02) {
+    if (_frac <= _peekFrac + 0.02) {
       next = _fitFrac; // peek → open to full content
     } else if (_frac >= _maxFrac - 0.02) {
       next = _fitFrac; // near-full → back to content
     } else {
       next = _maxFrac; // content → near-full
     }
-    setState(() => _frac = next);
-    widget.onFracChanged(next);
-    widget.onFracLive(next);
+    _settle(next);
   }
 
   /// Measures the laid-out content and opens the panel at exactly the height
@@ -1251,10 +1283,18 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
     var target = _kPanelMidFrac;
-    final contentH = _contentKey.currentContext?.size?.height;
-    if (contentH != null && contentH > 0 && screenH > 0) {
-      final needed = _handleHeight + contentH + mq.padding.bottom + 6;
-      target = (needed / screenH).clamp(_minFrac, _maxFrac);
+    double frac(double contentH) =>
+        (_handleHeight + contentH + mq.padding.bottom) / screenH;
+    final content = _contentKey.currentContext?.findRenderObject();
+    final pillRow = _pillRowKey.currentContext?.findRenderObject();
+    if (screenH > 0 && content is RenderBox && pillRow is RenderBox) {
+      // Peek: down to the pill row's bottom edge plus the 16 gap under it —
+      // the next caption starts exactly at the panel's edge, so no slack.
+      final summaryH = pillRow
+          .localToGlobal(Offset(0, pillRow.size.height), ancestor: content)
+          .dy;
+      _peekFrac = frac(summaryH + 16).clamp(_minFrac, _maxFrac);
+      target = frac(content.size.height + 6).clamp(_peekFrac, _maxFrac);
     }
     // Capture whether the rider was sitting at the previous fit anchor
     // *before* we overwrite [_fitFrac] — otherwise the check below compares
@@ -1316,7 +1356,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       // the content has laid out — expand to exactly fit it next frame, so the
       // panel reads as the tapped card swelling open to its full detail.
       _entered = true;
-      _frac = (_carouselHeight(context) / screenH).clamp(_minFrac, _maxFrac);
+      _frac = (_carouselHeight(context) / screenH).clamp(_peekFrac, _maxFrac);
       WidgetsBinding.instance.addPostFrameCallback((_) => _openToFitContent());
     }
 
@@ -1401,9 +1441,12 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
               ),
               // Content — header + detail. The panel measures this column
               // (via [_contentKey]) and opens exactly tall enough to show all
-              // of it; it scrolls only when dragged shorter than its content.
+              // of it; it scrolls only when dragged shorter than its content
+              // — and not at all at the peek, which shows exactly the summary.
               Expanded(
                 child: SingleChildScrollView(
+                  controller: _scroll,
+                  physics: _atPeek ? const NeverScrollableScrollPhysics() : null,
                   child: Column(
                     key: _contentKey,
                     mainAxisSize: MainAxisSize.min,
@@ -1488,6 +1531,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                             // own line when a long flag or large text won't
                             // fit them side by side.
                             SizedBox(
+                              key: _pillRowKey,
                               // Full width, or spaceBetween has no room.
                               width: double.infinity,
                               child: Wrap(

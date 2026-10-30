@@ -55,21 +55,37 @@ DispatchJob _ormecoJob({String? flag, String customer = 'JUAN DELA CRUZ'}) =>
       ],
     });
 
-Future<void> _pumpPanel(WidgetTester tester, [DispatchJob? job]) async {
+Future<void> _pumpPanel(WidgetTester tester,
+    [DispatchJob? job, double? etaMeters, double textScale = 1]) async {
   tester.view.physicalSize = const Size(360, 780);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   // Fresh tree each time, so a second pump doesn't inherit expanded tiles.
   await tester.pumpWidget(const SizedBox());
   await tester.pumpWidget(MaterialApp(
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
     home: Scaffold(
       body: Align(
         alignment: Alignment.bottomCenter,
-        child: debugFocusedJobPanel(job ?? _ormecoJob()),
+        child: debugFocusedJobPanel(job ?? _ormecoJob(), etaMeters: etaMeters),
       ),
     ),
   ));
   await tester.pumpAndSettle();
+}
+
+final _handle = find.byWidgetPredicate(
+    (w) => w is Semantics && w.properties.label == 'Resize job panel');
+
+/// Drags the panel all the way down and returns its settled rect.
+Future<Rect> _dragToPeek(WidgetTester tester) async {
+  await tester.drag(_handle, const Offset(0, 700));
+  await tester.pumpAndSettle();
+  return tester.getRect(find.byType(AnimatedContainer));
 }
 
 void main() {
@@ -168,6 +184,67 @@ void main() {
     // With a wrapped name the disc moves down with it, level with the ✕
     // (user feedback 2026-10-30: it sat on the first line, above the ✕).
     expect(tester.getCenter(disc).dy, closeTo(tester.getCenter(close).dy, 1));
+  });
+
+  testWidgets('dragged all the way down, the panel shows exactly the summary',
+      (tester) async {
+    await _pumpPanel(tester, _ormecoJob(flag: 'Has problem'), 1200);
+    final panel = await _dragToPeek(tester);
+    // The pills + distance row is the summary's last row: fully in, and
+    // exactly: its 16 bottom gap, no more.
+    expect(find.text('Has problem'), findsOneWidget);
+    final row = find
+        .ancestor(of: find.text('away'), matching: find.byType(Wrap))
+        .first;
+    expect(panel.bottom - tester.getRect(row).bottom, closeTo(16, 1));
+    // The next caption isn't.
+    expect(tester.getRect(find.text('REMARKS')).top,
+        greaterThanOrEqualTo(panel.bottom));
+  });
+
+  testWidgets('at the smallest size the content does not scroll',
+      (tester) async {
+    await _pumpPanel(tester);
+    await _dragToPeek(tester);
+    final name = find.text('JUAN DELA CRUZ');
+    final before = tester.getRect(name);
+    await tester.drag(name, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(name), before);
+    // Opened again, it scrolls as before.
+    await tester.tap(_handle);
+    await tester.pumpAndSettle();
+    await tester.tap(_handle); // fit → near-full
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Detail'));
+    await tester.tap(find.text('Detail'));
+    await tester.pumpAndSettle();
+    final opened = tester.getRect(name);
+    await tester.drag(name, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(name).top, lessThan(opened.top));
+  });
+
+  testWidgets('the smallest size grows with a long name and 1.3x text',
+      (tester) async {
+    await _pumpPanel(tester);
+    final short = (await _dragToPeek(tester)).height;
+    await _pumpPanel(
+        tester,
+        _ormecoJob(
+            customer: 'JUAN DELA CRUZ Y SANTOS ELECTRICAL SUPPLY AND '
+                'HARDWARE TRADING CORPORATION OF ORIENTAL MINDORO'));
+    final longName = await _dragToPeek(tester);
+    expect(longName.height, greaterThan(short));
+    expect(tester.getRect(find.text('SCHEDULED')).top,
+        greaterThanOrEqualTo(longName.bottom));
+    await _pumpPanel(tester, null, null, 1.3);
+    final large = await _dragToPeek(tester);
+    expect(large.height, greaterThan(short));
+    final pill = tester.getRect(find.text('Not started'));
+    expect(pill.bottom, lessThanOrEqualTo(large.bottom));
+    expect(tester.getRect(find.text('SCHEDULED')).top,
+        greaterThanOrEqualTo(large.bottom));
   });
 
   testWidgets('a flagged job shows its notes once, up top, not in Detail',
