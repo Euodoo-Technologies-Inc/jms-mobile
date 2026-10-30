@@ -323,16 +323,21 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
               ),
               // First load only — later polls refresh in place, so a day
               // with zero jobs never blanks the map every 30 s.
-              Obx(() => AnimatedSwitcher(
-                    duration: Motion.of(context, Motion.short),
-                    child: _jobsCtrl.isLoading.value &&
-                            _jobsCtrl.jobs.isEmpty &&
-                            _jobsCtrl.lastFetchedAt.value == null
-                        ? const Center(
-                            key: ValueKey('spinner'),
-                            child: CircularProgressIndicator())
-                        : const SizedBox.shrink(),
-                  )),
+              // Positioned.fill: a non-positioned child would size this
+              // Stack (the body gets loose constraints), and the idle
+              // SizedBox.shrink() collapsed the whole page to 0×0.
+              Positioned.fill(
+                child: Obx(() => AnimatedSwitcher(
+                      duration: Motion.of(context, Motion.short),
+                      child: _jobsCtrl.isLoading.value &&
+                              _jobsCtrl.jobs.isEmpty &&
+                              _jobsCtrl.lastFetchedAt.value == null
+                          ? const Center(
+                              key: ValueKey('spinner'),
+                              child: CircularProgressIndicator())
+                          : const SizedBox.shrink(),
+                    )),
+              ),
               // Location-off and offline / load-error banners: bottom-
               // anchored, floating above the carousel/panel rather than
               // pushing the top bar down.
