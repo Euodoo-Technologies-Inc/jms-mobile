@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -19,7 +20,8 @@ const double _kFitPadding = 40;
 /// OSM sends `max-age` of about a day; a cached tile stays fresh for 7 days
 /// (OSM's own `stale-while-revalidate` window), then is revalidated by ETag.
 /// The cache is trimmed to 200 MB on each app start. At most 2 connections to
-/// the tile server at once, per OSM's tile usage policy.
+/// the tile server at once, per OSM's tile usage policy — queued by
+/// [TileQueueClient], with `maxConnectionsPerHost` as the hard backstop.
 @visibleForTesting
 NetworkTileProvider osmTileProvider({
   http.Client? httpClient,
@@ -27,13 +29,79 @@ NetworkTileProvider osmTileProvider({
 }) => NetworkTileProvider(
   httpClient:
       httpClient ??
-      RetryClient(IOClient(HttpClient()..maxConnectionsPerHost = 2)),
+      TileQueueClient(
+        RetryClient(IOClient(HttpClient()..maxConnectionsPerHost = 2)),
+      ),
   cachingProvider: BuiltInMapCachingProvider.getOrCreateInstance(
     cacheDirectory: cacheDirectory,
     maxCacheSize: 200 * 1024 * 1024,
     overrideFreshAge: const Duration(days: 7),
   ),
 );
+
+/// Runs at most [slots] tile downloads at once and holds the rest here, not
+/// inside dart:io. `HttpClient` queues inside `openUrl`, where an abort can't
+/// reach a request until it has won a connection, so a tile pruned during the
+/// fit-to-bounds glide still waited 8–21 s for a slot before failing, and the
+/// final view's tiles sat behind it (#70). Here a request whose
+/// `abortTrigger` fires before it starts is dropped on the spot, and the
+/// coarsest tiles (lowest `{z}` — the preview layer, two zooms out) go first.
+@visibleForTesting
+class TileQueueClient extends http.BaseClient {
+  TileQueueClient(this._inner, {this.slots = 2});
+
+  final http.Client _inner;
+  final int slots;
+  int _active = 0;
+  final _waiting = <_QueuedTile>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    final entry = _QueuedTile(request);
+    _waiting.add(entry);
+    if (request case http.Abortable(:final abortTrigger?)) {
+      abortTrigger.whenComplete(() {
+        if (_waiting.remove(entry)) {
+          entry.done.completeError(http.RequestAbortedException(request.url));
+        }
+      });
+    }
+    _pump();
+    return entry.done.future;
+  }
+
+  void _pump() {
+    while (_active < slots && _waiting.isNotEmpty) {
+      // Lowest zoom wins; `reduce` keeps the earlier entry on a tie (FIFO).
+      final next = _waiting.reduce((a, b) => b.z < a.z ? b : a);
+      _waiting.remove(next);
+      _active++;
+      // ponytail: the slot frees on headers, not on the last body byte; a
+      // tile body is a few KB and `maxConnectionsPerHost` still caps at 2.
+      _inner
+          .send(next.request)
+          .then(next.done.complete, onError: next.done.completeError)
+          .whenComplete(() {
+            _active--;
+            _pump();
+          });
+    }
+  }
+
+  @override
+  void close() => _inner.close();
+}
+
+class _QueuedTile {
+  _QueuedTile(this.request)
+    : z = int.tryParse(request.url.pathSegments.firstOrNull ?? '') ?? 0;
+
+  final http.BaseRequest request;
+
+  /// The `{z}` of the OSM tile URL; non-tile URLs sort first.
+  final int z;
+  final done = Completer<http.StreamedResponse>();
+}
 
 /// A map widget implementation using `flutter_map` (OpenStreetMap).
 class FlutterMapWidget extends StatefulWidget {
@@ -179,6 +247,19 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
       ? const TileDisplay.instantaneous()
       : const TileDisplay.fadeIn();
 
+  /// No tile loads while [_animateTo] is gliding: each intermediate frame
+  /// would request a screenful at its own zoom, and with 2 connections those
+  /// queued ahead of the final view's tiles and left the map grey (#70).
+  /// Tiles already held keep drawing. The landing move comes after
+  /// [_camAnim] is released, so it loads and prunes as usual.
+  late final TileUpdateTransformer _whenSettled =
+      TileUpdateTransformer.fromHandlers(
+        handleData: (event, sink) {
+          if (event.wasTriggeredByTap() || _camAnim != null) return;
+          sink.add(event);
+        },
+      );
+
   /// Soft preview under [_tileLayer]: tiles two zoom levels out, each drawn
   /// over 4×4 sharp tiles, so a fresh screen shows a blurry map after 2–4
   /// downloads instead of 20–40, and the sharp tiles fade in over it. Hidden
@@ -194,6 +275,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     panBuffer: 0,
     tileProvider: _tileProvider,
     tileDisplay: _tileDisplay,
+    tileUpdateTransformer: _whenSettled,
   );
 
   /// flutter_map's camera has no valid size until the map is laid out — guards
@@ -215,6 +297,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     // view.
     tileProvider: _tileProvider,
     tileDisplay: _tileDisplay,
+    tileUpdateTransformer: _whenSettled,
   );
 
   @override
@@ -287,6 +370,9 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     final curve = CurvedAnimation(parent: ctrl, curve: Curves.easeInOutCubic);
     void tick() {
       final t = curve.value;
+      // The landing is done below, once the controller is gone: a tick can
+      // already sit at 1.0 while the controller still counts as running.
+      if (t >= 1) return;
       _mapController.move(
         ll.LatLng(
           startLat + (lat - startLat) * t,
@@ -300,6 +386,8 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
       if (s == AnimationStatus.completed || s == AnimationStatus.dismissed) {
         ctrl.dispose();
         if (identical(_camAnim, ctrl)) _camAnim = null;
+        // Land with no glide running, so this move's tiles get loaded.
+        _mapController.move(ll.LatLng(lat, lng), zoom);
       }
     });
     _camAnim = ctrl;
