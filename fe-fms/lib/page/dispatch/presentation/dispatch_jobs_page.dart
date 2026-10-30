@@ -1995,10 +1995,14 @@ class _FieldGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Record labels: bold and a step smaller than the value, so a row reads
+    // as "label, then value" at a glance. Tone can't carry the difference —
+    // white at 0.9 on the green is already at the AA floor (4.5:1).
     final labelStyle = caps
         ? _CardLabel.styleOf(context)
-        : Theme.of(context).textTheme.bodySmall?.copyWith(
+        : Theme.of(context).textTheme.labelMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w700,
             );
     final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: Colors.white,
@@ -2052,10 +2056,22 @@ class _FieldGrid extends StatelessWidget {
           rows.add(field(fields[i]));
         }
       }
+      // Record rows sit on hairlines, like a table; the panel captions keep
+      // their plain gap.
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
-        children: rows,
+        spacing: caps ? 10 : 8,
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0 && !caps)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.white.withValues(alpha: 0.2),
+              ),
+            rows[i],
+          ],
+        ],
       );
     });
   }
