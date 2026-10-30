@@ -19,6 +19,7 @@ import '../controller/dispatch_jobs_controller.dart';
 import '../service/dispatch_notice_service.dart';
 import '../service/dispatch_sync_service.dart';
 import '../widget/dispatch_external_status_pill.dart';
+import '../widget/dispatch_job_status.dart';
 import 'dispatch_finish_job_page.dart';
 import 'dispatch_jobs_overview_page.dart';
 import 'dispatch_profile_page.dart';
@@ -1032,7 +1033,7 @@ class _DispatchJobCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        _JobStatusPill(job: job),
+                        DispatchJobStatus.of(job).pill(context),
                         if (job.externalStatusLabel != null) ...[
                           const SizedBox(height: 4),
                           DispatchExternalStatusPill(job: job),
@@ -1147,53 +1148,6 @@ class _CardMetric extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _JobStatusPill extends StatelessWidget {
-  const _JobStatusPill({required this.job});
-  final DispatchJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    Color bg;
-    Color fg;
-    String label;
-    if (job.isFinished) {
-      bg = const Color(0xFFd1fae5);
-      fg = const Color(0xFF065f46);
-      label = 'Finished';
-    } else if (job.isOnTheWay) {
-      bg = const Color(0xFFfef3c7);
-      fg = const Color(0xFF92400e);
-      label = 'On the way';
-    } else if (job.isReschedulePending) {
-      bg = const Color(0xFFfed7aa);
-      fg = const Color(0xFF9a3412);
-      label = 'Reschedule';
-    } else {
-      bg = const Color(0xFFe5e7eb);
-      fg = const Color(0xFF374151);
-      label = 'Not started';
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: fg,
-          fontWeight: FontWeight.w600,
-          height: 1.2,
-        ),
-      ),
     );
   }
 }
@@ -1580,7 +1534,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                     spacing: 6,
                                     runSpacing: 6,
                                     children: [
-                                      _JobStatusPill(job: job),
+                                      DispatchJobStatus.of(job).pill(context),
                                       if (job.externalStatusLabel != null)
                                         DispatchExternalStatusPill(job: job),
                                     ],
@@ -1622,6 +1576,29 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 ],
                               ),
                             ),
+                            // ORMECO sends no reason for a flag; its own
+                            // notes are the closest, so they sit right under
+                            // it instead of only inside Detail.
+                            if (job.externalStatusLabel != null &&
+                                job.externalNotes.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              const _CardLabel('ORMECO NOTE'),
+                              const SizedBox(height: 4),
+                              for (final note in job.externalNotes)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    '${note.label}: ${note.value}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                      color: Colors.white,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                            ],
                             const SizedBox(height: 6),
                             if (job.scheduledArrival != null)
                               _InfoRow(

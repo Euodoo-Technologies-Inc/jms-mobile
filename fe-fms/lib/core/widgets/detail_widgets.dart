@@ -174,6 +174,9 @@ class DetailKvRow extends StatelessWidget {
 }
 
 /// A rounded status pill — coloured background/border with matching text.
+/// The fill is opaque (a light tint over the card colour), so it also reads
+/// on the green 4W job cards; text stays at 4.5:1 for the brand and warning
+/// colours in both modes.
 class DetailStatusPill extends StatelessWidget {
   const DetailStatusPill({
     super.key,
@@ -191,7 +194,10 @@ class DetailStatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.08),
+          context.dispatch.card,
+        ),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
@@ -202,11 +208,19 @@ class DetailStatusPill extends StatelessWidget {
             Icon(icon, size: 13, color: color),
             const SizedBox(width: 5),
           ],
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
+          // Flexible + two lines: a long label wraps inside a capped column
+          // (the 4W card) instead of overflowing it.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
             ),
           ),
         ],

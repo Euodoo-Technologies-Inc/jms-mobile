@@ -17,11 +17,11 @@ enum JobStatus {
   final String label;
   final IconData icon;
 
-  /// Green comes from the scheme so it lightens to stay legible on dark
-  /// surfaces; amber is the shared [DispatchColors.warning].
+  /// Green comes from the scheme and amber from the palette, so both lighten
+  /// to stay legible on dark surfaces.
   Color color(BuildContext context) => switch (this) {
     open || completed => Theme.of(context).colorScheme.primary,
-    inProgress || rescheduled => DispatchColors.warning,
+    inProgress || rescheduled => context.dispatch.warning,
   };
 
   /// The status badge on a jobs-list card. [label] overrides the text, e.g.

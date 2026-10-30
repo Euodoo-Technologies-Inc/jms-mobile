@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 
 import '../../../core/models/geo.dart';
 import '../../../core/theme/dispatch_palette.dart';
+import '../../../core/widgets/detail_widgets.dart';
 import '../../../core/widgets/adaptive_map.dart';
 import '../../../core/widgets/app_feedback.dart';
 import '../../../core/widgets/object_status_bottom_sheet.dart';
@@ -56,170 +57,159 @@ class _JobNavigationPageState extends State<JobNavigationPage> {
   @override
   Widget build(BuildContext context) {
     final palette = context.dispatch;
-    return Scaffold(
-      backgroundColor: palette.pageSurface,
-      appBar: AppBar(
-        backgroundColor: palette.pageSurface,
-        surfaceTintColor: palette.pageSurface,
-        foregroundColor: palette.ink,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: palette.cardBorder)),
-        title: const Text('Job navigation'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _controller.isLoading.value ? null : _loadData,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Obx(() {
-            final error = _controller.error.value;
-            final markers = _controller.markers;
-            final zones = _controller.zones;
-            final loading = _controller.isLoading.value;
+    return DetailScaffold(
+      title: 'Job navigation',
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _controller.isLoading.value ? null : _loadData,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Obx(() {
+          final error = _controller.error.value;
+          final markers = _controller.markers;
+          final zones = _controller.zones;
+          final loading = _controller.isLoading.value;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Destination header — mirrors the detail page's title block.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: DispatchColors.brand.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.place_outlined,
-                        size: 20,
-                        color: DispatchColors.brand,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.jobName,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(height: 1.2),
-                          ),
-                          if (widget.address != null &&
-                              widget.address!.isNotEmpty) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              widget.address!,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.3),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (error != null) ...[
-                  const SizedBox(height: 14),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Destination header — mirrors the detail page's title block.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
-                      color: DispatchColors.danger.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: DispatchColors.danger.withValues(alpha: 0.4),
-                      ),
+                      color: DispatchColors.brand.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                    child: Row(
+                    child: const Icon(
+                      Icons.place_outlined,
+                      size: 20,
+                      color: DispatchColors.brand,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 16,
-                          color: DispatchColors.danger,
+                        Text(
+                          widget.jobName,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(height: 1.2),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            error,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: DispatchColors.danger,
-                            ),
+                        if (widget.address != null &&
+                            widget.address!.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            widget.address!,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.3),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: AdaptiveMap(
-                            center: _jobPoint,
-                            markers: markers,
-                            zones: zones,
-                            onMarkerTap: _handleMarkerTap,
-                          ),
-                        ),
-                        // Hairline border drawn over the map to match cards.
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                border:
-                                    Border.all(color: palette.cardBorder),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (loading)
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: const BoxDecoration(
-                                color: Color(0x33000000),
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: DispatchColors.brand,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: DispatchColors.danger.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: DispatchColors.danger.withValues(alpha: 0.4),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Markers: ${markers.length}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    Text(
-                      'Geozones: ${zones.length}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 16,
+                        color: DispatchColors.danger,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          error,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: DispatchColors.danger,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            );
-          }),
-        ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: AdaptiveMap(
+                          center: _jobPoint,
+                          markers: markers,
+                          zones: zones,
+                          onMarkerTap: _handleMarkerTap,
+                        ),
+                      ),
+                      // Hairline border drawn over the map to match cards.
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border:
+                                  Border.all(color: palette.cardBorder),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (loading)
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              color: Color(0x33000000),
+                            ),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: DispatchColors.brand,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Markers: ${markers.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    'Geozones: ${zones.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

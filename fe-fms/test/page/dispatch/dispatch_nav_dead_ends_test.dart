@@ -112,6 +112,40 @@ void main() {
       expect(find.text('No pending jobs'), findsOneWidget);
       await unmountMap(tester);
     });
+
+    testWidgets('a flagged job shows ORMECO\'s note under the flag',
+        (tester) async {
+      DispatchJob ormeco({String? flag}) => DispatchJob.fromJson({
+            'id': 1,
+            'job_name': 'Reconnection',
+            'lat': 13.4,
+            'lng': 121.2,
+            'external_status': flag == null ? null : 'has_problem',
+            'external_status_label': flag,
+            'external_details': [
+              {
+                'heading': 'Detail',
+                'fields': [
+                  {'label': 'Remarks', 'value': 'METER NOT ENERGIZED'},
+                ],
+              },
+            ],
+          });
+
+      jobs.jobs.assignAll([ormeco(flag: 'Has problem')]);
+      jobs.lastFetchedAt.value = DateTime.now();
+      jobs.selectedJobId.value = 1;
+      await pumpMap(tester);
+      expect(find.text('ORMECO NOTE'), findsOneWidget);
+      expect(find.text('Remarks: METER NOT ENERGIZED'), findsOneWidget);
+      await unmountMap(tester);
+
+      // No flag, no note: the remark stays in the Detail section only.
+      jobs.jobs.assignAll([ormeco()]);
+      await pumpMap(tester);
+      expect(find.text('ORMECO NOTE'), findsNothing);
+      await unmountMap(tester);
+    });
   });
 
   group('DispatchFinishJobPage Back', () {

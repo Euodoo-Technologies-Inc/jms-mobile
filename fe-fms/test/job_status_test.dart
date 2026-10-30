@@ -54,7 +54,7 @@ void main() {
         if (status == JobStatus.inProgress) {
           // Was blue "In Progress" on the list, amber "Ongoing" on detail.
           expect(detail.data, 'In progress');
-          expect(detail.style!.color, DispatchColors.warning);
+          expect(detail.style!.color, theme.extension<DispatchPalette>()!.warning);
         }
         expect(
           find.descendant(
