@@ -136,14 +136,17 @@ void main() {
       jobs.lastFetchedAt.value = DateTime.now();
       jobs.selectedJobId.value = 1;
       await pumpMap(tester);
-      expect(find.text('ORMECO NOTE'), findsOneWidget);
-      expect(find.text('Remarks: METER NOT ENERGIZED'), findsOneWidget);
+      // The field's own label is the caption, in the panel's caption style.
+      expect(find.text('REMARKS'), findsOneWidget);
+      expect(find.text('METER NOT ENERGIZED'), findsOneWidget);
+      expect(find.text('ORMECO NOTE'), findsNothing);
       await unmountMap(tester);
 
       // No flag, no note: the remark stays in the Detail section only.
       jobs.jobs.assignAll([ormeco()]);
       await pumpMap(tester);
-      expect(find.text('ORMECO NOTE'), findsNothing);
+      expect(find.text('REMARKS'), findsNothing);
+      expect(find.text('METER NOT ENERGIZED'), findsNothing);
       await unmountMap(tester);
     });
   });
