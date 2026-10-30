@@ -13,7 +13,7 @@ import '../../../core/dispatch/dispatch_navigation.dart';
 import '../../../core/models/geo.dart';
 import '../../../core/theme/dispatch_palette.dart';
 import '../../../core/theme/motion.dart';
-import '../../../core/widgets/adaptive_map.dart';
+import '../../../core/widgets/flutter_map_widget.dart';
 import '../../../data/dispatch/models/dispatch_job_model.dart';
 import '../controller/dispatch_jobs_controller.dart';
 import '../service/dispatch_notice_service.dart';
@@ -63,6 +63,11 @@ double _carouselHeight(BuildContext context) =>
 /// the island's own fixed height.
 const double _kTopBarTop = 8;
 const double _kTopBarHeight = 56;
+const double _kTopBarRadius = 20;
+
+/// The profile button's inset from the island edge: 48 dp square, centred,
+/// with the same gap on the right as top and bottom.
+const double _kTopBarInset = (_kTopBarHeight - 48) / 2;
 
 /// Compact "h:mm a" for the carousel card's scheduled metric. Today's jobs
 /// carry a same-day time, so the date portion would just be noise. Falls back
@@ -398,7 +403,112 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     );
   }
 
-  /// Scoped Obx around the map.
+  /// Today's unfinished jobs — what every map layer draws from.
+  List<DispatchJob> get _activeJobs =>
+      _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
+
+  /// The focused job: selected, geocoded and not hidden by the route
+  /// preview. Null means overview (or preview) mode.
+  DispatchJob? _focusedJob(List<DispatchJob> jobs) {
+    if (_jobsCtrl.routePreview.value) return null;
+    final id = _jobsCtrl.selectedJobId.value;
+    final job = id == null ? null : jobs.firstWhereOrNull((j) => j.id == id);
+    return job != null && job.lat != null && job.lng != null ? job : null;
+  }
+
+  /// Job pins. Focused: the one job, not tappable. Overview: every geocoded
+  /// job. Preview: the same, in route order. Rebuilds on jobs / selection /
+  /// preview changes only — never on a GPS fix or a route-reveal frame.
+  late final Widget _jobPinsLayer = Obx(() {
+    final jobs = _activeJobs;
+    final focused = _focusedJob(jobs);
+    final List<DispatchJob> shown;
+    if (focused != null) {
+      shown = [focused];
+    } else {
+      shown = jobs.where((j) => j.lat != null && j.lng != null).toList();
+      if (_jobsCtrl.routePreview.value) {
+        shown.sort((a, b) =>
+            (a.routeOrder ?? 1 << 30).compareTo(b.routeOrder ?? 1 << 30));
+      }
+    }
+    return FlutterMapWidget.markerLayer(
+      [
+        for (final j in shown)
+          MapMarkerModel(
+            id: 'job_${j.id}',
+            position: GeoPoint(j.lat!, j.lng!),
+            title: j.jobName,
+            subtitle: j.address,
+            data: focused == null ? j.id : null,
+            label: _stopNumberOf(j, jobs).toString(),
+          ),
+      ],
+      onMarkerTap: (m) {
+        final id = m.data;
+        if (id is int) {
+          final j = jobs.firstWhereOrNull((x) => x.id == id);
+          if (j != null) _select(j);
+        }
+      },
+    );
+  });
+
+  /// The rider's dot and heading cone. Rebuilds on GPS fixes only. Hidden in
+  /// the route preview, which is about the job route.
+  late final Widget _riderLayer = Obx(() {
+    final rider = _jobsCtrl.riderPos.value;
+    if (rider == null || _jobsCtrl.routePreview.value) {
+      return const SizedBox.shrink();
+    }
+    return FlutterMapWidget.markerLayer([
+      MapMarkerModel(
+        id: 'rider',
+        position: rider,
+        title: 'You',
+        kind: MapMarkerKind.rider,
+        rotation: _jobsCtrl.riderHeading.value,
+      ),
+    ]);
+  });
+
+  /// The route line — rider → target, or the all-jobs preview line — revealed
+  /// point by point. Rebuilds once per reveal frame, and only itself.
+  late final Widget _routeLayer = Obx(() {
+    final preview = _jobsCtrl.routePreview.value;
+    final points = preview
+        ? _jobsCtrl.previewRoutePoints.value
+        : _jobsCtrl.routePoints.value;
+    final reveal = preview
+        ? _jobsCtrl.previewRevealCount.value
+        : _jobsCtrl.routeRevealCount.value;
+    if (points == null || points.length < 2 || reveal < 2) {
+      return const SizedBox.shrink();
+    }
+    return FlutterMapWidget.polylineLayer([
+      MapZoneModel(
+        id: preview ? 'preview_route' : 'route',
+        type: MapZoneType.polyline,
+        points: points.sublist(0, reveal.clamp(2, points.length)),
+        style: preview
+            ? const MapZoneStyle(
+                strokeColorHex: _kPreviewRouteHex,
+                strokeWidth: 4,
+                strokeOpacity: 0.9,
+              )
+            : const MapZoneStyle(
+                strokeColorHex: _kRouteHex,
+                strokeWidth: 4,
+                strokeOpacity: 0.85,
+              ),
+      ),
+    ]);
+  });
+
+  /// The map. Its reactive state is split so each part rebuilds alone: this
+  /// Obx reads only what moves the camera and rebuilds [FlutterMapWidget]
+  /// (whose tile layer is built once); the pins, the rider dot and the route
+  /// line are the long-lived Obx layers above, inside the map.
   Widget _buildMapArea() {
     final mq = MediaQuery.of(context);
     final palette = context.dispatch;
@@ -411,84 +521,42 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
       children: [
         Positioned.fill(
           child: Obx(() {
-            final jobs =
-                _jobsCtrl.jobs.where((j) => !j.isFinished).toList();
-            final selectedId = _jobsCtrl.selectedJobId.value;
-            final selected = selectedId == null
-                ? null
-                : jobs.firstWhereOrNull((j) => j.id == selectedId);
-            final routePreview = _jobsCtrl.routePreview.value;
-            final isFocused = !routePreview &&
-                selected != null &&
-                selected.lat != null &&
-                selected.lng != null;
+            final jobs = _activeJobs;
+            final focused = _focusedJob(jobs);
             final rider = _jobsCtrl.riderPos.value;
-            final heading = _jobsCtrl.riderHeading.value;
-            final route = _jobsCtrl.routePoints.value;
-            final reveal = _jobsCtrl.routeRevealCount.value;
-            final previewReveal = _jobsCtrl.previewRevealCount.value;
             final followRider = _jobsCtrl.followRider.value;
             final recenterTick = _jobsCtrl.recenterTick.value;
 
-            var mapData = routePreview
-                ? _routePreviewMapData(
-                    jobs, _jobsCtrl.previewRoutePoints.value, previewReveal)
-                : isFocused
-                    ? _focusedMapData(
-                        selected, jobs, rider, heading, route, reveal)
-                    : _overviewMapData(jobs, rider, heading, route, reveal);
+            var camera = _jobsCtrl.routePreview.value
+                ? _previewCamera(jobs)
+                : focused != null
+                    ? _focusedCamera(focused, rider)
+                    : _overviewCamera(jobs, rider);
             if (followRider && rider != null) {
               // Follow mode pins the rider — no bounds, so the map uses the
               // center/zoom path.
-              mapData = _MapData(
-                center: rider,
-                zoom: 17,
-                markers: mapData.markers,
-                zones: mapData.zones,
-              );
+              camera = _Camera(center: rider, zoom: 17);
             }
-
-            // Diagnostic: confirms how many polyline zones reach the map on
-            // each rebuild. Debug-only — tree-shaken from release builds.
-            assert(() {
-              final mode = routePreview
-                  ? 'preview'
-                  : isFocused
-                      ? 'focused'
-                      : 'overview';
-              final lineCount = mapData.zones
-                  .where((z) => z.type == MapZoneType.polyline)
-                  .length;
-              debugPrint('[map] mode=$mode markers=${mapData.markers.length} '
-                  'polylineZones=$lineCount');
-              return true;
-            }());
 
             // How much of the map's bottom edge the panel currently covers.
             // The map insets its camera by this much so the framed route never
             // hides behind the panel; carousel mode uses its fixed 132px.
             final screenH = mq.size.height;
-            final bottomInset = isFocused
+            final bottomInset = focused != null
                 ? screenH * _panelFrac.value
                 : (jobs.isEmpty ? 0.0 : _carouselHeight(context)) + bottomSafe;
 
-            return AdaptiveMap(
+            // flutter_map directly rather than AdaptiveMap: the 4W map is
+            // OpenStreetMap by decision, and the scoped layers are its own.
+            return FlutterMapWidget(
               key: const ValueKey('dispatchmap'),
-              center: mapData.center,
-              zoom: mapData.zoom,
-              markers: mapData.markers,
-              zones: mapData.zones,
+              center: camera.center,
+              zoom: camera.zoom,
               recenterTick: recenterTick,
-              fitBounds: mapData.bounds,
+              fitBounds: camera.bounds,
               bottomInset: bottomInset,
               topInset: mapTopInset,
-              onMarkerTap: (m) {
-                final id = m.data;
-                if (id is int) {
-                  final j = jobs.firstWhereOrNull((x) => x.id == id);
-                  if (j != null) _select(j);
-                }
-              },
+              layers: [_routeLayer, _jobPinsLayer, _riderLayer],
             );
           }),
         ),
@@ -688,184 +756,46 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     });
   }
 
-  _MapData _focusedMapData(
-    DispatchJob selected,
-    List<DispatchJob> jobs,
-    GeoPoint? rider,
-    double? heading,
-    List<GeoPoint>? route,
-    int revealCount,
-  ) {
+  _Camera _focusedCamera(DispatchJob selected, GeoPoint? rider) {
     final job = GeoPoint(selected.lat!, selected.lng!);
-    final markers = <MapMarkerModel>[
-      MapMarkerModel(
-        id: 'job_${selected.id}',
-        position: job,
-        title: selected.jobName,
-        subtitle: selected.address,
-        label: _stopNumberOf(selected, jobs).toString(),
-      ),
-      if (rider != null)
-        MapMarkerModel(
-          id: 'rider',
-          position: rider,
-          title: 'You',
-          kind: MapMarkerKind.rider,
-          rotation: heading,
-        ),
-    ];
-    if (rider == null) {
-      return _MapData(center: job, zoom: 16, markers: markers);
-    }
+    if (rider == null) return _Camera(center: job, zoom: 16);
     final center = GeoPoint(
       (job.lat + rider.lat) / 2,
       (job.lng + rider.lng) / 2,
     );
     final meters = Geolocator.distanceBetween(
         rider.lat, rider.lng, job.lat, job.lng);
-    final zoom = _zoomForMeters(meters);
-    final hasRoute = route != null && route.length >= 2 && revealCount >= 2;
-    final revealed = hasRoute
-        ? route.sublist(0, revealCount.clamp(2, route.length))
-        : const <GeoPoint>[];
     // Frame the rider→job span so the route is fully visible above the panel.
     // Endpoints (not the revealing polyline) keep the box stable while the
     // line "draws on". A degenerate box — rider sitting on the job — falls
     // back to the center/zoom pair computed above.
     final span = GeoBounds.fromPoints([job, rider]);
-    return _MapData(
+    return _Camera(
       center: center,
-      zoom: zoom,
-      markers: markers,
+      zoom: _zoomForMeters(meters),
       bounds: span.isPoint ? null : span,
-      zones: hasRoute
-          ? [
-              MapZoneModel(
-                id: 'route',
-                type: MapZoneType.polyline,
-                points: revealed,
-                style: const MapZoneStyle(
-                  strokeColorHex: _kRouteHex,
-                  strokeWidth: 4,
-                  strokeOpacity: 0.85,
-                ),
-              ),
-            ]
-          : const [],
     );
   }
 
-  _MapData _overviewMapData(
-    List<DispatchJob> jobs,
-    GeoPoint? rider,
-    double? heading,
-    List<GeoPoint>? route,
-    int revealCount,
-  ) {
-    final geoJobs =
-        jobs.where((j) => j.lat != null && j.lng != null).toList();
-    final markers = <MapMarkerModel>[
-      ...geoJobs.map((j) => MapMarkerModel(
-            id: 'job_${j.id}',
-            position: GeoPoint(j.lat!, j.lng!),
-            title: j.jobName,
-            subtitle: j.address,
-            data: j.id,
-            label: _stopNumberOf(j, jobs).toString(),
-          )),
-      if (rider != null)
-        MapMarkerModel(
-          id: 'rider',
-          position: rider,
-          title: 'You',
-          kind: MapMarkerKind.rider,
-          rotation: heading,
-        ),
-    ];
+  _Camera _overviewCamera(List<DispatchJob> jobs, GeoPoint? rider) {
+    final first = jobs.firstWhereOrNull((j) => j.lat != null && j.lng != null);
     final center = rider ??
-        (geoJobs.isNotEmpty
-            ? GeoPoint(geoJobs.first.lat!, geoJobs.first.lng!)
-            : _kFallbackCenter);
-    final hasRoute = route != null && route.length >= 2 && revealCount >= 2;
-    final revealed = hasRoute
-        ? route.sublist(0, revealCount.clamp(2, route.length))
-        : const <GeoPoint>[];
-    return _MapData(
-      center: center,
-      zoom: 14,
-      markers: markers,
-      zones: hasRoute
-          ? [
-              MapZoneModel(
-                id: 'route',
-                type: MapZoneType.polyline,
-                points: revealed,
-                style: const MapZoneStyle(
-                  strokeColorHex: _kRouteHex,
-                  strokeWidth: 4,
-                  strokeOpacity: 0.85,
-                ),
-              ),
-            ]
-          : const [],
-    );
+        (first != null ? GeoPoint(first.lat!, first.lng!) : _kFallbackCenter);
+    return _Camera(center: center, zoom: 14);
   }
 
-  /// Map data for the all-jobs route preview: every unfinished geocoded job
-  /// framed together, threaded by the multi-stop polyline from the controller.
-  /// Deliberately omits the driver pin — this view is about the job route.
-  _MapData _routePreviewMapData(
-    List<DispatchJob> jobs,
-    List<GeoPoint>? previewRoute,
-    int revealCount,
-  ) {
-    final geoJobs = jobs
-        .where((j) => j.lat != null && j.lng != null)
-        .toList()
-      ..sort((a, b) => (a.routeOrder ?? 1 << 30)
-          .compareTo(b.routeOrder ?? 1 << 30));
-    final markers = <MapMarkerModel>[
-      ...geoJobs.map((j) => MapMarkerModel(
-            id: 'job_${j.id}',
-            position: GeoPoint(j.lat!, j.lng!),
-            title: j.jobName,
-            subtitle: j.address,
-            data: j.id,
-            label: _stopNumberOf(j, jobs).toString(),
-          )),
-    ];
-    // Frame every job stop together so the whole day is in view.
-    final framePoints =
-        geoJobs.map((j) => GeoPoint(j.lat!, j.lng!)).toList();
-    final bounds =
-        framePoints.length >= 2 ? GeoBounds.fromPoints(framePoints) : null;
-    final center = framePoints.isNotEmpty ? framePoints.first : _kFallbackCenter;
-    final hasLine = previewRoute != null &&
-        previewRoute.length >= 2 &&
-        revealCount >= 2;
-    // Reveal the line progressively — it draws from the first stop onward.
-    final revealed = hasLine
-        ? previewRoute.sublist(0, revealCount.clamp(2, previewRoute.length))
-        : const <GeoPoint>[];
-    return _MapData(
-      center: center,
+  /// Frames every unfinished geocoded job together so the whole day is in
+  /// view, starting from the first stop in route order.
+  _Camera _previewCamera(List<DispatchJob> jobs) {
+    final stops = jobs.where((j) => j.lat != null && j.lng != null).toList()
+      ..sort((a, b) =>
+          (a.routeOrder ?? 1 << 30).compareTo(b.routeOrder ?? 1 << 30));
+    final points = [for (final j in stops) GeoPoint(j.lat!, j.lng!)];
+    final bounds = points.length >= 2 ? GeoBounds.fromPoints(points) : null;
+    return _Camera(
+      center: points.isNotEmpty ? points.first : _kFallbackCenter,
       zoom: 12,
-      markers: markers,
-      bounds: (bounds != null && !bounds.isPoint) ? bounds : null,
-      zones: hasLine
-          ? [
-              MapZoneModel(
-                id: 'preview_route',
-                type: MapZoneType.polyline,
-                points: revealed,
-                style: const MapZoneStyle(
-                  strokeColorHex: _kPreviewRouteHex,
-                  strokeWidth: 4,
-                  strokeOpacity: 0.9,
-                ),
-              ),
-            ]
-          : const [],
+      bounds: bounds != null && !bounds.isPoint ? bounds : null,
     );
   }
 
@@ -882,22 +812,12 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
   }
 }
 
-/// Plain value bag — keeps the build method readable.
-class _MapData {
-  const _MapData({
-    required this.center,
-    required this.zoom,
-    required this.markers,
-    this.zones = const [],
-    this.bounds,
-  });
+/// Where the map looks: [bounds] when set, else [center]/[zoom], which also
+/// stay the initial camera.
+class _Camera {
+  const _Camera({required this.center, required this.zoom, this.bounds});
   final GeoPoint center;
   final double zoom;
-  final List<MapMarkerModel> markers;
-  final List<MapZoneModel> zones;
-
-  /// When set, the map frames this box instead of using [center]/[zoom].
-  /// [center]/[zoom] remain as the fallback / initial camera position.
   final GeoBounds? bounds;
 }
 
@@ -1103,16 +1023,14 @@ class _CardLabel extends StatelessWidget {
   const _CardLabel(this.text);
   final String text;
 
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+  static TextStyle? styleOf(BuildContext context) =>
+      Theme.of(context).textTheme.labelSmall?.copyWith(
         color: Colors.white.withValues(alpha: 0.9),
         letterSpacing: 0.8,
-      ),
-    );
-  }
+      );
+
+  @override
+  Widget build(BuildContext context) => Text(text, style: styleOf(context));
 }
 
 /// A captioned value in the job card's bottom metadata row.
@@ -1402,6 +1320,19 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     final height = screenH * _frac;
     final job = widget.job;
     const green = _DispatchJobCard._kCardGreen;
+    final timeline = [
+      if (job.scheduledArrival != null)
+        (
+          label: 'SCHEDULED',
+          value: formatDispatchTimestamp(job.scheduledArrival),
+        ),
+      if (job.actualArrival != null)
+        (label: 'STARTED', value: formatDispatchTimestamp(job.actualArrival)),
+      if (job.finishWhen != null)
+        (label: 'FINISHED', value: formatDispatchTimestamp(job.finishWhen)),
+      if (job.notes != null && job.notes!.isNotEmpty)
+        (label: 'NOTES', value: job.notes!),
+    ];
 
     return Material(
       color: green,
@@ -1419,30 +1350,46 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Drag handle — a 48dp-tall labelled target (M3 sheet handle)
-              // around the 4px grip; tap toggles the panel height.
-              Semantics(
-                button: true,
-                label: 'Resize job panel',
-                child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _onHandleTap,
-                onVerticalDragStart: _onDragStart,
-                onVerticalDragUpdate: (d) => _onDragUpdate(d, screenH),
-                onVerticalDragEnd: _onDragEnd,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 22),
-                  child: Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(2),
+              // around the 4px grip; tap toggles the panel height. The close
+              // button sits level with the grip, so the header gets the full
+              // width and one left edge.
+              Stack(
+                children: [
+                  Semantics(
+                    button: true,
+                    label: 'Resize job panel',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _onHandleTap,
+                      onVerticalDragStart: _onDragStart,
+                      onVerticalDragUpdate: (d) => _onDragUpdate(d, screenH),
+                      onVerticalDragEnd: _onDragEnd,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 22),
+                        child: Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                  Positioned(
+                    top: 0,
+                    // Glyph's right edge on the content's 18dp edge.
+                    right: 6,
+                    child: IconButton(
+                      tooltip: 'Back to list',
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: widget.onClose,
+                    ),
+                  ),
+                ],
               ),
               // Content — header + detail. The panel measures this column
               // (via [_contentKey]) and opens exactly tall enough to show all
@@ -1457,7 +1404,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                       // Header — mirrors the carousel card's header so the
                       // card visually "becomes" the panel.
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 0, 8, 0),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1484,19 +1431,13 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              tooltip: 'Back to list',
-                              icon: const Icon(Icons.close,
-                                  color: Colors.white),
-                              onPressed: widget.onClose,
-                            ),
                           ],
                         ),
                       ),
-                      // Detail.
+                      // Detail: one 18dp edge, 4dp from caption to value,
+                      // 16dp between groups.
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1512,12 +1453,12 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                 height: 1.3,
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 16),
                             Container(
                               height: 1,
                               color: Colors.white.withValues(alpha: 0.22),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
                             // Pills left, distance right; each drops to its
                             // own line when a long flag or large text won't
                             // fit them side by side.
@@ -1581,7 +1522,7 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                             // it instead of only inside Detail.
                             if (job.externalStatusLabel != null &&
                                 job.externalNotes.isNotEmpty) ...[
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 16),
                               const _CardLabel('ORMECO NOTE'),
                               const SizedBox(height: 4),
                               for (final note in job.externalNotes)
@@ -1599,55 +1540,43 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
                                   ),
                                 ),
                             ],
-                            const SizedBox(height: 6),
-                            if (job.scheduledArrival != null)
-                              _InfoRow(
-                                icon: Icons.schedule,
-                                label: 'Scheduled',
-                                value: formatDispatchTimestamp(
-                                    job.scheduledArrival),
-                              ),
-                            if (job.actualArrival != null)
-                              _InfoRow(
-                                icon: Icons.flag_outlined,
-                                label: 'Started',
-                                value: formatDispatchTimestamp(
-                                    job.actualArrival),
-                              ),
-                            if (job.finishWhen != null)
-                              _InfoRow(
-                                icon: Icons.verified_outlined,
-                                label: 'Finished',
-                                value: formatDispatchTimestamp(
-                                    job.finishWhen),
-                              ),
-                            if (job.notes != null &&
-                                job.notes!.isNotEmpty)
-                              _InfoRow(
-                                icon: Icons.notes,
-                                label: 'Notes',
-                                value: job.notes!,
-                              ),
-                            for (final section in job.externalDetails)
-                              DispatchJobDetailSectionTile(
-                                section: section,
-                                onExpansionChanged: _refitAfterSectionToggle,
-                              ),
-                            const SizedBox(height: 16),
-                            _PanelActions(
-                              job: job,
-                              starting: widget.starting,
-                              hasOtherActive: widget.hasOtherActive,
-                              isNextInQueue: widget.isNextInQueue,
-                              onStart: widget.onStart,
-                              onFinish: widget.onFinish,
-                              onNavigate: () => launchMapsDirections(
-                                context,
-                                lat: job.lat!,
-                                lng: job.lng!,
-                              ),
-                            ),
+                            if (timeline.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _FieldGrid(timeline, caps: true),
+                            ],
                           ],
+                        ),
+                      ),
+                      // ORMECO sections, inset 6 so each header's rounded
+                      // highlight has room around it; the tile's 12dp padding
+                      // keeps titles and fields on the 18dp edge.
+                      if (job.externalDetails.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 12, 6, 0),
+                          child: Column(
+                            children: [
+                              for (final section in job.externalDetails)
+                                DispatchJobDetailSectionTile(
+                                  section: section,
+                                  onExpansionChanged: _refitAfterSectionToggle,
+                                ),
+                            ],
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                        child: _PanelActions(
+                          job: job,
+                          starting: widget.starting,
+                          hasOtherActive: widget.hasOtherActive,
+                          isNextInQueue: widget.isNextInQueue,
+                          onStart: widget.onStart,
+                          onFinish: widget.onFinish,
+                          onNavigate: () => launchMapsDirections(
+                            context,
+                            lat: job.lat!,
+                            lng: job.lng!,
+                          ),
                         ),
                       ),
                     ],
@@ -1802,11 +1731,11 @@ class _MapTopBar extends StatelessWidget {
     return Material(
       color: palette.control,
       elevation: 4,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(_kTopBarRadius),
       child: SizedBox(
         height: _kTopBarHeight,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: _kTopBarInset),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1883,10 +1812,12 @@ class _MapTopBar extends StatelessWidget {
                     );
                   }),
                   const Spacer(),
-                  // Profile — a rounded square to match the bar.
+                  // Profile — concentric with the island: its radius is the
+                  // island's less the inset, so the corners follow the curve.
                   Material(
                     color: _DispatchJobCard._kCardGreen,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(
+                        _kTopBarRadius - _kTopBarInset),
                     clipBehavior: Clip.antiAlias,
                     child: Tooltip(
                       message: 'Profile',
@@ -1946,7 +1877,7 @@ Widget debugFocusedJobPanel(DispatchJob job, {double? etaMeters}) =>
 /// One ORMECO details section, collapsed so the panel stays map-sized. Public
 /// only so a widget test can pump it without the map page around it.
 @visibleForTesting
-class DispatchJobDetailSectionTile extends StatelessWidget {
+class DispatchJobDetailSectionTile extends StatefulWidget {
   const DispatchJobDetailSectionTile({
     super.key,
     required this.section,
@@ -1956,72 +1887,140 @@ class DispatchJobDetailSectionTile extends StatelessWidget {
   final ValueChanged<bool>? onExpansionChanged;
 
   @override
+  State<DispatchJobDetailSectionTile> createState() =>
+      _DispatchJobDetailSectionTileState();
+}
+
+class _DispatchJobDetailSectionTileState
+    extends State<DispatchJobDetailSectionTile> {
+  bool _open = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Theme(
-      // ExpansionTile draws theme dividers above and below; the panel has none.
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        expansionAnimationStyle: AnimationStyle(
-          duration: Motion.of(context, Motion.short),
-          curve: Motion.standard,
-        ),
-        onExpansionChanged: onExpansionChanged,
-        tilePadding: EdgeInsets.zero,
-        iconColor: Colors.white,
-        collapsedIconColor: Colors.white,
-        title: Text(
-          section.heading,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        children: [
-          for (final f in section.fields) _InfoRow(label: f.label, value: f.value),
-        ],
+    // A shape clips the header's ink to rounded corners (and replaces the
+    // theme dividers ExpansionTile draws above and below).
+    const shape = RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)));
+    return ExpansionTile(
+      expansionAnimationStyle: AnimationStyle(
+        duration: Motion.of(context, Motion.short),
+        curve: Motion.standard,
       ),
+      onExpansionChanged: (open) {
+        setState(() => _open = open);
+        widget.onExpansionChanged?.call(open);
+      },
+      shape: shape,
+      collapsedShape: shape,
+      clipBehavior: Clip.antiAlias,
+      tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+      trailing: AnimatedRotation(
+        turns: _open ? 0.5 : 0,
+        duration: Motion.of(context, Motion.short),
+        curve: Motion.standard,
+        child: const Icon(Icons.keyboard_arrow_down_rounded,
+            color: Colors.white),
+      ),
+      title: Text(
+        widget.section.heading,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      children: [_FieldGrid(widget.section.fields)],
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    this.icon,
-    required this.label,
-    required this.value,
-  });
-  final IconData? icon;
-  final String label;
-  final String value;
+/// Label-above-value fields, two to a row where label and value each fit on
+/// one line in half the width, so labels never wrap. Fields keep their order,
+/// which already groups them (account, district, meter, transformer…); a
+/// field that would pull the first of the next group up beside it, or that
+/// doesn't fit, takes the row alone.
+class _FieldGrid extends StatelessWidget {
+  const _FieldGrid(this.fields, {this.caps = false});
+  final List<({String label, String value})> fields;
+
+  /// Panel captions (SCHEDULED) instead of record labels (Account no).
+  final bool caps;
+
+  static const double _gap = 16;
 
   @override
   Widget build(BuildContext context) {
-    final muted = Colors.white.withValues(alpha: 0.9);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 18, color: muted),
-            const SizedBox(width: 10),
+    final labelStyle = caps
+        ? _CardLabel.styleOf(context)
+        : Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
+            );
+    final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Colors.white,
+          height: 1.3,
+        );
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+
+    Widget field(({String label, String value}) f) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(f.label, style: labelStyle),
+            const SizedBox(height: 2),
+            Text(f.value, style: valueStyle),
           ],
-          SizedBox(
-            width: 86,
-            child: Text(label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: muted,
-                )),
-          ),
-          Expanded(
-            child: Text(value,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                )),
-          ),
-        ],
-      ),
-    );
+        );
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final half = (constraints.maxWidth - _gap) / 2;
+      bool fitsHalf(String text, TextStyle? style) {
+        if (text.contains('\n')) return false;
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textScaler: scaler,
+          textDirection: direction,
+          maxLines: 1,
+        )..layout(maxWidth: half);
+        final fits = !painter.didExceedMaxLines;
+        painter.dispose();
+        return fits;
+      }
+
+      String group(String label) => label.split(' ').first.toLowerCase();
+      final halves = [
+        for (final f in fields)
+          fitsHalf(f.label, labelStyle) && fitsHalf(f.value, valueStyle),
+      ];
+      final rows = <Widget>[];
+      for (var i = 0; i < fields.length; i++) {
+        final next = i + 1;
+        final nextStartsGroup = next + 1 < fields.length &&
+            group(fields[next].label) != group(fields[i].label) &&
+            group(fields[next].label) == group(fields[next + 1].label);
+        if (next < fields.length &&
+            halves[i] &&
+            halves[next] &&
+            !nextStartsGroup) {
+          rows.add(Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: field(fields[i])),
+              const SizedBox(width: _gap),
+              Expanded(child: field(fields[next])),
+            ],
+          ));
+          i++;
+        } else {
+          rows.add(field(fields[i]));
+        }
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 10,
+        children: rows,
+      );
+    });
   }
 }
 

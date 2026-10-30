@@ -787,6 +787,20 @@ class DispatchJobsController extends GetxController
     }
   }
 
+  /// Completed jobs as last fetched, so the history page shows them at once
+  /// and refreshes behind them (#62). Dies with this controller at sign-out,
+  /// so a new rider never sees the previous one's list.
+  List<DispatchJob> history = const [];
+
+  Future<void> refreshHistory() async {
+    try {
+      history = await _ds.jobsHistory();
+    } on DispatchApiException catch (e) {
+      if (await _handleTerminalAuth(e)) return;
+      rethrow;
+    }
+  }
+
   /// Starts a job. Returns the updated job on success.
   /// Throws [DispatchQueuedException] if the call failed transiently and was
   /// queued for later sync. On 401/403 wipes auth and rethrows.

@@ -55,6 +55,12 @@ class FlutterMapWidget extends StatefulWidget {
   /// full-bleed and no AppBar guards the top edge.
   final double topInset;
 
+  /// Extra flutter_map layers drawn above [markers]. Hand in long-lived
+  /// widget instances (fields, not fresh closures): a camera change here then
+  /// leaves them untouched, and each rebuilds only when its own state does.
+  /// Build them with [markerLayer] / [polylineLayer] / [polygonLayer].
+  final List<Widget> layers;
+
   const FlutterMapWidget({
     super.key,
     required this.center,
@@ -66,7 +72,86 @@ class FlutterMapWidget extends StatefulWidget {
     this.fitBounds,
     this.bottomInset = 0,
     this.topInset = 0,
+    this.layers = const [],
   });
+
+  /// The pin layer for [markers]; also what [FlutterMapWidget.markers] draws.
+  static Widget markerLayer(
+    List<MapMarkerModel> markers, {
+    void Function(MapMarkerModel marker)? onMarkerTap,
+  }) {
+    return MarkerLayer(
+      markers: markers.map((m) {
+        // The rider marker carries a heading arrow, so it needs a larger
+        // box than a job pin — the arrow must not clip when rotated.
+        final isRider = m.kind == MapMarkerKind.rider;
+        return Marker(
+          point: ll.LatLng(m.position.lat, m.position.lng),
+          width: isRider ? 54 : 36,
+          height: isRider ? 54 : 36,
+          rotate: true, // Keep upright as the map itself rotates.
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: onMarkerTap != null ? () => onMarkerTap(m) : null,
+            child: _buildMarkerIcon(m),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// The polygon zones of [zones], as one layer.
+  static Widget polygonLayer(List<MapZoneModel> zones) {
+    return PolygonLayer(
+      polygons: zones.where((z) => z.type == MapZoneType.polygon).map((
+        zone,
+      ) {
+        final fillColor =
+            _parseColor(
+              zone.style?.fillColorHex,
+              zone.style?.fillOpacity,
+            ) ??
+            Colors.blue.withValues(alpha: 0.2);
+        final borderColor =
+            _parseColor(
+              zone.style?.strokeColorHex,
+              zone.style?.strokeOpacity,
+            ) ??
+            Colors.blue;
+        return Polygon(
+          points: zone.points
+              .map((p) => ll.LatLng(p.lat, p.lng))
+              .toList(),
+          color: fillColor,
+          borderColor: borderColor,
+          borderStrokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
+        );
+      }).toList(),
+    );
+  }
+
+  /// The polyline zones of [zones], as one layer.
+  static Widget polylineLayer(List<MapZoneModel> zones) {
+    return PolylineLayer(
+      polylines: zones.where((z) => z.type == MapZoneType.polyline).map(
+        (zone) {
+          final strokeColor =
+              _parseColor(
+                zone.style?.strokeColorHex,
+                zone.style?.strokeOpacity,
+              ) ??
+              Colors.blue;
+          return Polyline(
+            points: zone.points
+                .map((p) => ll.LatLng(p.lat, p.lng))
+                .toList(),
+            color: strokeColor,
+            strokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
+          );
+        },
+      ).toList(),
+    );
+  }
 
   @override
   State<FlutterMapWidget> createState() => _FlutterMapWidgetState();
@@ -86,6 +171,24 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
 
   /// Latest measured height of the map area (logical px), from [LayoutBuilder].
   double _mapHeight = 0;
+
+  /// Built once: nothing in it depends on this widget's props, so a camera or
+  /// layer change must not hand flutter_map a fresh TileLayer to diff.
+  late final Widget _tileLayer = TileLayer(
+    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    userAgentPackageName: 'com.querta.fms',
+    maxZoom: 15,
+    // Cancels in-flight requests for tiles pruned during the
+    // fit-to-bounds camera animation, instead of letting them tie up
+    // OSM's per-IP connection limit and starve the tiles actually in
+    // view.
+    tileProvider: _tileProvider,
+    // Built once (lazily, at first build, so context is valid): a reduced-
+    // motion toggle mid-session applies after the map remounts.
+    tileDisplay: Motion.reduced(context)
+        ? const TileDisplay.instantaneous()
+        : const TileDisplay.fadeIn(),
+  );
 
   @override
   void didUpdateWidget(FlutterMapWidget old) {
@@ -212,84 +315,14 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
           },
         ),
         children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.querta.fms',
-            maxZoom: 15,
-            // Cancels in-flight requests for tiles pruned during the
-            // fit-to-bounds camera animation, instead of letting them tie up
-            // OSM's per-IP connection limit and starve the tiles actually in
-            // view.
-            tileProvider: _tileProvider,
-            tileDisplay: Motion.reduced(context)
-                ? const TileDisplay.instantaneous()
-                : const TileDisplay.fadeIn(),
-          ),
-          if (zones.isNotEmpty)
-            PolygonLayer(
-              polygons: zones.where((z) => z.type == MapZoneType.polygon).map((
-                zone,
-              ) {
-                final fillColor =
-                    _parseColor(
-                      zone.style?.fillColorHex,
-                      zone.style?.fillOpacity,
-                    ) ??
-                    Colors.blue.withValues(alpha: 0.2);
-                final borderColor =
-                    _parseColor(
-                      zone.style?.strokeColorHex,
-                      zone.style?.strokeOpacity,
-                    ) ??
-                    Colors.blue;
-                return Polygon(
-                  points: zone.points
-                      .map((p) => ll.LatLng(p.lat, p.lng))
-                      .toList(),
-                  color: fillColor,
-                  borderColor: borderColor,
-                  borderStrokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
-                );
-              }).toList(),
-            ),
+          _tileLayer,
+          if (zones.any((z) => z.type == MapZoneType.polygon))
+            FlutterMapWidget.polygonLayer(zones),
           if (zones.any((z) => z.type == MapZoneType.polyline))
-            PolylineLayer(
-              polylines: zones.where((z) => z.type == MapZoneType.polyline).map(
-                (zone) {
-                  final strokeColor =
-                      _parseColor(
-                        zone.style?.strokeColorHex,
-                        zone.style?.strokeOpacity,
-                      ) ??
-                      Colors.blue;
-                  return Polyline(
-                    points: zone.points
-                        .map((p) => ll.LatLng(p.lat, p.lng))
-                        .toList(),
-                    color: strokeColor,
-                    strokeWidth: (zone.style?.strokeWidth ?? 2).toDouble(),
-                  );
-                },
-              ).toList(),
-            ),
-          MarkerLayer(
-            markers: markers.map((m) {
-              // The rider marker carries a heading arrow, so it needs a larger
-              // box than a job pin — the arrow must not clip when rotated.
-              final isRider = m.kind == MapMarkerKind.rider;
-              return Marker(
-                point: ll.LatLng(m.position.lat, m.position.lng),
-                width: isRider ? 54 : 36,
-                height: isRider ? 54 : 36,
-                rotate: true, // Keep upright as the map itself rotates.
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: onMarkerTap != null ? () => onMarkerTap(m) : null,
-                  child: _buildMarkerIcon(m),
-                ),
-              );
-            }).toList(),
-          ),
+            FlutterMapWidget.polylineLayer(zones),
+          if (markers.isNotEmpty)
+            FlutterMapWidget.markerLayer(markers, onMarkerTap: onMarkerTap),
+          ...widget.layers,
         ],
         );
       },
@@ -307,100 +340,100 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget>
     }
     return parts.join('\n');
   }
+}
 
-  Widget _buildMarkerIcon(MapMarkerModel marker) {
-    if (marker.iconUrl != null && marker.iconUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.network(
-          marker.iconUrl!,
-          width: 24,
-          height: 24,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) =>
-              const Icon(Icons.location_pin, color: Colors.red, size: 24),
-        ),
-      );
-    }
-    if (marker.kind == MapMarkerKind.rider) {
-      return _buildRiderMarker(marker.rotation);
-    }
-    return _buildJobMarker(marker.label);
+Widget _buildMarkerIcon(MapMarkerModel marker) {
+  if (marker.iconUrl != null && marker.iconUrl!.isNotEmpty) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Image.network(
+        marker.iconUrl!,
+        width: 24,
+        height: 24,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) =>
+            const Icon(Icons.location_pin, color: Colors.red, size: 24),
+      ),
+    );
   }
+  if (marker.kind == MapMarkerKind.rider) {
+    return _buildRiderMarker(marker.rotation);
+  }
+  return _buildJobMarker(marker.label);
+}
 
-  /// A job stop marker: an amber/orange disc carrying the stop number, so the
-  /// running order is readable straight off the map.
-  Widget _buildJobMarker(String? label) {
-    return Center(
-      child: Container(
-        width: 30,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF59E0B),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Text(
-          label ?? '',
-          style: const TextStyle(
-            color: Color(0xFF1F2937),
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-            height: 1,
+/// A job stop marker: an amber/orange disc carrying the stop number, so the
+/// running order is readable straight off the map.
+Widget _buildJobMarker(String? label) {
+  return Center(
+    child: Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
+        ],
+      ),
+      child: Text(
+        label ?? '',
+        style: const TextStyle(
+          color: Color(0xFF1F2937),
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+          height: 1,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  /// The rider's own marker: a Google-Maps-style blue location dot. When a
-  /// heading is known it also fans a translucent "view cone" in that
-  /// direction; with no heading yet it stays a plain dot.
-  Widget _buildRiderMarker(double? heading) {
-    return Transform.rotate(
-      // Heading is degrees clockwise from north; the cone is painted pointing
-      // up, so rotating by the heading orients it. Rotating the dot too is
-      // harmless — it is radially symmetric.
-      angle: (heading ?? 0) * (3.14159265359 / 180.0),
-      child: CustomPaint(
-        size: const Size(54, 54),
-        painter: _RiderMarkerPainter(showCone: heading != null),
-      ),
-    );
-  }
+/// The rider's own marker: a Google-Maps-style blue location dot. When a
+/// heading is known it also fans a translucent "view cone" in that
+/// direction; with no heading yet it stays a plain dot.
+Widget _buildRiderMarker(double? heading) {
+  return Transform.rotate(
+    // Heading is degrees clockwise from north; the cone is painted pointing
+    // up, so rotating by the heading orients it. Rotating the dot too is
+    // harmless — it is radially symmetric.
+    angle: (heading ?? 0) * (3.14159265359 / 180.0),
+    child: CustomPaint(
+      size: const Size(54, 54),
+      painter: _RiderMarkerPainter(showCone: heading != null),
+    ),
+  );
+}
 
-  Color? _parseColor(String? hex, double? opacity) {
-    if (hex == null || hex.isEmpty) {
-      return null;
-    }
-    var formatted = hex.replaceAll('#', '');
-    if (formatted.length == 3) {
-      formatted = formatted.split('').map((c) => '$c$c').join();
-    }
-    if (formatted.length == 6) {
-      formatted = 'FF$formatted';
-    }
-    if (formatted.length != 8) {
-      return null;
-    }
-    final value = int.tryParse(formatted, radix: 16);
-    if (value == null) {
-      return null;
-    }
-    final color = Color(value);
-    if (opacity != null) {
-      return color.withValues(alpha: opacity.clamp(0, 1));
-    }
-    return color;
+Color? _parseColor(String? hex, double? opacity) {
+  if (hex == null || hex.isEmpty) {
+    return null;
   }
+  var formatted = hex.replaceAll('#', '');
+  if (formatted.length == 3) {
+    formatted = formatted.split('').map((c) => '$c$c').join();
+  }
+  if (formatted.length == 6) {
+    formatted = 'FF$formatted';
+  }
+  if (formatted.length != 8) {
+    return null;
+  }
+  final value = int.tryParse(formatted, radix: 16);
+  if (value == null) {
+    return null;
+  }
+  final color = Color(value);
+  if (opacity != null) {
+    return color.withValues(alpha: opacity.clamp(0, 1));
+  }
+  return color;
 }
 
 /// Paints the rider's location marker — a blue dot, plus a translucent
