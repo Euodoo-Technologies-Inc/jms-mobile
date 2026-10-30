@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,24 +28,14 @@ void main() async {
   // App-level safety net: log uncaught framework and async errors instead of
   // letting them vanish, and in release show a calm message in place of a
   // widget that failed to build (debug keeps the red screen for diagnosis).
+  // debugPrint, not dart:developer's log(): log() only reaches an attached
+  // debugger, so in a release build these errors never reached logcat.
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
-    log(
-      '${details.exception}',
-      name: 'FlutterError',
-      error: details.exception,
-      stackTrace: details.stack,
-      level: 1000,
-    );
+    debugPrint('FlutterError: ${details.exception}\n${details.stack}');
   };
   PlatformDispatcher.instance.onError = (error, stack) {
-    log(
-      '$error',
-      name: 'Uncaught',
-      error: error,
-      stackTrace: stack,
-      level: 1000,
-    );
+    debugPrint('Uncaught: $error\n$stack');
     return true;
   };
   if (kReleaseMode) {
