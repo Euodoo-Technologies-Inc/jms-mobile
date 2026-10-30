@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:fms/core/utils/user_message.dart';
@@ -95,8 +96,27 @@ class DispatchJobsPage extends StatefulWidget {
   State<DispatchJobsPage> createState() => _DispatchJobsPageState();
 }
 
-class _DispatchJobsPageState extends State<DispatchJobsPage> {
+class _DispatchJobsPageState extends State<DispatchJobsPage>
+    with TickerProviderStateMixin {
   final RxBool _starting = false.obs;
+
+  /// How far each bottom layer is up: 0 is below the screen's bottom edge,
+  /// 1 is in place. Opening a job runs the cards down to 0 and then the
+  /// panel up to 1; closing is the same in the other order. Only one moves
+  /// at a time, so the recenter button and the banners sit on whichever is
+  /// taller ([_bottomEdge]).
+  late final AnimationController _cards;
+  late final AnimationController _panel;
+  late final Animation<Offset> _cardsSlide = _slide(_cards);
+  late final Animation<Offset> _panelSlide = _slide(_panel);
+
+  /// Which layer is wanted; the swap is in flight until both have settled.
+  bool _panelShown = false;
+  final RxBool _swapping = false.obs;
+
+  /// The job the panel shows. Kept after the selection clears so the panel
+  /// has something to draw while it slides out.
+  DispatchJob? _panelJob;
 
   /// Current height of the focused job panel as a fraction of screen height.
   /// The panel pushes a new value here every time it settles at a drag anchor;
@@ -141,6 +161,9 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     _jobsCtrl = Get.isRegistered<DispatchJobsController>()
         ? Get.find<DispatchJobsController>()
         : Get.put(DispatchJobsController(), permanent: true);
+    _panelShown = _jobsCtrl.selectedJobId.value != null;
+    _cards = AnimationController(vsync: this, value: _panelShown ? 0 : 1);
+    _panel = AnimationController(vsync: this, value: _panelShown ? 1 : 0);
     _applyNoticeTopOffset();
     _checkLocation(request: true);
     // No prompt on resume: the permission dialog itself pauses/resumes the
@@ -226,8 +249,52 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
     });
   }
 
+  static Animation<Offset> _slide(Animation<double> up) =>
+      Tween(begin: const Offset(0, 1), end: Offset.zero).animate(up);
+
+  /// Swaps the bottom layers in sequence, as on the eFMS tracking page: the
+  /// one on screen drops out (short, snappy), then the other rises (medium,
+  /// calmer). Instant under reduce motion. A swap the other way mid-flight
+  /// just turns the moving layer around.
+  void _swapTo(bool panel) {
+    if (_panelShown == panel) return;
+    _panelShown = panel;
+    _swapping.value = true;
+    final out = panel ? _cards : _panel;
+    final inn = panel ? _panel : _cards;
+    out
+        .animateBack(0,
+            duration: Motion.of(context, Motion.short), curve: Motion.standard)
+        .whenCompleteOrCancel(() {
+      if (!mounted || _panelShown != panel) return;
+      inn
+          .animateTo(1,
+              duration: Motion.of(context, Motion.medium),
+              curve: Motion.emphasized)
+          .whenCompleteOrCancel(() {
+        if (mounted && _panelShown == panel && !inn.isAnimating) {
+          _swapping.value = false;
+        }
+      });
+    });
+  }
+
+  /// How far the bottom layer currently on screen reaches above the bottom
+  /// edge: the carousel (with its safe-area inset) or the panel, scaled by
+  /// how far up each one is. Read inside a builder on [_cards] and [_panel]
+  /// so it tracks the swap frame for frame.
+  double _bottomEdge(BuildContext context, {required bool hasCarousel}) {
+    final mq = MediaQuery.of(context);
+    final carousel =
+        (hasCarousel ? _carouselHeight(context) : 0) + mq.padding.bottom;
+    final panel = mq.size.height * _panelFracLive.value;
+    return math.max(carousel * _cards.value, panel * _panel.value);
+  }
+
   @override
   void dispose() {
+    _cards.dispose();
+    _panel.dispose();
     _lifecycle.dispose();
     // dispose runs during the unmount phase — also defer the Rx write so it
     // can't mark the host's Obx dirty while the frame is still being built.
@@ -368,20 +435,16 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
                   final showError = _jobsCtrl.isStale.value ||
                       (error != null && _jobsCtrl.jobs.isEmpty);
                   final locationOff = _locationOff.value;
-                  final panelH = _panelFracLive.value *
-                      MediaQuery.of(context).size.height;
-                  final hasFocus = _jobsCtrl.selectedJobId.value != null &&
-                      !_jobsCtrl.routePreview.value;
                   final hasCarousel =
                       _jobsCtrl.jobs.any((j) => !j.isFinished);
-                  final bottomGap = (hasFocus
-                          ? panelH
-                          : hasCarousel
-                              ? _carouselHeight(context)
-                              : MediaQuery.of(context).padding.bottom) +
-                      12;
-                  return Padding(
-                    padding: EdgeInsets.fromLTRB(12, 0, 12, bottomGap),
+                  _panelFracLive.value; // subscribe: the panel edge moves
+                  return AnimatedBuilder(
+                    animation: Listenable.merge([_cards, _panel]),
+                    builder: (context, child) => Padding(
+                      padding: EdgeInsets.fromLTRB(12, 0, 12,
+                          _bottomEdge(context, hasCarousel: hasCarousel) + 12),
+                      child: child,
+                    ),
                     // Banners grow in and out from the bottom edge instead
                     // of popping; instant under reduce motion.
                     child: MotionSize(
@@ -627,33 +690,36 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
           ),
         // Recenter button — anchored just above whatever occupies the bottom:
         // the top edge of the focus panel when one is open, otherwise the
-        // carousel. Glued to the panel as it is dragged, and fades out once
-        // the panel (nearly) fills the screen.
+        // carousel. Glued to the panel as it is dragged, rides the layers
+        // down and up through a swap, and fades out once the panel (nearly)
+        // fills the screen.
         Positioned.fill(
           child: Obx(() {
             final focused = _jobsCtrl.selectedJobId.value != null;
             final hasCarousel = _jobsCtrl.jobs.any((j) => !j.isFinished);
-            final screenH = mq.size.height;
             final frac = _panelFracLive.value;
-            final dragging = _panelDragging.value;
-            final bottomOffset = focused
-                ? screenH * frac + 12
-                : (hasCarousel ? _carouselHeight(context) : 0) +
-                    bottomSafe +
-                    12;
+            final dragging = _panelDragging.value || _swapping.value;
             // No usable map left to recenter once the panel is dragged up to
             // (nearly) fill the screen — fade the button away.
             final hidden = focused && frac > 0.8;
             return Align(
               alignment: Alignment.bottomRight,
-              child: AnimatedPadding(
-                // Snap instantly while the panel is being dragged so the
-                // button tracks the finger with no lag; ease only on settle.
-                duration: dragging
-                    ? Duration.zero
-                    : Motion.of(context, Motion.medium),
-                curve: Motion.standard,
-                padding: EdgeInsets.only(right: 8, bottom: bottomOffset),
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_cards, _panel]),
+                builder: (context, child) => AnimatedPadding(
+                  // Snap instantly while the panel is being dragged (or the
+                  // layers are swapping) so the button tracks the edge with
+                  // no lag; ease only on settle.
+                  duration: dragging
+                      ? Duration.zero
+                      : Motion.of(context, Motion.medium),
+                  curve: Motion.standard,
+                  padding: EdgeInsets.only(
+                      right: 8,
+                      bottom:
+                          _bottomEdge(context, hasCarousel: hasCarousel) + 12),
+                  child: child,
+                ),
                 child: AnimatedOpacity(
                   duration: Motion.of(context, Motion.short),
                   opacity: hidden ? 0 : 1,
@@ -704,67 +770,68 @@ class _DispatchJobsPageState extends State<DispatchJobsPage> {
         return true;
       }());
 
-      return AnimatedSwitcher(
-        duration: Motion.of(context, Motion.medium),
-        switchInCurve: Motion.emphasized,
-        switchOutCurve: Motion.standard,
-        // A plain cross-fade — both the carousel card and the panel are the
-        // same green, and the panel animates its own height growth, so the
-        // swap reads as the tapped card enlarging in place.
-        transitionBuilder: (child, anim) =>
-            FadeTransition(opacity: anim, child: child),
-        // Bottom-align the in/out children. The default centres them, which
-        // makes the short carousel float to mid-screen while a tall panel is
-        // still fading out — pin both to the bottom so the carousel never
-        // leaves its resting position.
-        layoutBuilder: (currentChild, previousChildren) => Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            ...previousChildren,
-            ?currentChild,
-          ],
-        ),
-        child: isFocused
-            ? () {
-                final nextInQueueId = jobs
-                    .firstWhereOrNull(
-                        (j) => !j.isOnTheWay && !j.isReschedulePending)
-                    ?.id;
-                return _FocusedJobPanel(
-                  key: ValueKey('panel_${selected.id}'),
-                  job: selected,
-                  stopNumber: selected.routeOrder ??
-                      (jobs.indexWhere((j) => j.id == selected.id) + 1),
-                  etaMeters: _jobsCtrl.etaMeters.value,
-                  starting: _starting,
-                  hasOtherActive: jobs.any(
-                      (j) => j.isOnTheWay && j.id != selected.id),
-                  isNextInQueue: selected.id == nextInQueueId,
-                  onClose: _jobsCtrl.clearSelection,
-                  onStart: () => _startJob(selected.id),
-                  onFinish: () => Get.to(
-                      () => DispatchFinishJobPage(jobId: selected.id)),
-                  onFracChanged: (f) => _panelFrac.value = f,
-                  onFracLive: (f) => _panelFracLive.value = f,
-                  panelDragging: _panelDragging,
-                );
-              }()
-            : jobs.isEmpty
-                // No jobs — the top bar already says so; render nothing here
-                // rather than a redundant empty card.
-                ? const SizedBox.shrink(key: ValueKey('carousel'))
-                : SafeArea(
-                    key: const ValueKey('carousel'),
-                    top: false,
-                    child: SizedBox(
-                      height: _carouselHeight(context),
-                      child: _JobCarousel(
-                        jobs: jobs,
-                        etaMeters: _jobsCtrl.etaMeters.value,
-                        onSelect: _select,
-                      ),
-                    ),
+      if (selected != null) _panelJob = selected;
+      // In flight, or about to start on this frame's post-frame callback.
+      final swapping = _swapping.value || isFocused != _panelShown;
+      if (isFocused != _panelShown) {
+        // After the frame: the swap moves the recenter button and banners
+        // too, and they can't be marked dirty from inside this build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _swapTo(isFocused);
+        });
+      }
+      final panelJob = _panelJob;
+
+      // Both layers are bottom-aligned, and the one that is off is only
+      // mounted while it slides out.
+      return Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          if (jobs.isNotEmpty && (!isFocused || swapping))
+            SlideTransition(
+              key: const ValueKey('cards-layer'),
+              position: _cardsSlide,
+              child: SafeArea(
+                key: const ValueKey('carousel'),
+                top: false,
+                child: SizedBox(
+                  height: _carouselHeight(context),
+                  child: _JobCarousel(
+                    jobs: jobs,
+                    etaMeters: _jobsCtrl.etaMeters.value,
+                    onSelect: _select,
                   ),
+                ),
+              ),
+            ),
+          if (panelJob != null && (isFocused || swapping))
+            SlideTransition(
+              key: const ValueKey('panel-layer'),
+              position: _panelSlide,
+              child: _FocusedJobPanel(
+                key: ValueKey('panel_${panelJob.id}'),
+                job: panelJob,
+                stopNumber: panelJob.routeOrder ??
+                    (jobs.indexWhere((j) => j.id == panelJob.id) + 1),
+                etaMeters: _jobsCtrl.etaMeters.value,
+                starting: _starting,
+                hasOtherActive:
+                    jobs.any((j) => j.isOnTheWay && j.id != panelJob.id),
+                isNextInQueue: panelJob.id ==
+                    jobs
+                        .firstWhereOrNull(
+                            (j) => !j.isOnTheWay && !j.isReschedulePending)
+                        ?.id,
+                onClose: _jobsCtrl.clearSelection,
+                onStart: () => _startJob(panelJob.id),
+                onFinish: () =>
+                    Get.to(() => DispatchFinishJobPage(jobId: panelJob.id)),
+                onFracChanged: (f) => _panelFrac.value = f,
+                onFracLive: (f) => _panelFracLive.value = f,
+                panelDragging: _panelDragging,
+              ),
+            ),
+        ],
       );
     });
   }
@@ -1195,6 +1262,11 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
   bool _dragging = false;
   bool _entered = false;
 
+  /// False until the content has been measured once. That first fit is
+  /// instant, so the panel rises in at its full size rather than growing on
+  /// the way up; later fits (sections, Accept) animate.
+  bool _fitted = false;
+
   /// Height fraction at which the panel exactly fits its content with no
   /// scrolling — measured from the laid-out content on the first frame, and
   /// the panel's resting "open" anchor. Falls back to the mid default until
@@ -1311,6 +1383,9 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     // against the new fit and always trips when the content grows, which is
     // exactly the case we want to follow (Accept → taller content).
     final wasAtPreviousFit = (_frac - _fitFrac).abs() < 0.02;
+    if (!_fitted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitted = true);
+    }
     setState(() {
       _fitFrac = target;
       // If the rider has dragged away from the previous fit, leave their
@@ -1362,9 +1437,9 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
     final screenH = mq.size.height;
 
     if (!_entered) {
-      // First build: open at roughly the carousel card's height, then — once
-      // the content has laid out — expand to exactly fit it next frame, so the
-      // panel reads as the tapped card swelling open to its full detail.
+      // First build: lay out at roughly the carousel card's height, then —
+      // once the content has laid out — snap to exactly fit it next frame,
+      // still below the screen edge; the panel then rises at its full size.
       _entered = true;
       _frac = (_carouselHeight(context) / screenH).clamp(_peekFrac, _maxFrac);
       WidgetsBinding.instance.addPostFrameCallback((_) => _openToFitContent());
@@ -1414,7 +1489,9 @@ class _FocusedJobPanelState extends State<_FocusedJobPanel> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: AnimatedContainer(
-        duration: _dragging ? Duration.zero : Motion.of(context, Motion.medium),
+        duration: _dragging || !_fitted
+            ? Duration.zero
+            : Motion.of(context, Motion.medium),
         curve: Motion.standard,
         height: height,
         child: SafeArea(
@@ -2005,10 +2082,14 @@ class _FieldGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Record labels: bold and a step smaller than the value, so a row reads
+    // as "label, then value" at a glance. Tone can't carry the difference —
+    // white at 0.9 on the green is already at the AA floor (4.5:1).
     final labelStyle = caps
         ? _CardLabel.styleOf(context)
-        : Theme.of(context).textTheme.bodySmall?.copyWith(
+        : Theme.of(context).textTheme.labelMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w700,
             );
     final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: Colors.white,
@@ -2062,10 +2143,22 @@ class _FieldGrid extends StatelessWidget {
           rows.add(field(fields[i]));
         }
       }
+      // Record rows sit on hairlines, like a table; the panel captions keep
+      // their plain gap.
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
-        children: rows,
+        spacing: caps ? 10 : 8,
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0 && !caps)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.white.withValues(alpha: 0.2),
+              ),
+            rows[i],
+          ],
+        ],
       );
     });
   }
